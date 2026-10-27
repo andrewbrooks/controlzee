@@ -5,6 +5,16 @@ did, in a form other tools and people can rely on.
 
 Named for CTRL+Z, but most of the time the right answer is rebuild, not undo.
 
+## Purpose
+
+AI is changing everything, including attacker behavior and incident response. The new attacker patterns are programmatic and precise, which means incident response must also be programmatic and precise. With AI-enabled attacks, we’re seeing attackers having higher success rates because LLMs give them speed and precision. Attacks can be customized in short order, and building new tooling for reconnaissance, exfiltration, and persistence is faster and cheaper than it’s ever been.
+
+Controlzee is a proof of concept intended to demonstrate what programmatic incident response looks like in a world of agentic and AI-enabled attackers. You give it your CloudTrail logs and what you know about the attacker, like a leaked access key or a suspicious IP. It traces everything that key did, every role it assumed, and every resource it created, then follows what those resources did on their own. For example, if the attacker launched an EC2 instance with a privileged role and that instance changed a bucket policy twenty minutes later, Controlzee connects those dots, which is something an analyst pivoting through queries may overlook.
+
+What you get back is a timeline of the attack, a list of the secrets and data the attacker could have touched, the places where your logs can’t tell you the full story, and a plan for each affected resource: revert it, rebuild it, rotate it, or have a human look at it. Every run produces the same output from the same inputs, so the results can go in a ticket, get reviewed, and be rerun as you learn more.
+
+Controlzee won’t fix every incident automagically. The point is to show what incident response looks like when it moves at the same speed as the attacker.
+
 **Status:** early, and the output formats may still change (schema 0.x). `controlzee scope` matches indicators, follows
 the attacker to what they created or obtained, and says what the logs cannot show. `timeline`, `plan` and `report` turn
 that into a story, an exposure list, a response plan and a readable report. `respond` reverts what the attacker did,
