@@ -82,6 +82,34 @@
     },
     {
       "account": "111122223333",
+      "caution": null,
+      "commands": [
+        "aws iam detach-user-policy --user-name backdoor-svc --policy-arn arn:aws:iam::aws:policy/AdministratorAccess"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "2d59f198-929c-5fd6-93e2-4b2dbc3e31ac"
+      ],
+      "id": "A04",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "policy_arn": "arn:aws:iam::aws:policy/AdministratorAccess",
+            "user": "backdoor-svc"
+          },
+          "op": "detach_user_policy",
+          "region": null
+        }
+      ],
+      "phase": "eradicate",
+      "target": "user backdoor-svc",
+      "title": "Undo a permission change",
+      "why": "iam:AttachUserPolicy by an in-scope call (arn:aws:iam::aws:policy/AdministratorAccess)"
+    },
+    {
+      "account": "111122223333",
       "caution": "removes its keys, password, policies, groups and MFA devices first; respond does this, by hand repeat each list-then-delete pair until the lists are empty",
       "commands": [
         "aws iam list-access-keys --user-name backdoor-svc",
@@ -100,7 +128,7 @@
       "evidence": [
         "ba5efc04-26a3-539d-90ad-b357e29515e5"
       ],
-      "id": "A04",
+      "id": "A05",
       "on_request": false,
       "operations": [
         {
@@ -136,7 +164,7 @@
         "2d59f198-929c-5fd6-93e2-4b2dbc3e31ac",
         "9c765f05-4203-5522-a74d-58c985b1a06a"
       ],
-      "id": "A05",
+      "id": "A06",
       "on_request": false,
       "operations": [],
       "phase": "recover",
@@ -149,7 +177,7 @@
     "steps with operations can be carried out by `controlzee respond` after a dry run and your approval; the others are for a person. Either way, review each one first",
     "work through the phases in order; within contain, act quickly, since the attacker may notice"
   ],
-  "plan_sha256": "c3ee607047e7ccca01cb86149acb1813562bbc75b8f87f4c6b6333a289aba992",
+  "plan_sha256": "1eb72af6d200472c2f6108aa10ef44d0c553c5e14837e852a6ea4f91f387038e",
   "schema_version": "0.2",
   "scope_sha256": "167306f72aff700fd0a7f87390d2271ac900ec0e7aeb20745d0d4788e45f0fb3",
   "tool": {

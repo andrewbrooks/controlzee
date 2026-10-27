@@ -55,6 +55,7 @@ class DryRun(Model):
     home_region: str
     checked_at: str
     allow_disruptive: bool
+    chosen_steps: list[str] | None  # the plan steps named with --steps, or None for "every step that can run"
     steps: list[DryRunStep]  # in the order execute would run them
     not_selected: list[NotSelected]
     problems: list[str]

@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 from controlzee import canonical
 from controlzee.ingest.remote import aws_errors, client
@@ -50,6 +50,10 @@ def _now(clock: Clock) -> str:
 def _aws_message(e: Exception) -> str:
     err = getattr(e, "response", {}).get("Error", {})
     return clean(f"{err.get('Code', type(e).__name__)}: {err.get('Message', e)}", 300)
+
+
+def _unexpected(e: Exception) -> str:
+    return clean(f"unexpected error {type(e).__name__}: {e}", 300)
 
 
 def identify(profile: str | None, home_region: str) -> tuple[Ctx, Caller]:
@@ -121,19 +125,39 @@ def _select(plan: Plan, caller: Caller, chosen: set[str] | None, allow_disruptiv
     return selected, skipped, problems
 
 
-# operations that would cut off the principal running the response, by the argument naming it
-_CUTS_OFF = {"role": {"revoke_role_sessions", "delete_role"},
-             "user": {"revoke_user_sessions", "deactivate_access_key", "delete_access_key", "delete_user"}}
+# operations that would revoke or remove the access of the principal running the response, by the argument naming it
+_CUTS_OFF = {"role": {"revoke_role_sessions", "delete_role", "detach_role_policy", "delete_role_policy"},
+             "user": {"revoke_user_sessions", "deactivate_access_key", "delete_access_key", "delete_user", "detach_user_policy",
+                      "delete_user_policy", "remove_user_from_group"}}
+_GROUP_OPS = frozenset({"detach_group_policy", "delete_group_policy"})  # affect every member of the group
 
 
-def cuts_off_caller(op: str, args: dict[str, str], caller: Caller) -> str | None:
-    """Why `op` would revoke the credentials running the response, or None. Checked before anything else."""
-    kind = "role" if ":role/" in caller.principal_arn else "user"
-    name = caller.principal_arn.rsplit("/", 1)[1]
+def caller_name(caller: Caller) -> tuple[str, str]:
+    return ("role" if ":role/" in caller.principal_arn else "user"), caller.principal_arn.rsplit("/", 1)[1]
+
+
+def cuts_off_caller(op: str, args: dict[str, str], caller: Caller, groups: frozenset[str] = frozenset()) -> str | None:
+    """Why `op` would revoke or remove access of the credentials running the response, or None. `groups` are the groups a
+    user caller belongs to (see `caller_groups`). Checked before anything else, again before execute changes anything."""
+    kind, name = caller_name(caller)
+    what = None
     if op in _CUTS_OFF[kind] and args.get(kind) == name:
-        return (f"it would revoke the credentials running this response ({kind} {name}), so the steps after it would fail: "
-                "run the response as a different role or user, or leave this step out with --steps")
-    return None
+        what = f"{kind} {name}"
+    elif op in _GROUP_OPS and kind == "user" and args.get("group") in groups:
+        what = f"user {name}, through its membership of group {args['group']}"
+    if what is None:
+        return None
+    return (f"it would revoke or remove access of the credentials running this response ({what}), so the steps after it "
+            "would fail: run the response as a different role or user, or leave this step out with --steps")
+
+
+def caller_groups(ctx: Ctx, caller: Caller) -> frozenset[str]:
+    """The groups a user caller belongs to (a role has none). One read, made only when a group operation is selected."""
+    kind, name = caller_name(caller)
+    if kind != "user":
+        return frozenset()
+    pages = ctx.c("iam").get_paginator("list_groups_for_user").paginate(UserName=name)
+    return frozenset(g["GroupName"] for page in pages for g in page.get("Groups", []))
 
 
 def dry_run(scope: Scope, *, profile: str | None, home_region: str, chosen: set[str] | None = None, allow_disruptive: bool = False,
@@ -142,11 +166,14 @@ def dry_run(scope: Scope, *, profile: str | None, home_region: str, chosen: set[
     ctx, caller = identify(profile, home_region)
     selected, skipped, problems = _select(plan, caller, chosen, allow_disruptive)
     probed: list[tuple[PlanAction, Any, Probe | None, str | None]] = []
+    groups: frozenset[str] | None = None
     for a in selected:
         for o in a.operations:
             try:
                 validate(o.op, o.args, o.region)
-                if (harm := cuts_off_caller(o.op, o.args, caller)) is not None:
+                if o.op in _GROUP_OPS and groups is None:
+                    groups = caller_groups(ctx, caller)
+                if (harm := cuts_off_caller(o.op, o.args, caller, groups or frozenset())) is not None:
                     probed.append((a, o, None, harm))
                     continue
                 probed.append((a, o, OPS[o.op].probe(ctx, o.args, o.region), None))
@@ -154,6 +181,8 @@ def dry_run(scope: Scope, *, profile: str | None, home_region: str, chosen: set[
                 probed.append((a, o, None, "the operation's arguments are not valid"))
             except aws_errors() as e:
                 probed.append((a, o, None, f"cannot read the target's current state: {_aws_message(e)}"))
+            except Exception as e:  # anything unexpected fails the dry run closed instead of ending it with a traceback
+                probed.append((a, o, None, f"cannot read the target's current state: {_unexpected(e)}"))
     needed = sorted({c for _, _, p, _ in probed if p and not p.done for c in p.checks})
     decisions = simulate(ctx, caller.principal_arn, needed) if needed else {}
     steps = []
@@ -169,7 +198,8 @@ def dry_run(scope: Scope, *, profile: str | None, home_region: str, chosen: set[
                                 ok=problem is None, problem=problem))
     problems += [f"{s.action_id} {s.op}: {s.problem}" for s in steps if s.problem]
     doc = DryRun(tool=tool_info(), scope_sha256=scope.scope_sha256, plan_sha256=plan.plan_sha256, caller=caller,
-                 home_region=home_region, checked_at=_now(clock), allow_disruptive=allow_disruptive, steps=steps,
+                 home_region=home_region, checked_at=_now(clock), allow_disruptive=allow_disruptive,
+                 chosen_steps=sorted(chosen) if chosen is not None else None, steps=steps,
                  not_selected=skipped, problems=problems, passed=not problems)
     return canonical.seal(doc.model_dump(mode="json"), "dryrun_sha256")
 
@@ -187,6 +217,34 @@ def load_dry_run(doc: Any) -> DryRun:
         raise RespondError(f"the dry run does not match its schema: {clean(e, 200)}") from None
 
 
+def _refuse_edited(dr: DryRun, caller: Caller, ctx: Ctx) -> None:
+    """The dry run's filters (disruptive, --steps, the responder's own access) were applied when it was made. The file is
+    sealed with a hash anyone can recompute, so they are applied again here, before anything is changed."""
+    if dr.problems or not all(s.ok for s in dr.steps):
+        raise RespondError("this dry run lists problems; run the dry run again")
+    chosen = set(dr.chosen_steps) if dr.chosen_steps is not None else None
+    try:
+        groups = caller_groups(ctx, caller) if any(s.op in _GROUP_OPS for s in dr.steps) else frozenset()
+    except aws_errors() as e:
+        raise RespondError(f"cannot read the groups of the credentials running this response: {_aws_message(e)}") from None
+    for s in dr.steps:
+        spec = OPS.get(s.op)
+        if spec is None:
+            raise RespondError(f"step {clean(s.action_id)}: {clean(s.op)} is not an operation controlzee knows")
+        try:
+            validate(s.op, s.args, s.region)
+        except Unsafe:
+            raise RespondError(f"step {clean(s.action_id)}: the arguments of {s.op} are not valid") from None
+        if spec.disruptive and not dr.allow_disruptive:
+            raise RespondError(f"step {clean(s.action_id)} ({s.op}) is disruptive, but the dry run was not made with --allow-disruptive")
+        if chosen is not None and s.action_id not in chosen:
+            raise RespondError(f"step {clean(s.action_id)} was not named with --steps when the dry run was made")
+        if spec.on_request and chosen is None:
+            raise RespondError(f"step {clean(s.action_id)} ({s.op}) runs only when named with --steps")
+        if (harm := cuts_off_caller(s.op, s.args, caller, groups)) is not None:
+            raise RespondError(f"step {clean(s.action_id)}: {harm}")
+
+
 def execute(doc: Any, *, approve: str, profile: str | None, max_age: timedelta,
             clock: Clock = lambda: datetime.now(UTC), progress: Callable[[ExecutedStep], None] = lambda s: None) -> dict[str, Any]:
     dr = load_dry_run(doc)
@@ -195,6 +253,8 @@ def execute(doc: Any, *, approve: str, profile: str | None, max_age: timedelta,
     if len(approve) < 12 or not dr.dryrun_sha256.startswith(approve):
         raise RespondError("--approve does not match this dry run's sha256; approve the dry run you reviewed")
     checked = datetime.strptime(dr.checked_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    if checked - clock() > timedelta(minutes=5):
+        raise RespondError("the dry run is dated in the future, so its age cannot be trusted; run the dry run again")
     if clock() - checked > max_age:
         raise RespondError(f"the dry run is older than {int(max_age.total_seconds() // 60)} minutes; run it again so the "
                            "checks reflect the account as it is now")
@@ -202,32 +262,42 @@ def execute(doc: Any, *, approve: str, profile: str | None, max_age: timedelta,
     if (caller.account, caller.principal_arn) != (dr.caller.account, dr.caller.principal_arn):
         raise RespondError(f"these credentials are {clean(caller.principal_arn)} in {caller.account}; the dry run was checked for "
                            f"{clean(dr.caller.principal_arn)} in {dr.caller.account}")
+    _refuse_edited(dr, caller, ctx)
     started = _now(clock)
     done: list[ExecutedStep] = []
     failed = False
+
+    def record(s: DryRunStep, result: Literal["done", "already done", "failed", "not run"], detail: str, *, at: bool = True) -> ExecutedStep:
+        return ExecutedStep(action_id=s.action_id, op=s.op, args=s.args, region=s.region, result=result, detail=detail,
+                            at=_now(clock) if at else None)
+
     for s in dr.steps:
         if failed:
-            done.append(ExecutedStep(action_id=s.action_id, op=s.op, args=s.args, region=s.region, result="not run",
-                                     detail="an earlier step failed", at=None))
+            done.append(record(s, "not run", "an earlier step failed", at=False))
             continue
         try:
-            validate(s.op, s.args, s.region)
-            if OPS[s.op].probe(ctx, s.args, s.region).done:
-                step = ExecutedStep(action_id=s.action_id, op=s.op, args=s.args, region=s.region, result="already done",
-                                    detail="the target was already in the intended state", at=_now(clock))
+            probe = OPS[s.op].probe(ctx, s.args, s.region)
+            if probe.done:
+                step = record(s, "already done", "the target was already in the intended state")
             else:
-                detail = OPS[s.op].apply(ctx, s.args, s.region)
-                step = ExecutedStep(action_id=s.action_id, op=s.op, args=s.args, region=s.region, result="done",
-                                    detail=clean(detail, 400), at=_now(clock))
-        except (Unsafe, KeyError):
-            step = ExecutedStep(action_id=s.action_id, op=s.op, args=s.args, region=s.region, result="failed",
-                                detail="the operation's arguments are not valid", at=_now(clock))
+                # permissions can change between the dry run and now, and earlier steps may have changed them: ask again
+                # right before the change, so a compound operation is not started that cannot be finished
+                decisions = simulate(ctx, caller.principal_arn, list(probe.checks)) if probe.checks else {}
+                denied = [f"{act} on {res} ({decisions.get((act, res), 'not evaluated')})" for act, res in probe.checks
+                          if decisions.get((act, res)) != "allowed"]
+                if denied:
+                    step = record(s, "failed", "no longer permitted: " + ", ".join(denied))
+                else:
+                    step = record(s, "done", clean(OPS[s.op].apply(ctx, s.args, s.region), 400))
+        except KeyboardInterrupt:
+            step = record(s, "failed", "interrupted; the change may be partly made: check the target")
         except aws_errors() as e:
-            step = ExecutedStep(action_id=s.action_id, op=s.op, args=s.args, region=s.region, result="failed",
-                                detail=_aws_message(e), at=_now(clock))
+            step = record(s, "failed", _aws_message(e))
+        except Exception as e:  # recorded, not raised: changes already made must not be left without a record
+            step = record(s, "failed", f"{_unexpected(e)}; the change may be partly made: check the target")
         failed = step.result == "failed"
         progress(step)
         done.append(step)
-    record = ResponseRecord(tool=tool_info(), dryrun_sha256=dr.dryrun_sha256, caller=caller, started_at=started,
-                            finished_at=_now(clock), steps=done, completed=all(s.result in ("done", "already done") for s in done))
-    return canonical.seal(record.model_dump(mode="json"), "response_sha256")
+    rec = ResponseRecord(tool=tool_info(), dryrun_sha256=dr.dryrun_sha256, caller=caller, started_at=started,
+                         finished_at=_now(clock), steps=done, completed=all(x.result in ("done", "already done") for x in done))
+    return canonical.seal(rec.model_dump(mode="json"), "response_sha256")

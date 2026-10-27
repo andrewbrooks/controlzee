@@ -147,7 +147,7 @@ def test_summaries_of_the_derived_commands(s01, tmp_path):
     r = run("timeline", s01 / "expected/scope.json", "-o", tmp_path / "t.json")
     assert "11 events by 2 identities, 0 gap(s)" in r.stdout and "full administrative access was granted" in r.stdout
     r = run("plan", s01 / "expected/scope.json", "-o", tmp_path / "p.json")
-    assert "Plan: 5 step(s) (2 contain, 1 investigate, 1 eradicate, 1 recover); controlzee runs none of the commands" in r.stdout
+    assert "Plan: 6 step(s) (2 contain, 1 investigate, 2 eradicate, 1 recover); controlzee runs none of the commands" in r.stdout
 
 
 def test_a_changed_scope_is_refused(s01, tmp_path):
