@@ -16,6 +16,7 @@ import shlex
 import urllib.parse
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
 from controlzee.ingest.remote import client
@@ -33,6 +34,8 @@ SHAPES: Final[dict[str, re.Pattern[str]]] = {
     "function": re.compile(r"^[\w-]{1,64}$"),
     "time": re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"),
 }
+MAX_SKEW: Final = timedelta(minutes=5)  # beyond this a session revocation is refused
+WARN_SKEW: Final = timedelta(seconds=30)
 REVOKE_POLICY: Final = "controlzee-revoke-older-sessions"
 
 
@@ -68,6 +71,7 @@ class Ctx:
     partition: str
     profile: str | None
     home_region: str  # for IAM and other global services
+    skew: timedelta | None = None  # AWS's clock minus this machine's, from the Date header of the identity call; None if unknown
 
     def c(self, service: str, region: str | None = None) -> Any:
         return client(service, self.profile, region or self.home_region)
@@ -531,8 +535,10 @@ def _iam_call(fn: str, **kw: str) -> Apply:
 
 def _revoke(kind: str) -> Apply:
     def apply(ctx: Ctx, a: dict[str, str], region: str | None) -> str:
-        from datetime import UTC, datetime
-        now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        # aws:TokenIssueTime is stamped by AWS, so the cutoff is AWS's time, not this machine's
+        if ctx.skew is None or abs(ctx.skew) >= MAX_SKEW:
+            raise RuntimeError("this machine's clock cannot be compared with AWS's closely enough to set the cutoff of a session revocation")
+        now = (datetime.now(UTC) + ctx.skew).strftime("%Y-%m-%dT%H:%M:%SZ")
         param = "UserName" if kind == "user" else "RoleName"
         getattr(ctx.c("iam"), f"put_{kind}_policy")(**{param: a[kind], "PolicyName": REVOKE_POLICY, "PolicyDocument": revoke_document(now)})
         return f"credentials of {kind} {a[kind]} issued before {now} are now denied"
