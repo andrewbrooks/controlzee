@@ -8,9 +8,55 @@
       "title": "Confidence",
       "type": "string"
     },
+    "Operation": {
+      "additionalProperties": false,
+      "description": "One change `controlzee respond` knows how to make (see respond/ops.py), with its checked arguments.",
+      "properties": {
+        "args": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Args",
+          "type": "object"
+        },
+        "op": {
+          "title": "Op",
+          "type": "string"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Region"
+        }
+      },
+      "required": [
+        "op",
+        "args",
+        "region"
+      ],
+      "title": "Operation",
+      "type": "object"
+    },
     "PlanAction": {
       "additionalProperties": false,
       "properties": {
+        "account": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Account"
+        },
         "caution": {
           "anyOf": [
             {
@@ -32,6 +78,10 @@
         "confidence": {
           "$ref": "#/$defs/Confidence"
         },
+        "disruptive": {
+          "title": "Disruptive",
+          "type": "boolean"
+        },
         "evidence": {
           "items": {
             "type": "string"
@@ -42,6 +92,13 @@
         "id": {
           "title": "Id",
           "type": "string"
+        },
+        "operations": {
+          "items": {
+            "$ref": "#/$defs/Operation"
+          },
+          "title": "Operations",
+          "type": "array"
         },
         "phase": {
           "enum": [
@@ -72,8 +129,11 @@
         "title",
         "target",
         "why",
+        "account",
         "confidence",
         "commands",
+        "operations",
+        "disruptive",
         "caution",
         "evidence"
       ],

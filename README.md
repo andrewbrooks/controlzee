@@ -7,14 +7,68 @@ Named for CTRL+Z, but most of the time the right answer is rebuild, not undo.
 
 **Status:** early, and the output formats may still change (schema 0.x). `controlzee scope` matches indicators, follows
 the attacker to what they created or obtained, and says what the logs cannot show. `timeline`, `plan` and `report` turn
-that into a story, an exposure list, a response plan and a readable report.
+that into a story, an exposure list, a response plan and a readable report. `respond` reverts what the attacker did,
+after a dry run that a person has reviewed and approved.
 
 ```
 controlzee scope --logs ./logs --iocs iocs.yaml -o scope.json   # what happened (the evidence)
 controlzee timeline scope.json                                  # timeline.json: in order, with tactics and exposure
 controlzee plan scope.json                                      # plan.json: contain, investigate, eradicate, recover
 controlzee report scope.json                                    # report.md: all of it, for people
+controlzee respond dry-run scope.json                           # dryrun.json: what would change, and may we? (changes nothing)
+controlzee respond execute dryrun.json --approve <sha256>       # response.json: make the approved changes
 ```
+
+## Revert the attacker's changes: `controlzee respond`
+
+controlzee can carry out the plan's steps in AWS: deactivate the keys the attacker used or made, revoke their sessions,
+cut their instances off from their roles, undo the permissions they granted, turn logging and detection back on and,
+when you allow it, delete the users and roles they created. It never does this unasked. There are always two steps,
+with a person in between.
+
+**1. Dry run (changes nothing).**
+
+```
+controlzee respond dry-run scope.json --aws-profile incident-response
+```
+
+It works out who the supplied credentials are, reads the current state of every target (is the key still active? is the
+trail logging?) and asks the IAM policy simulator whether those credentials may make every call each change needs, on
+the target's real ARN. It prints every step with what it would do, the state now and each permission, and writes
+`dryrun.json`. **If any permission is missing or any state cannot be read, the dry run fails (exit 4)** and nothing can
+be executed from it. Fix the credentials, or narrow the run with `--steps A01,A03`, and run it again.
+
+What is left out, and why, is listed too: manual steps (a new secret, a trust policy the logs do not show), steps for
+another account, and disruptive steps (delete, stop, terminate), which need `--allow-disruptive`.
+
+**2. Review, approve, execute.**
+
+```
+controlzee respond execute dryrun.json --approve 3f9a1c0be2d47a65
+```
+
+`--approve` takes the dry run's sha256, as the dry run prints it: it is your approval of exactly that dry run. Execute
+refuses if the dry run failed, was changed after it was written, is older than an hour (`--max-age-minutes`), or if
+the credentials are not the same principal in the same account that the dry run checked. It then runs the steps in plan
+order, reads each target again first (anything already put right is skipped), stops at the first failure, and writes
+`response.json`: every step, its result and when it was made.
+
+**Safeguards.**
+
+- No shell, ever: every change is a boto3 call with typed parameters. The AWS CLI text in the plan is for people.
+- The dry run builds the plan from the sealed `scope.json` itself, so only operations the plan builder produced (from a
+  fixed list) can run; a hand-edited plan cannot add any.
+- Every value that came from the logs (user, role, key, instance, trail, region...) must have the documented form for
+  its kind before it is used, and is checked again before each call. Anything else makes the step manual.
+- Command-line values are checked too: `--aws-profile`, `--region`, `--steps`, `--approve`, `--lookup-events` regions and
+  `s3://` URLs must match strict patterns, or the command stops before contacting AWS.
+- Root credentials are refused, since their permissions cannot be checked. Use an IAM role or user.
+- The simulator covers identity policies, permission boundaries and SCPs, not session or resource-based policies, so
+  AWS can still refuse a call: execute then stops at that step and records it.
+
+The credentials need, besides the permissions for the changes themselves: `sts:GetCallerIdentity`,
+`iam:SimulatePrincipalPolicy`, `iam:GetRole` (for role sessions), and read access to the targets (`iam:GetUser`,
+`iam:ListAccessKeys`, `cloudtrail:GetTrailStatus` and the like).
 
 ## Scope an incident
 
@@ -93,8 +147,9 @@ Each output cites the scope it came from; the same scope always gives the same b
   Investigate: accounts reached without logs, gaps to fill from event history, instances to preserve. Eradicate: delete
   what the attacker created, undo permission changes. Recover: turn logging and detection back on, rotate what was
   read, replace the leaked key. Each step has its evidence, its confidence and AWS CLI commands.
-  **controlzee never runs them**: they are for a person to review and run. A value from the logs reaches a command
-  only if it has the documented form for its kind, and is shell-quoted; otherwise the step is manual and says why.
+  Steps with operations can be carried out by `controlzee respond` (see above); the rest are for a person. A value from
+  the logs reaches a command only if it has the documented form for its kind, and is shell-quoted; otherwise the step is
+  manual and says why.
 - **`report`**: Markdown with the summary, coverage, timeline, exposure, plan and indicators. Everything from the logs
   is escaped, so log content cannot add links, HTML or table cells.
 

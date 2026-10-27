@@ -26,7 +26,7 @@ class RemoteError(Exception):
     """A remote input cannot be listed or queried (no credentials, access denied, no such bucket)."""
 
 
-def _aws_errors() -> tuple[type[Exception], ...]:
+def aws_errors() -> tuple[type[Exception], ...]:
     from botocore.exceptions import BotoCoreError, ClientError
     return (BotoCoreError, ClientError)
 
@@ -51,7 +51,7 @@ class S3Source:
     def read(self) -> bytes:
         try:
             data: bytes = client("s3", self.profile, None).get_object(Bucket=self.bucket, Key=self.key)["Body"].read()
-        except _aws_errors() as e:
+        except aws_errors() as e:
             raise OSError(0, f"cannot fetch from S3: {e}") from None
         return data
 
@@ -103,7 +103,7 @@ class S3Input:
                         found.append(S3Source(rel, bucket, key, int(obj["Size"]), self.profile))
                     else:
                         ignored += 1
-        except _aws_errors() as e:
+        except aws_errors() as e:
             raise RemoteError(f"cannot list {self.url}: {e}") from None
         return found, ignored
 
@@ -130,7 +130,7 @@ class LookupInput:
                             records.append(orjson.loads(raw))
                         except orjson.JSONDecodeError:
                             records.append({"unparseable": True})  # counted as a malformed record by the index pass
-        except _aws_errors() as e:
+        except aws_errors() as e:
             raise RemoteError(f"cannot query CloudTrail event history in {self.region}: {e}") from None
 
         def order(r: Any) -> tuple[int, str]:  # the API's order is not guaranteed; the file's bytes must be

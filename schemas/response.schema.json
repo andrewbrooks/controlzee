@@ -1,0 +1,153 @@
+{
+  "$defs": {
+    "Caller": {
+      "additionalProperties": false,
+      "description": "Who the supplied credentials are.",
+      "properties": {
+        "account": {
+          "title": "Account",
+          "type": "string"
+        },
+        "arn": {
+          "title": "Arn",
+          "type": "string"
+        },
+        "principal_arn": {
+          "title": "Principal Arn",
+          "type": "string"
+        }
+      },
+      "required": [
+        "account",
+        "arn",
+        "principal_arn"
+      ],
+      "title": "Caller",
+      "type": "object"
+    },
+    "ExecutedStep": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "title": "Action Id",
+          "type": "string"
+        },
+        "args": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Args",
+          "type": "object"
+        },
+        "at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "At"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "op": {
+          "title": "Op",
+          "type": "string"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Region"
+        },
+        "result": {
+          "enum": [
+            "done",
+            "already done",
+            "failed",
+            "not run"
+          ],
+          "title": "Result",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "op",
+        "args",
+        "region",
+        "result",
+        "detail",
+        "at"
+      ],
+      "title": "ExecutedStep",
+      "type": "object"
+    }
+  },
+  "$id": "https://controlzee.invalid/schemas/response-0.2.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/Caller"
+    },
+    "completed": {
+      "title": "Completed",
+      "type": "boolean"
+    },
+    "dryrun_sha256": {
+      "title": "Dryrun Sha256",
+      "type": "string"
+    },
+    "finished_at": {
+      "title": "Finished At",
+      "type": "string"
+    },
+    "response_sha256": {
+      "default": "",
+      "title": "Response Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "0.2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "started_at": {
+      "title": "Started At",
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/ExecutedStep"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "tool": {
+      "additionalProperties": true,
+      "title": "Tool",
+      "type": "object"
+    }
+  },
+  "required": [
+    "tool",
+    "dryrun_sha256",
+    "caller",
+    "started_at",
+    "finished_at",
+    "steps",
+    "completed"
+  ],
+  "title": "ResponseRecord",
+  "type": "object"
+}

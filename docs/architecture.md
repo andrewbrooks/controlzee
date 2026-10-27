@@ -108,6 +108,24 @@ in a command is checked against a shape for its kind (`_SHAPES`) and shell-quote
 (`md`: `safety.clean`, then backslash escapes for Markdown punctuation and broken autolinks) and fencing commands with a
 fence longer than any backtick run in them.
 
+## Respond
+
+`respond/ops.py` is the closed list of changes controlzee can make. Each operation has argument shapes, CLI text (what
+the plan shows), a read-only probe and the change. A probe reports the target's state, whether the change is already in
+place, and the (IAM action, real resource ARN) pairs the change needs; for compound operations (delete a user) it lists
+what is attached so every needed action is checked. `respond/run.py`:
+
+- `dry_run` rebuilds the plan from the scope (never trusting a plan file), selects steps (operations only; disruptive
+  ones only with `--allow-disruptive`; only the caller's account), identifies the caller (`sts:GetCallerIdentity`, then
+  `iam:GetRole` to turn a role session into its role ARN), probes, and asks `iam:SimulatePrincipalPolicy` about every
+  pair, grouped by resource. Anything not "allowed", and any probe that cannot read, fails it.
+- `execute` checks the dry run's seal, version, pass, age and approval prefix, and that the caller is the same principal
+  and account; then per step: validate again, probe again, apply, record, stop at the first failure.
+
+Nothing is executed through a shell. `argcheck.py` holds the patterns for command-line values that reach AWS.
+`dryrun.json` and `response.json` are the one exception to "no wall-clock time in artifacts": when the check and each
+change happened is evidence the response needs.
+
 ## Untrusted input
 
 Log content is attacker-influenced. User agents, names and request parameters can carry terminal escapes, bidirectional
