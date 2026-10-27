@@ -286,3 +286,23 @@ def test_lifting_a_revocation_runs_only_when_named(fixtures, monkeypatch):
     assert lift.passed and {s.op for s in lift.steps} == {"lift_user_revocation", "lift_role_revocation"}
     assert run(lift.model_dump(mode="json")).completed
     assert "controlzee-revoke-older-sessions" not in acct.roles["ops-admin"].inline | acct.users["jenkins"].inline
+
+
+def test_a_refused_password_check_does_not_block_deleting_a_user(fixtures, monkeypatch):
+    # seen in a real sandbox: an SCP denies iam:GetLoginProfile
+    from tests import fake_aws
+
+    def refuse(self, op, **kw):
+        raise fake_aws._err("AccessDenied", op)
+    acct = account_01()
+    monkeypatch.setattr(fake_aws.FakeClient, "_iam_get_login_profile", refuse)
+    dr = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch, chosen={"A04"}, allow_disruptive=True)
+    assert dr.passed and "iam:GetLoginProfile is refused" in dr.steps[0].state
+    assert run(dr.model_dump(mode="json")).completed and "backdoor-svc" not in acct.users
+    # if it did have a password that could not be removed, the delete stops with a conflict instead
+    acct2 = account_01()
+    acct2.users["backdoor-svc"].login = True
+    monkeypatch.setattr(fake_aws.FakeClient, "_iam_delete_login_profile", refuse)
+    dr2 = check(scope_of(fixtures, "01_leaked_key"), acct2, monkeypatch, chosen={"A04"}, allow_disruptive=True)
+    rec = run(dr2.model_dump(mode="json"))
+    assert not rec.completed and rec.steps[0].detail.startswith("DeleteConflict") and "backdoor-svc" in acct2.users
