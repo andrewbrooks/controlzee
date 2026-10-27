@@ -1,4 +1,5 @@
-# Indicators of compromise for `controlzee scope --iocs iocs.yaml`.
+# Indicators of compromise for `controlzee scope --iocs iocs.yaml`. The values match the committed scenario in
+# tests/fixtures/01_leaked_key, so this file can be tried as is (see the README).
 #
 # Strong indicators identify one actor and are safe to act on:
 #   access_key_id    userIdentity.accessKeyId (AKIA... long-term, ASIA... temporary)
@@ -12,7 +13,7 @@ version: 1
 indicators:
   leaked_key:
     type: access_key_id
-    value: AKIAIOSFODNN7EXAMPLE
+    value: AKIAIOSFODNN7LEAKED
   attacker_net:
     type: source_ip
     value: 198.51.100.0/24

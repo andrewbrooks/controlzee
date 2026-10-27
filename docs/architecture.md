@@ -1,10 +1,11 @@
 # Architecture notes
 
-## Pipeline (milestones 1 to 3 cover the steps not in parentheses)
+## Pipeline
 
-ingest -> normalize -> seed -> propagate taint -> coverage -> (timeline, exposure) -> (classify, plan) -> (report)
+ingest -> normalize -> seed -> propagate taint -> coverage  =>  scope.json  =>  timeline (classify, exposure) / plan / report
 
-`scope.json` is the spine: every later command reads it. Steps in parentheses arrive in later milestones.
+`scope.json` is the spine: every later command reads it and nothing else, after checking its seal and schema version
+(`artifacts.load_scope`). Derived documents are sealed too and cite the `scope_sha256` they came from.
 
 ## Why ingest is two passes
 
@@ -80,6 +81,32 @@ silence longer than `--gap-minutes`, and list tampering calls; data events are c
 A silence is kept when it overlaps the incident period (the seed window together with the in-scope events) and is at
 least ten times the stream's mean interval, so busy streams flag missing logs while quiet ones do not flag every night.
 The mean is used rather than the median so the pass needs constant memory per stream.
+
+## Sources
+
+`ingest/remote.py` adds two `Source` kinds behind the same discovery as local directories. `S3Input` lists a prefix and
+yields `S3Source`s (bucket, key, size: picklable; each worker process makes its own client). `LookupInput` queries
+CloudTrail event history once, in the parent, for exactly the seed window, sorts the records and keeps them as one
+in-memory file per region, so both passes read identical bytes and the manifest hash does not depend on API order.
+AWS errors become `IngestError` (listing) or an error file entry (fetching), never a traceback.
+
+## Timeline, exposure, plan, report
+
+`classify.py` gives each call a tactic (a table keyed by service and event name, Lambda's API-version suffix removed;
+reads default to discovery) and extracts resources from the request parameters each service documents, by a fixed
+table, so an unexpected parameter cannot pose as a resource. `timeline.py` groups events into actors, merges coverage
+gaps in by start time, and derives exposure (resources by service, type, name and access; permission changes, with
+"full control" for AdministratorAccess, IAMFullAccess or an inline Allow of `*`; secrets and parameters read).
+
+`plan.py` turns the scope's tainted identities and in-scope events into steps. The rules are per kind of evidence: long-
+term keys used (deactivate, later replace for a legitimate owner), temporary credentials (TokenIssueTime deny on the
+user or role, with the time left to the shell so the plan has no clock), created users, roles and instances, permission
+changes on existing principals, in-scope tampering, credentials read, unlogged accounts and gaps. Every log-derived value
+in a command is checked against a shape for its kind (`_SHAPES`) and shell-quoted; a mismatch turns the step manual.
+
+`report.py` renders Markdown from the scope plus the timeline and plan it derives, escaping every log-derived value
+(`md`: `safety.clean`, then backslash escapes for Markdown punctuation and broken autolinks) and fencing commands with a
+fence longer than any backtick run in them.
 
 ## Untrusted input
 

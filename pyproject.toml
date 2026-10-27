@@ -60,6 +60,10 @@ plugins = ["pydantic.mypy"]
 python_version = "3.12"
 mypy_path = "src"
 
+[[tool.mypy.overrides]]
+module = ["boto3", "boto3.*", "botocore", "botocore.*"]  # no type information shipped
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--disable-socket --allow-unix-socket"

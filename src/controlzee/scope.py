@@ -8,7 +8,6 @@ import time
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from controlzee import canonical
@@ -28,7 +27,7 @@ from controlzee.ingest.index import (
     R_TS,
     EventIndex,
 )
-from controlzee.ingest.load import IngestOptions, load_index
+from controlzee.ingest.load import IngestOptions, Input, load_index
 from controlzee.ingest.materialize import materialize
 from controlzee.ingest.parse import DEFAULT_MAX_FILE_BYTES
 from controlzee.model.common import SCHEMA_VERSION, Confidence, tool_info
@@ -123,7 +122,7 @@ def _identities(index: EventIndex, prop: Propagation) -> list[TaintedIdentity]:
     return out
 
 
-def build_scope(inputs: Sequence[Path], spec: SeedSpec, options: ScopeOptions | None = None) -> ScopeOutput:
+def build_scope(inputs: Sequence[Input], spec: SeedSpec, options: ScopeOptions | None = None) -> ScopeOutput:
     options = options or ScopeOptions()
     t0 = time.perf_counter()
     index = load_index(inputs, IngestOptions(workers=options.workers, max_file_bytes=options.max_file_bytes))
