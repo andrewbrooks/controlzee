@@ -40,6 +40,20 @@ def test_hash_seed_does_not_change_the_output(fixtures, tmp_path, scenario):
     assert next(iter(outputs))[0] == (root / "expected/scope.json").read_bytes()
 
 
+
+@pytest.mark.parametrize("command,name", [("timeline", "timeline.json"), ("plan", "plan.json"), ("report", "report.md")])
+def test_hash_seed_does_not_change_derived_outputs(fixtures, tmp_path, command, name):
+    scope = fixtures / "02_role_chain/expected/scope.json"
+    outputs = set()
+    for seed in ("0", "777", "random"):
+        out = tmp_path / f"{seed}-{name}"
+        r = subprocess.run([sys.executable, "-m", "controlzee", command, str(scope), "-o", str(out)],
+                           env={**os.environ, "PYTHONHASHSEED": seed}, capture_output=True, text=True, check=False)
+        assert r.returncode == 0, r.stderr
+        outputs.add(out.read_bytes())
+    assert outputs == {(fixtures / "02_role_chain/expected" / name).read_bytes()}
+
+
 @pytest.mark.parametrize("scenario", SCENARIOS)
 def test_worker_count_does_not_change_the_output(fixtures, scenario, monkeypatch):
     root = fixtures / scenario

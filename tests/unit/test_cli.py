@@ -86,11 +86,13 @@ def test_no_indicators_and_weak_only_without_window(s01, tmp_path):
     assert r.exit_code == 2 and "needs a time window" in r.output
 
 
-def test_missing_logs_and_s3_are_explained(tmp_path):
+def test_missing_logs_and_event_history_without_a_window_are_explained(tmp_path):
     r = run("scope", "--logs", tmp_path / "absent", "--access-key", "A", "-o", tmp_path / "s.json")
     assert r.exit_code == 2 and "does not exist" in r.output
-    r = run("scope", "--logs", "s3://bucket/prefix", "--access-key", "A", "-o", tmp_path / "s.json")
-    assert r.exit_code == 2 and "S3 input is not available" in r.output
+    r = run("scope", "--access-key", "A", "-o", tmp_path / "s.json")
+    assert r.exit_code == 2 and "no logs given" in r.output
+    r = run("scope", "--lookup-events", "us-east-1", "--access-key", "A", "-o", tmp_path / "s.json")
+    assert r.exit_code == 2 and "needs --window" in r.output
 
 
 def test_strict_turns_unreadable_input_into_exit_3(s01, tmp_path):
@@ -119,3 +121,39 @@ def test_guardduty_import_prints_what_it_took(s01, tmp_path):
     finding.write_text(json.dumps({"Id": "f1", "Resource": {"AccessKeyDetails": {"AccessKeyId": "AKIAIOSFODNN7LEAKED"}}, "Service": {}}))
     r = run("scope", "--logs", s01 / "logs", "--guardduty", finding, "-o", tmp_path / "s.json")
     assert r.exit_code == 0 and "imported access key AKIAIOSFODNN7LEAKED" in r.stdout and "In scope: 13 events" in r.stdout
+
+
+def test_the_example_ioc_file_runs_against_scenario_01(s01, tmp_path):
+    example = s01.parents[2] / "examples" / "iocs.yaml"
+    r = run("scope", "--logs", s01 / "logs", "--iocs", example, "-o", tmp_path / "s.json")
+    assert r.exit_code == 0, r.output
+    assert "In scope: 13 events (13 strong, 0 weak)" in r.stdout
+    assert "2 in-scope event(s) acted as them, 0 found only that way" in r.stdout  # matched weakly, made strong by taint
+
+
+@pytest.mark.parametrize("command,name", [("timeline", "timeline.json"), ("plan", "plan.json"), ("report", "report.md")])
+def test_commands_that_read_a_scope(s01, tmp_path, command, name):
+    out = tmp_path / name
+    r = run(command, s01 / "expected/scope.json", "-o", out)
+    assert r.exit_code == 0, r.output
+    assert out.read_bytes() == (s01 / "expected" / name).read_bytes()
+    assert stat.S_IMODE(os.stat(out).st_mode) == 0o600
+    again = run(command, s01 / "expected/scope.json", "-o", out)
+    assert again.exit_code == 2 and "already exists" in again.output
+    assert run(command, s01 / "expected/scope.json", "-o", out, "--force").exit_code == 0
+
+
+def test_summaries_of_the_derived_commands(s01, tmp_path):
+    r = run("timeline", s01 / "expected/scope.json", "-o", tmp_path / "t.json")
+    assert "11 events by 2 identities, 0 gap(s)" in r.stdout and "full administrative access was granted" in r.stdout
+    r = run("plan", s01 / "expected/scope.json", "-o", tmp_path / "p.json")
+    assert "Plan: 5 step(s) (2 contain, 1 investigate, 1 eradicate, 1 recover); controlzee runs none of the commands" in r.stdout
+
+
+def test_a_changed_scope_is_refused(s01, tmp_path):
+    doc = json.loads((s01 / "expected/scope.json").read_text())
+    doc["events"] = doc["events"][:1]
+    edited = tmp_path / "scope.json"
+    edited.write_text(json.dumps(doc))
+    r = run("report", edited, "-o", tmp_path / "r.md")
+    assert r.exit_code == 2 and "was changed after it was written" in r.output and not (tmp_path / "r.md").exists()

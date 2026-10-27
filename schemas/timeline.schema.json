@@ -1,0 +1,593 @@
+{
+  "$defs": {
+    "Actor": {
+      "additionalProperties": false,
+      "description": "One identity the attacker acted as, as the logs name it.",
+      "properties": {
+        "access_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Access Keys",
+          "type": "array"
+        },
+        "account": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Account"
+        },
+        "arn": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Arn"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "events": {
+          "title": "Events",
+          "type": "integer"
+        },
+        "first_event_time": {
+          "title": "First Event Time",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "last_event_time": {
+          "title": "Last Event Time",
+          "type": "string"
+        },
+        "principal_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Principal Id"
+        },
+        "source_ips": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Ips",
+          "type": "array"
+        },
+        "tainted": {
+          "title": "Tainted",
+          "type": "boolean"
+        },
+        "user_agents": {
+          "items": {
+            "type": "string"
+          },
+          "title": "User Agents",
+          "type": "array"
+        }
+      },
+      "required": [
+        "label",
+        "account",
+        "arn",
+        "principal_id",
+        "access_keys",
+        "source_ips",
+        "user_agents",
+        "events",
+        "first_event_time",
+        "last_event_time",
+        "confidence",
+        "tainted"
+      ],
+      "title": "Actor",
+      "type": "object"
+    },
+    "Confidence": {
+      "enum": [
+        "strong",
+        "weak"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "Exposure": {
+      "additionalProperties": false,
+      "properties": {
+        "accounts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Accounts",
+          "type": "array"
+        },
+        "admin_granted": {
+          "title": "Admin Granted",
+          "type": "boolean"
+        },
+        "credentials_read": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Credentials Read",
+          "type": "array"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "privilege_changes": {
+          "items": {
+            "$ref": "#/$defs/PrivilegeChange"
+          },
+          "title": "Privilege Changes",
+          "type": "array"
+        },
+        "resources": {
+          "items": {
+            "$ref": "#/$defs/ResourceAccess"
+          },
+          "title": "Resources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "accounts",
+        "admin_granted",
+        "credentials_read",
+        "privilege_changes",
+        "resources",
+        "notes"
+      ],
+      "title": "Exposure",
+      "type": "object"
+    },
+    "PrivilegeChange": {
+      "additionalProperties": false,
+      "description": "A call that changed what a principal may do.",
+      "properties": {
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "admin": {
+          "title": "Admin",
+          "type": "boolean"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "outcome": {
+          "title": "Outcome",
+          "type": "string"
+        },
+        "policy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Policy"
+        },
+        "principal": {
+          "title": "Principal",
+          "type": "string"
+        },
+        "time": {
+          "title": "Time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "time",
+        "action",
+        "principal",
+        "policy",
+        "admin",
+        "outcome"
+      ],
+      "title": "PrivilegeChange",
+      "type": "object"
+    },
+    "ResourceAccess": {
+      "additionalProperties": false,
+      "properties": {
+        "access": {
+          "enum": [
+            "read",
+            "write",
+            "delete",
+            "assume"
+          ],
+          "title": "Access",
+          "type": "string"
+        },
+        "actions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Actions",
+          "type": "array"
+        },
+        "event_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Event Ids",
+          "type": "array"
+        },
+        "events": {
+          "title": "Events",
+          "type": "integer"
+        },
+        "failed": {
+          "title": "Failed",
+          "type": "integer"
+        },
+        "first_event_time": {
+          "title": "First Event Time",
+          "type": "string"
+        },
+        "last_event_time": {
+          "title": "Last Event Time",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "service": {
+          "title": "Service",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "service",
+        "type",
+        "name",
+        "access",
+        "events",
+        "failed",
+        "first_event_time",
+        "last_event_time",
+        "actions",
+        "event_ids"
+      ],
+      "title": "ResourceAccess",
+      "type": "object"
+    },
+    "TacticSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "events": {
+          "title": "Events",
+          "type": "integer"
+        },
+        "failed": {
+          "title": "Failed",
+          "type": "integer"
+        },
+        "first_event_time": {
+          "title": "First Event Time",
+          "type": "string"
+        },
+        "tactic": {
+          "enum": [
+            "initial-access",
+            "execution",
+            "persistence",
+            "privilege-escalation",
+            "defense-evasion",
+            "credential-access",
+            "discovery",
+            "lateral-movement",
+            "collection",
+            "exfiltration",
+            "impact",
+            "other"
+          ],
+          "title": "Tactic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tactic",
+        "events",
+        "failed",
+        "first_event_time"
+      ],
+      "title": "TacticSummary",
+      "type": "object"
+    },
+    "TimelineEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "account": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Account"
+        },
+        "action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "actor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actor"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        },
+        "event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Id"
+        },
+        "kind": {
+          "enum": [
+            "event",
+            "gap"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "origin": {
+          "anyOf": [
+            {
+              "enum": [
+                "seed",
+                "propagated"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Origin"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outcome"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Region"
+        },
+        "source_ip": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ip"
+        },
+        "tactic": {
+          "anyOf": [
+            {
+              "enum": [
+                "initial-access",
+                "execution",
+                "persistence",
+                "privilege-escalation",
+                "defense-evasion",
+                "credential-access",
+                "discovery",
+                "lateral-movement",
+                "collection",
+                "exfiltration",
+                "impact",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tactic"
+        },
+        "targets": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Targets",
+          "type": "array"
+        },
+        "time": {
+          "title": "Time",
+          "type": "string"
+        },
+        "via": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Via"
+        }
+      },
+      "required": [
+        "kind",
+        "time"
+      ],
+      "title": "TimelineEntry",
+      "type": "object"
+    }
+  },
+  "$id": "https://controlzee.invalid/schemas/timeline-0.2.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actors": {
+      "items": {
+        "$ref": "#/$defs/Actor"
+      },
+      "title": "Actors",
+      "type": "array"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/TimelineEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "exposure": {
+      "$ref": "#/$defs/Exposure"
+    },
+    "schema_version": {
+      "default": "0.2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope_sha256": {
+      "title": "Scope Sha256",
+      "type": "string"
+    },
+    "tactics": {
+      "items": {
+        "$ref": "#/$defs/TacticSummary"
+      },
+      "title": "Tactics",
+      "type": "array"
+    },
+    "timeline_sha256": {
+      "default": "",
+      "title": "Timeline Sha256",
+      "type": "string"
+    },
+    "tool": {
+      "additionalProperties": true,
+      "title": "Tool",
+      "type": "object"
+    }
+  },
+  "required": [
+    "tool",
+    "scope_sha256",
+    "actors",
+    "tactics",
+    "entries",
+    "exposure"
+  ],
+  "title": "Timeline",
+  "type": "object"
+}

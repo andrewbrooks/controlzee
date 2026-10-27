@@ -1,0 +1,338 @@
+{
+  "actors": [
+    {
+      "access_keys": [
+        "AKIAIOSFODNN7LEAKED"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+      "confidence": "strong",
+      "events": 9,
+      "first_event_time": "2026-10-20T14:30:00Z",
+      "label": "user/ci-deploy",
+      "last_event_time": "2026-10-20T14:32:20Z",
+      "principal_id": "AIDA5D934EC130750BA8C",
+      "source_ips": [
+        "198.51.100.77"
+      ],
+      "tainted": false,
+      "user_agents": [
+        "python-requests/2.31.0"
+      ]
+    },
+    {
+      "access_keys": [
+        "AKIAIOSFODNN7BKDOOR"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:iam::111122223333:user/backdoor-svc",
+      "confidence": "strong",
+      "events": 2,
+      "first_event_time": "2026-10-20T14:39:00Z",
+      "label": "user/backdoor-svc",
+      "last_event_time": "2026-10-20T14:40:00Z",
+      "principal_id": "AIDAE18185DBD523AB726",
+      "source_ips": [
+        "198.51.100.78"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "python-requests/2.31.0"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "account": "111122223333",
+      "action": "sts:GetCallerIdentity",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T14:30:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:ListUsers",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "b2177994-d66c-53bd-8801-5261f0f910a8",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T14:30:10Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:ListRoles",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T14:30:20Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "s3:ListBuckets",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "50ee173c-5c13-5689-97cd-ef168207f84c",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T14:30:30Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "ec2:DescribeInstances",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "cb96022f-25c2-56a3-ab3f-bf725e6fd694",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T14:30:40Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:GetAccountAuthorizationDetails",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "94d6ce92-a4b5-5017-b554-c200a68a9aa4",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "AccessDenied",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T14:30:55Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:CreateUser",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "ba5efc04-26a3-539d-90ad-b357e29515e5",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [
+        "user backdoor-svc"
+      ],
+      "time": "2026-10-20T14:32:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:AttachUserPolicy",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "2d59f198-929c-5fd6-93e2-4b2dbc3e31ac",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "privilege-escalation",
+      "targets": [
+        "policy arn:aws:iam::aws:policy/AdministratorAccess",
+        "user backdoor-svc"
+      ],
+      "time": "2026-10-20T14:32:10Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:CreateAccessKey",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "9c765f05-4203-5522-a74d-58c985b1a06a",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [
+        "user backdoor-svc"
+      ],
+      "time": "2026-10-20T14:32:20Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "s3:ListBuckets",
+      "actor": "user/backdoor-svc",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "ea972266-d206-5a49-9154-6b3c92801147",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.78",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T14:39:00Z",
+      "via": "access_key_id:AKIAIOSFODNN7BKDOOR"
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:ListUsers",
+      "actor": "user/backdoor-svc",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.78",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T14:40:00Z",
+      "via": "access_key_id:AKIAIOSFODNN7BKDOOR"
+    }
+  ],
+  "exposure": {
+    "accounts": [
+      "111122223333"
+    ],
+    "admin_granted": true,
+    "credentials_read": [],
+    "notes": [
+      "full administrative access was granted: assume the attacker could read or change anything in the affected account(s) from that moment, including what the logs do not show",
+      "the inputs have no data events, so object-level S3 access (and similar) cannot be listed here"
+    ],
+    "privilege_changes": [
+      {
+        "action": "iam:AttachUserPolicy",
+        "admin": true,
+        "event_id": "2d59f198-929c-5fd6-93e2-4b2dbc3e31ac",
+        "outcome": "ok",
+        "policy": "arn:aws:iam::aws:policy/AdministratorAccess",
+        "principal": "user backdoor-svc",
+        "time": "2026-10-20T14:32:10Z"
+      }
+    ],
+    "resources": [
+      {
+        "access": "write",
+        "actions": [
+          "iam:AttachUserPolicy"
+        ],
+        "event_ids": [
+          "2d59f198-929c-5fd6-93e2-4b2dbc3e31ac"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-20T14:32:10Z",
+        "last_event_time": "2026-10-20T14:32:10Z",
+        "name": "arn:aws:iam::aws:policy/AdministratorAccess",
+        "service": "iam",
+        "type": "policy"
+      },
+      {
+        "access": "write",
+        "actions": [
+          "iam:AttachUserPolicy",
+          "iam:CreateAccessKey",
+          "iam:CreateUser"
+        ],
+        "event_ids": [
+          "ba5efc04-26a3-539d-90ad-b357e29515e5",
+          "2d59f198-929c-5fd6-93e2-4b2dbc3e31ac",
+          "9c765f05-4203-5522-a74d-58c985b1a06a"
+        ],
+        "events": 3,
+        "failed": 0,
+        "first_event_time": "2026-10-20T14:32:00Z",
+        "last_event_time": "2026-10-20T14:32:20Z",
+        "name": "backdoor-svc",
+        "service": "iam",
+        "type": "user"
+      }
+    ]
+  },
+  "schema_version": "0.2",
+  "scope_sha256": "167306f72aff700fd0a7f87390d2271ac900ec0e7aeb20745d0d4788e45f0fb3",
+  "tactics": [
+    {
+      "events": 2,
+      "failed": 0,
+      "first_event_time": "2026-10-20T14:32:00Z",
+      "tactic": "persistence"
+    },
+    {
+      "events": 1,
+      "failed": 0,
+      "first_event_time": "2026-10-20T14:32:10Z",
+      "tactic": "privilege-escalation"
+    },
+    {
+      "events": 7,
+      "failed": 1,
+      "first_event_time": "2026-10-20T14:30:00Z",
+      "tactic": "discovery"
+    }
+  ],
+  "timeline_sha256": "666a5cd8e88c547e290182eb253b86be84d44493ca8e3cd49617d82ff816f781",
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}

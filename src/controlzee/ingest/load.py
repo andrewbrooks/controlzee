@@ -1,6 +1,7 @@
 """Discover input files, index them (in parallel when worth it), and merge deterministically."""
 from __future__ import annotations
 
+import dataclasses
 import gc
 import multiprocessing
 import os
@@ -12,11 +13,13 @@ from pathlib import Path
 
 from controlzee.ingest.index import R_ID, R_TS, EventIndex, FileEntry, Row
 from controlzee.ingest.parse import DEFAULT_MAX_FILE_BYTES, FileResult, index_chunk
+from controlzee.ingest.remote import LOG_SUFFIXES, LookupInput, RemoteError, S3Input
 from controlzee.ingest.source import LocalSource, Source
 
 PARALLEL_MIN_BYTES = 8 * 1024 * 1024  # below this a process pool costs more than it saves
 MAX_DEFAULT_WORKERS = 16  # measured: no gain beyond this (see docs/architecture.md)
-_SUFFIXES = (".json", ".json.gz")
+_SUFFIXES = LOG_SUFFIXES
+Input = Path | S3Input | LookupInput  # a local file or directory, an S3 prefix, or a region's event history
 
 
 class IngestError(Exception):
@@ -46,34 +49,48 @@ def _walk(root: Path) -> Iterator[tuple[str, Path]]:
             yield full.relative_to(root).as_posix(), full
 
 
-def discover(inputs: Sequence[Path]) -> tuple[list[Source], list[FileEntry], int]:
+def discover(inputs: Sequence[Input]) -> tuple[list[Source], list[FileEntry], int]:
     """(files to index, files skipped on purpose, count of unrelated files ignored), in a deterministic order."""
-    found: list[tuple[int, str, Path]] = []
+    found: list[tuple[int, Source]] = []
     ignored = 0
     for n, root in enumerate(inputs):
+        if not isinstance(root, Path):
+            try:
+                remote, other = root.list()
+            except RemoteError as e:
+                raise IngestError(str(e)) from None
+            found += [(n, src) for src in remote]
+            ignored += other
+            continue
         if not root.exists():
             raise IngestError(f"input path does not exist: {root}")
         if root.is_file():
-            found.append((n, root.name, root))
+            found.append((n, LocalSource(root.name, str(root), root.stat().st_size)))
             continue
         for rel, full in _walk(root):
             if rel.endswith(_SUFFIXES):
-                found.append((n, rel, full))
+                found.append((n, LocalSource(rel, str(full), full.stat().st_size)))
             else:
                 ignored += 1
-    names = [rel for _, rel, _ in found]
+    names = [src.rel for _, src in found]
     if len(set(names)) != len(names):  # same relative name under two inputs: keep them apart, deterministically
-        found = [(n, f"{n}:{rel}", full) for n, rel, full in found]
-    found.sort(key=lambda t: t[1])
+        found = [(n, _renamed(src, f"{n}:{src.rel}")) for n, src in found]
+    found.sort(key=lambda t: t[1].rel)
     sources: list[Source] = []
     skipped: list[FileEntry] = []
-    for _, rel, full in found:
-        reason = _skip_reason(rel)
+    for _, src in found:
+        reason = _skip_reason(src.rel)
         if reason:
-            skipped.append(FileEntry(rel, "", full.stat().st_size, 0, "skipped", reason))
+            skipped.append(FileEntry(src.rel, "", src.size, 0, "skipped", reason))
         else:
-            sources.append(LocalSource(rel, str(full), full.stat().st_size))
+            sources.append(src)
     return sources, skipped, ignored
+
+
+def _renamed(src: Source, rel: str) -> Source:
+    assert dataclasses.is_dataclass(src) and not isinstance(src, type)
+    renamed: Source = dataclasses.replace(src, rel=rel)
+    return renamed
 
 
 def _chunks(sources: list[Source], workers: int) -> list[list[tuple[int, Source]]]:
@@ -93,7 +110,7 @@ def _index_all(sources: list[Source], options: IngestOptions) -> list[FileResult
         return [r for f in futures for r in f.result()]  # submission order == file order, whatever finishes first
 
 
-def load_index(inputs: Sequence[Path], options: IngestOptions | None = None) -> EventIndex:
+def load_index(inputs: Sequence[Input], options: IngestOptions | None = None) -> EventIndex:
     """Index every CloudTrail file under `inputs`. The result does not depend on worker count or file arrival order."""
     options = options or IngestOptions()
     sources, skipped, ignored = discover(inputs)

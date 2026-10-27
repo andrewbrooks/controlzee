@@ -9,9 +9,11 @@ from pydantic import BaseModel
 
 from controlzee import canonical
 from controlzee.model.common import SCHEMA_VERSION
+from controlzee.model.plan import Plan
 from controlzee.model.scope import InputsManifest, Scope
+from controlzee.model.timeline import Timeline
 
-SCHEMAS: dict[str, type[BaseModel]] = {"scope": Scope, "inputs": InputsManifest}
+SCHEMAS: dict[str, type[BaseModel]] = {"scope": Scope, "inputs": InputsManifest, "timeline": Timeline, "plan": Plan}
 
 
 def schema_for(name: str) -> dict[str, Any]:

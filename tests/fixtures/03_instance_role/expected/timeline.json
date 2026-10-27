@@ -1,0 +1,341 @@
+{
+  "actors": [
+    {
+      "access_keys": [
+        "AKIAIOSFODNN7DEVSAM"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:iam::111122223333:user/dev-sam",
+      "confidence": "weak",
+      "events": 4,
+      "first_event_time": "2026-10-20T15:05:00Z",
+      "label": "user/dev-sam",
+      "last_event_time": "2026-10-20T15:07:30Z",
+      "principal_id": "AIDA430742A67E145057B",
+      "source_ips": [
+        "198.51.100.90"
+      ],
+      "tainted": false,
+      "user_agents": [
+        "Boto3/1.34.0 md/Botocore#1.34.0 ua/2.0 os/linux"
+      ]
+    },
+    {
+      "access_keys": [
+        "ASIAIOSFODNN7INST00"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:sts::111122223333:assumed-role/app-role/i-0a1b2c3d4e5f60718",
+      "confidence": "weak",
+      "events": 3,
+      "first_event_time": "2026-10-20T15:15:00Z",
+      "label": "assumed-role/app-role/i-0a1b2c3d4e5f60718",
+      "last_event_time": "2026-10-20T17:05:00Z",
+      "principal_id": "AROAB98E7EDE0EF10C4DB:i-0a1b2c3d4e5f60718",
+      "source_ips": [
+        "192.0.2.99"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-sdk-go/1.50.0"
+      ]
+    },
+    {
+      "access_keys": [
+        "ASIAIOSFODNN7CONSOL"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:iam::111122223333:user/svc-metrics",
+      "confidence": "weak",
+      "events": 2,
+      "first_event_time": "2026-10-20T18:05:00Z",
+      "label": "user/svc-metrics",
+      "last_event_time": "2026-10-20T18:06:00Z",
+      "principal_id": "AIDA0D8A5F8CEBAA453B9",
+      "source_ips": [
+        "192.0.2.150"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "Mozilla/5.0 (X11; Linux x86_64)"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "account": "111122223333",
+      "action": "ec2:DescribeInstanceTypes",
+      "actor": "user/dev-sam",
+      "confidence": "weak",
+      "end": null,
+      "event_id": "79b57279-7f3c-5b8a-b198-3b0b181b9d46",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T15:05:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "ec2:RunInstances",
+      "actor": "user/dev-sam",
+      "confidence": "weak",
+      "end": null,
+      "event_id": "8bb4cd19-45aa-5db0-ae36-93addf041786",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "execution",
+      "targets": [
+        "instance i-0a1b2c3d4e5f60718"
+      ],
+      "time": "2026-10-20T15:06:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:CreateUser",
+      "actor": "user/dev-sam",
+      "confidence": "weak",
+      "end": null,
+      "event_id": "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "persistence",
+      "targets": [
+        "user svc-metrics"
+      ],
+      "time": "2026-10-20T15:07:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:CreateLoginProfile",
+      "actor": "user/dev-sam",
+      "confidence": "weak",
+      "end": null,
+      "event_id": "b2177994-d66c-53bd-8801-5261f0f910a8",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "persistence",
+      "targets": [
+        "user svc-metrics"
+      ],
+      "time": "2026-10-20T15:07:30Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "s3:ListBuckets",
+      "actor": "assumed-role/app-role/i-0a1b2c3d4e5f60718",
+      "confidence": "weak",
+      "end": null,
+      "event_id": "50ee173c-5c13-5689-97cd-ef168207f84c",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "192.0.2.99",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T15:15:00Z",
+      "via": "instance_id:i-0a1b2c3d4e5f60718"
+    },
+    {
+      "account": "111122223333",
+      "action": "secretsmanager:ListSecrets",
+      "actor": "assumed-role/app-role/i-0a1b2c3d4e5f60718",
+      "confidence": "weak",
+      "end": null,
+      "event_id": "cb96022f-25c2-56a3-ab3f-bf725e6fd694",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "192.0.2.99",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T15:17:00Z",
+      "via": "instance_id:i-0a1b2c3d4e5f60718"
+    },
+    {
+      "account": "111122223333",
+      "action": "secretsmanager:GetSecretValue",
+      "actor": "assumed-role/app-role/i-0a1b2c3d4e5f60718",
+      "confidence": "weak",
+      "end": null,
+      "event_id": "94d6ce92-a4b5-5017-b554-c200a68a9aa4",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "192.0.2.99",
+      "tactic": "credential-access",
+      "targets": [
+        "secret prod/db"
+      ],
+      "time": "2026-10-20T17:05:00Z",
+      "via": "instance_id:i-0a1b2c3d4e5f60718"
+    },
+    {
+      "account": "111122223333",
+      "action": "signin:ConsoleLogin",
+      "actor": "user/svc-metrics",
+      "confidence": "weak",
+      "end": null,
+      "event_id": "2d59f198-929c-5fd6-93e2-4b2dbc3e31ac",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "192.0.2.150",
+      "tactic": "initial-access",
+      "targets": [],
+      "time": "2026-10-20T18:05:00Z",
+      "via": "principal_id:AIDA0D8A5F8CEBAA453B9"
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:ListUsers",
+      "actor": "user/svc-metrics",
+      "confidence": "weak",
+      "end": null,
+      "event_id": "9c765f05-4203-5522-a74d-58c985b1a06a",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "192.0.2.150",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T18:06:00Z",
+      "via": "principal_id:AIDA0D8A5F8CEBAA453B9"
+    }
+  ],
+  "exposure": {
+    "accounts": [
+      "111122223333"
+    ],
+    "admin_granted": false,
+    "credentials_read": [
+      "secret prod/db"
+    ],
+    "notes": [
+      "1 secret(s) or parameter(s) were read: treat their values as known to the attacker",
+      "the inputs have no data events, so object-level S3 access (and similar) cannot be listed here"
+    ],
+    "privilege_changes": [],
+    "resources": [
+      {
+        "access": "write",
+        "actions": [
+          "ec2:RunInstances"
+        ],
+        "event_ids": [
+          "8bb4cd19-45aa-5db0-ae36-93addf041786"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-20T15:06:00Z",
+        "last_event_time": "2026-10-20T15:06:00Z",
+        "name": "i-0a1b2c3d4e5f60718",
+        "service": "ec2",
+        "type": "instance"
+      },
+      {
+        "access": "write",
+        "actions": [
+          "iam:CreateLoginProfile",
+          "iam:CreateUser"
+        ],
+        "event_ids": [
+          "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+          "b2177994-d66c-53bd-8801-5261f0f910a8"
+        ],
+        "events": 2,
+        "failed": 0,
+        "first_event_time": "2026-10-20T15:07:00Z",
+        "last_event_time": "2026-10-20T15:07:30Z",
+        "name": "svc-metrics",
+        "service": "iam",
+        "type": "user"
+      },
+      {
+        "access": "read",
+        "actions": [
+          "secretsmanager:GetSecretValue"
+        ],
+        "event_ids": [
+          "94d6ce92-a4b5-5017-b554-c200a68a9aa4"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-20T17:05:00Z",
+        "last_event_time": "2026-10-20T17:05:00Z",
+        "name": "prod/db",
+        "service": "secretsmanager",
+        "type": "secret"
+      }
+    ]
+  },
+  "schema_version": "0.2",
+  "scope_sha256": "a0db0c5426321e76c51f845aebb12eda02a90fbd27fa14c31d564151410d72c5",
+  "tactics": [
+    {
+      "events": 1,
+      "failed": 0,
+      "first_event_time": "2026-10-20T18:05:00Z",
+      "tactic": "initial-access"
+    },
+    {
+      "events": 1,
+      "failed": 0,
+      "first_event_time": "2026-10-20T15:06:00Z",
+      "tactic": "execution"
+    },
+    {
+      "events": 2,
+      "failed": 0,
+      "first_event_time": "2026-10-20T15:07:00Z",
+      "tactic": "persistence"
+    },
+    {
+      "events": 1,
+      "failed": 0,
+      "first_event_time": "2026-10-20T17:05:00Z",
+      "tactic": "credential-access"
+    },
+    {
+      "events": 4,
+      "failed": 0,
+      "first_event_time": "2026-10-20T15:05:00Z",
+      "tactic": "discovery"
+    }
+  ],
+  "timeline_sha256": "b1f2c38bcb0c02979e00c2898b3d6a5a46d1a881c4e40463e4e6ee747d208529",
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}

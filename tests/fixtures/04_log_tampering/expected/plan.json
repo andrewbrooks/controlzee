@@ -1,0 +1,104 @@
+{
+  "actions": [
+    {
+      "caution": "the key's legitimate owner will stop working until it has a replacement (see the recover steps)",
+      "commands": [
+        "aws iam update-access-key --user-name ci-deploy --access-key-id AKIAIOSFODNN7LEAKED --status Inactive"
+      ],
+      "confidence": "strong",
+      "evidence": [
+        "5f00f41d-8b86-5299-b525-749bf3cb99cf",
+        "facf69c4-71e9-57ad-8f76-5ec535b49c6c",
+        "214625b6-6bcf-58ec-9956-4cc75ff606ce",
+        "6e2a9f8d-7e60-51ca-84a2-d9f7b0fb63f5",
+        "f28e8312-d896-50a7-9bf2-20635e39e60a",
+        "e510f9f7-b40d-594a-b7fd-60345a52ef80",
+        "0c4724b0-c705-5f43-b734-61f1923edf71"
+      ],
+      "id": "A01",
+      "phase": "contain",
+      "target": "access key AKIAIOSFODNN7LEAKED of user ci-deploy (account 111122223333)",
+      "title": "Deactivate an access key the attacker used",
+      "why": "7 in-scope call(s) were made with it"
+    },
+    {
+      "caution": "event history can only be read from inside the account, with credentials for it",
+      "commands": [
+        "controlzee scope --lookup-events us-east-1 --window 2026-10-20T14:33:00Z 2026-10-20T16:40:00Z --iocs YOUR_IOC_FILE -o scope-gap.json"
+      ],
+      "confidence": "strong",
+      "evidence": [
+        "e510f9f7-b40d-594a-b7fd-60345a52ef80"
+      ],
+      "id": "A02",
+      "phase": "investigate",
+      "target": "us-east-1 in account 111122223333, 2026-10-20T14:33:00Z to 2026-10-20T16:40:00Z",
+      "title": "Fill a gap in the logs from CloudTrail event history",
+      "why": "the logs are silent for 127 minutes during the incident; event history keeps 90 days of management events whatever happened to the trail"
+    },
+    {
+      "caution": null,
+      "commands": [
+        "aws configservice start-configuration-recorder --region us-east-1 --configuration-recorder-name default"
+      ],
+      "confidence": "strong",
+      "evidence": [
+        "f28e8312-d896-50a7-9bf2-20635e39e60a"
+      ],
+      "id": "A03",
+      "phase": "recover",
+      "target": "config in us-east-1 (account 111122223333)",
+      "title": "Restart AWS Config recording",
+      "why": "an in-scope StopConfigurationRecorder stops AWS Config recording"
+    },
+    {
+      "caution": "someone may have turned it back on already (the status shows it); starting it again does no harm",
+      "commands": [
+        "aws cloudtrail get-trail-status --region us-east-1 --name arn:aws:cloudtrail:us-east-1:111122223333:trail/org-trail --query IsLogging",
+        "aws cloudtrail start-logging --region us-east-1 --name arn:aws:cloudtrail:us-east-1:111122223333:trail/org-trail"
+      ],
+      "confidence": "strong",
+      "evidence": [
+        "e510f9f7-b40d-594a-b7fd-60345a52ef80"
+      ],
+      "id": "A04",
+      "phase": "recover",
+      "target": "cloudtrail in us-east-1 (account 111122223333)",
+      "title": "Turn the trail back on",
+      "why": "an in-scope StopLogging stops a trail"
+    },
+    {
+      "caution": "store the new secret where the owner reads it from, and find out how the old one leaked",
+      "commands": [
+        "aws iam create-access-key --user-name ci-deploy",
+        "aws iam delete-access-key --user-name ci-deploy --access-key-id AKIAIOSFODNN7LEAKED"
+      ],
+      "confidence": "strong",
+      "evidence": [
+        "5f00f41d-8b86-5299-b525-749bf3cb99cf",
+        "facf69c4-71e9-57ad-8f76-5ec535b49c6c",
+        "214625b6-6bcf-58ec-9956-4cc75ff606ce",
+        "6e2a9f8d-7e60-51ca-84a2-d9f7b0fb63f5",
+        "f28e8312-d896-50a7-9bf2-20635e39e60a",
+        "e510f9f7-b40d-594a-b7fd-60345a52ef80",
+        "0c4724b0-c705-5f43-b734-61f1923edf71"
+      ],
+      "id": "A05",
+      "phase": "recover",
+      "target": "user ci-deploy, replacing AKIAIOSFODNN7LEAKED",
+      "title": "Give the key's owner a new key, then delete the old one",
+      "why": "its key was deactivated in the contain steps"
+    }
+  ],
+  "notes": [
+    "controlzee does not run these commands: review each one, then run it with credentials for the account named in its target",
+    "work through the phases in order; within contain, act quickly, since the attacker may notice"
+  ],
+  "plan_sha256": "84ff28248f9448955da5f6a337817491289816033cbbdb9c961df8997d03d413",
+  "schema_version": "0.2",
+  "scope_sha256": "8834c10984f91bab8470a6367695324d152b077dcd29503c1c18370413a01ca8",
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}

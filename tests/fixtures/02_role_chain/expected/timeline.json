@@ -1,0 +1,459 @@
+{
+  "actors": [
+    {
+      "access_keys": [
+        "AKIAIOSFODNN7LEAKED",
+        "ASIAIOSFODNN7JNKTOK"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:iam::111122223333:user/jenkins",
+      "confidence": "strong",
+      "events": 5,
+      "first_event_time": "2026-10-20T10:00:00Z",
+      "label": "user/jenkins",
+      "last_event_time": "2026-10-20T10:20:00Z",
+      "principal_id": "AIDAD95B56CE41A2E1AC4",
+      "source_ips": [
+        "198.51.100.77",
+        "198.51.100.78"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "python-requests/2.31.0"
+      ]
+    },
+    {
+      "access_keys": [
+        "ASIAIOSFODNN7OPSMNT"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:sts::111122223333:assumed-role/ops-admin/maint",
+      "confidence": "strong",
+      "events": 4,
+      "first_event_time": "2026-10-20T10:02:00Z",
+      "label": "assumed-role/ops-admin/maint",
+      "last_event_time": "2026-10-20T10:04:00Z",
+      "principal_id": "AROAB1F1090D40114DE6E:maint",
+      "source_ips": [
+        "198.51.100.77"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "python-requests/2.31.0"
+      ]
+    },
+    {
+      "access_keys": [],
+      "account": "999900001111",
+      "arn": null,
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-20T13:00:00Z",
+      "label": "account 999900001111",
+      "last_event_time": "2026-10-20T13:00:00Z",
+      "principal_id": "AIDAFF352DFFCA2DEA308",
+      "source_ips": [
+        "198.51.100.200"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "python-requests/2.31.0"
+      ]
+    },
+    {
+      "access_keys": [
+        "ASIAIOSFODNN7AUDITS"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:sts::111122223333:assumed-role/support-audit/audit",
+      "confidence": "strong",
+      "events": 2,
+      "first_event_time": "2026-10-20T13:01:00Z",
+      "label": "assumed-role/support-audit/audit",
+      "last_event_time": "2026-10-20T13:02:00Z",
+      "principal_id": "AROA562411BDB29807BFD:audit",
+      "source_ips": [
+        "198.51.100.200"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "python-requests/2.31.0"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "account": "111122223333",
+      "action": "sts:GetCallerIdentity",
+      "actor": "user/jenkins",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "79b57279-7f3c-5b8a-b198-3b0b181b9d46",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T10:00:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:ListRoles",
+      "actor": "user/jenkins",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "8bb4cd19-45aa-5db0-ae36-93addf041786",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T10:00:20Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "sts:AssumeRole",
+      "actor": "user/jenkins",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "lateral-movement",
+      "targets": [
+        "role arn:aws:iam::111122223333:role/ops-admin"
+      ],
+      "time": "2026-10-20T10:01:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "s3:ListBuckets",
+      "actor": "assumed-role/ops-admin/maint",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "b2177994-d66c-53bd-8801-5261f0f910a8",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T10:02:00Z",
+      "via": "access_key_id:ASIAIOSFODNN7OPSMNT"
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:CreateRole",
+      "actor": "assumed-role/ops-admin/maint",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [
+        "role support-audit"
+      ],
+      "time": "2026-10-20T10:03:00Z",
+      "via": "access_key_id:ASIAIOSFODNN7OPSMNT"
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:AttachRolePolicy",
+      "actor": "assumed-role/ops-admin/maint",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "50ee173c-5c13-5689-97cd-ef168207f84c",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "privilege-escalation",
+      "targets": [
+        "policy arn:aws:iam::aws:policy/ReadOnlyAccess",
+        "role support-audit"
+      ],
+      "time": "2026-10-20T10:03:10Z",
+      "via": "access_key_id:ASIAIOSFODNN7OPSMNT"
+    },
+    {
+      "account": "111122223333",
+      "action": "sts:AssumeRole",
+      "actor": "assumed-role/ops-admin/maint",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "cb96022f-25c2-56a3-ab3f-bf725e6fd694",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "lateral-movement",
+      "targets": [
+        "role arn:aws:iam::444455556666:role/prod-deploy"
+      ],
+      "time": "2026-10-20T10:04:00Z",
+      "via": "access_key_id:ASIAIOSFODNN7OPSMNT"
+    },
+    {
+      "account": "111122223333",
+      "action": "sts:GetSessionToken",
+      "actor": "user/jenkins",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "94d6ce92-a4b5-5017-b554-c200a68a9aa4",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "credential-access",
+      "targets": [],
+      "time": "2026-10-20T10:05:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "ec2:DescribeInstances",
+      "actor": "user/jenkins",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "ba5efc04-26a3-539d-90ad-b357e29515e5",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.78",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T10:20:00Z",
+      "via": "access_key_id:ASIAIOSFODNN7JNKTOK"
+    },
+    {
+      "account": "111122223333",
+      "action": "sts:AssumeRole",
+      "actor": "account 999900001111",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "9c765f05-4203-5522-a74d-58c985b1a06a",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.200",
+      "tactic": "lateral-movement",
+      "targets": [
+        "role arn:aws:iam::111122223333:role/support-audit"
+      ],
+      "time": "2026-10-20T13:00:00Z",
+      "via": "role_id:AROA562411BDB29807BFD"
+    },
+    {
+      "account": "111122223333",
+      "action": "s3:ListBuckets",
+      "actor": "assumed-role/support-audit/audit",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "ea972266-d206-5a49-9154-6b3c92801147",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.200",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T13:01:00Z",
+      "via": "role_id:AROA562411BDB29807BFD"
+    },
+    {
+      "account": "111122223333",
+      "action": "secretsmanager:ListSecrets",
+      "actor": "assumed-role/support-audit/audit",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.200",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T13:02:00Z",
+      "via": "role_id:AROA562411BDB29807BFD"
+    }
+  ],
+  "exposure": {
+    "accounts": [
+      "111122223333",
+      "444455556666"
+    ],
+    "admin_granted": false,
+    "credentials_read": [],
+    "notes": [
+      "the inputs have no data events, so object-level S3 access (and similar) cannot be listed here",
+      "activity reached account(s) with no logs in the inputs; exposure there is unknown"
+    ],
+    "privilege_changes": [
+      {
+        "action": "iam:AttachRolePolicy",
+        "admin": false,
+        "event_id": "50ee173c-5c13-5689-97cd-ef168207f84c",
+        "outcome": "ok",
+        "policy": "arn:aws:iam::aws:policy/ReadOnlyAccess",
+        "principal": "role support-audit",
+        "time": "2026-10-20T10:03:10Z"
+      }
+    ],
+    "resources": [
+      {
+        "access": "write",
+        "actions": [
+          "iam:AttachRolePolicy"
+        ],
+        "event_ids": [
+          "50ee173c-5c13-5689-97cd-ef168207f84c"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-20T10:03:10Z",
+        "last_event_time": "2026-10-20T10:03:10Z",
+        "name": "arn:aws:iam::aws:policy/ReadOnlyAccess",
+        "service": "iam",
+        "type": "policy"
+      },
+      {
+        "access": "write",
+        "actions": [
+          "iam:AttachRolePolicy",
+          "iam:CreateRole"
+        ],
+        "event_ids": [
+          "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+          "50ee173c-5c13-5689-97cd-ef168207f84c"
+        ],
+        "events": 2,
+        "failed": 0,
+        "first_event_time": "2026-10-20T10:03:00Z",
+        "last_event_time": "2026-10-20T10:03:10Z",
+        "name": "support-audit",
+        "service": "iam",
+        "type": "role"
+      },
+      {
+        "access": "assume",
+        "actions": [
+          "sts:AssumeRole"
+        ],
+        "event_ids": [
+          "d554bd6b-07d7-5564-b3ed-5c98efd37228"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-20T10:01:00Z",
+        "last_event_time": "2026-10-20T10:01:00Z",
+        "name": "arn:aws:iam::111122223333:role/ops-admin",
+        "service": "sts",
+        "type": "role"
+      },
+      {
+        "access": "assume",
+        "actions": [
+          "sts:AssumeRole"
+        ],
+        "event_ids": [
+          "9c765f05-4203-5522-a74d-58c985b1a06a"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-20T13:00:00Z",
+        "last_event_time": "2026-10-20T13:00:00Z",
+        "name": "arn:aws:iam::111122223333:role/support-audit",
+        "service": "sts",
+        "type": "role"
+      },
+      {
+        "access": "assume",
+        "actions": [
+          "sts:AssumeRole"
+        ],
+        "event_ids": [
+          "cb96022f-25c2-56a3-ab3f-bf725e6fd694"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-20T10:04:00Z",
+        "last_event_time": "2026-10-20T10:04:00Z",
+        "name": "arn:aws:iam::444455556666:role/prod-deploy",
+        "service": "sts",
+        "type": "role"
+      }
+    ]
+  },
+  "schema_version": "0.2",
+  "scope_sha256": "4fa1c19c69fe32f1912d9c38ab3917e2aaa5c8c4dcb7384d930a66a9fbbbd6e4",
+  "tactics": [
+    {
+      "events": 1,
+      "failed": 0,
+      "first_event_time": "2026-10-20T10:03:00Z",
+      "tactic": "persistence"
+    },
+    {
+      "events": 1,
+      "failed": 0,
+      "first_event_time": "2026-10-20T10:03:10Z",
+      "tactic": "privilege-escalation"
+    },
+    {
+      "events": 1,
+      "failed": 0,
+      "first_event_time": "2026-10-20T10:05:00Z",
+      "tactic": "credential-access"
+    },
+    {
+      "events": 6,
+      "failed": 0,
+      "first_event_time": "2026-10-20T10:00:00Z",
+      "tactic": "discovery"
+    },
+    {
+      "events": 3,
+      "failed": 0,
+      "first_event_time": "2026-10-20T10:01:00Z",
+      "tactic": "lateral-movement"
+    }
+  ],
+  "timeline_sha256": "cafd88fd92386f4a01a1b983c2126cc4a689cbbdb722b2a79ec167bc2f04958f",
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}

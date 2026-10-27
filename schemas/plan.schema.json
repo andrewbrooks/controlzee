@@ -1,0 +1,130 @@
+{
+  "$defs": {
+    "Confidence": {
+      "enum": [
+        "strong",
+        "weak"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "PlanAction": {
+      "additionalProperties": false,
+      "properties": {
+        "caution": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Caution"
+        },
+        "commands": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Commands",
+          "type": "array"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "contain",
+            "investigate",
+            "eradicate",
+            "recover"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "why": {
+          "title": "Why",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "phase",
+        "title",
+        "target",
+        "why",
+        "confidence",
+        "commands",
+        "caution",
+        "evidence"
+      ],
+      "title": "PlanAction",
+      "type": "object"
+    }
+  },
+  "$id": "https://controlzee.invalid/schemas/plan-0.2.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actions": {
+      "items": {
+        "$ref": "#/$defs/PlanAction"
+      },
+      "title": "Actions",
+      "type": "array"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+    },
+    "plan_sha256": {
+      "default": "",
+      "title": "Plan Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "0.2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope_sha256": {
+      "title": "Scope Sha256",
+      "type": "string"
+    },
+    "tool": {
+      "additionalProperties": true,
+      "title": "Tool",
+      "type": "object"
+    }
+  },
+  "required": [
+    "tool",
+    "scope_sha256",
+    "actions",
+    "notes"
+  ],
+  "title": "Plan",
+  "type": "object"
+}
