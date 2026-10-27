@@ -1,0 +1,4 @@
+# Scenario 4: the same leaked CI key as scenario 1, used this time to switch off logging.
+version: 1
+indicators:
+  leaked_key: {type: access_key_id, value: AKIAIOSFODNN7LEAKED}

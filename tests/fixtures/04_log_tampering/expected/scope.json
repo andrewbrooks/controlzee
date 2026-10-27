@@ -1,0 +1,489 @@
+{
+  "coverage": {
+    "data_events": 4,
+    "gap_minutes": 60,
+    "gaps": [
+      {
+        "account": "111122223333",
+        "end": "2026-10-20T16:40:00Z",
+        "kind": "silence",
+        "minutes": 127,
+        "possible_cause": "e510f9f7-b40d-594a-b7fd-60345a52ef80",
+        "region": "us-east-1",
+        "start": "2026-10-20T14:33:00Z"
+      }
+    ],
+    "notes": [
+      "2 in-scope call(s) changed logging or detection",
+      "1 unusual silence(s) in the logs during the incident period; activity may be missing there"
+    ],
+    "period_end": "2026-10-20T17:00:00Z",
+    "period_start": "2026-10-20T14:30:00Z",
+    "read_only_events": 188,
+    "streams": [
+      {
+        "account": "111122223333",
+        "events": 193,
+        "first_event_time": "2026-10-20T08:00:00Z",
+        "last_event_time": "2026-10-20T23:55:00Z",
+        "region": "us-east-1",
+        "typical_interval_s": 298
+      },
+      {
+        "account": "111122223333",
+        "events": 7,
+        "first_event_time": "2026-10-20T08:30:00Z",
+        "last_event_time": "2026-10-20T22:30:00Z",
+        "region": "us-west-2",
+        "typical_interval_s": 8400
+      }
+    ],
+    "tampering": [
+      {
+        "account": "111122223333",
+        "effect": "changes a trail's destination or scope",
+        "error_code": null,
+        "event_id": "7e5a8572-ca5f-5540-a096-b10584714284",
+        "event_name": "UpdateTrail",
+        "event_source": "cloudtrail.amazonaws.com",
+        "event_time": "2026-10-20T09:30:00Z",
+        "in_scope": false,
+        "principal": "arn:aws:sts::111122223333:assumed-role/terraform/apply",
+        "region": "us-east-1"
+      },
+      {
+        "account": "111122223333",
+        "effect": "deletes a GuardDuty detector",
+        "error_code": "AccessDeniedException",
+        "event_id": "6e2a9f8d-7e60-51ca-84a2-d9f7b0fb63f5",
+        "event_name": "DeleteDetector",
+        "event_source": "guardduty.amazonaws.com",
+        "event_time": "2026-10-20T14:31:40Z",
+        "in_scope": true,
+        "principal": "arn:aws:iam::111122223333:user/ci-deploy",
+        "region": "us-east-1"
+      },
+      {
+        "account": "111122223333",
+        "effect": "stops AWS Config recording",
+        "error_code": null,
+        "event_id": "f28e8312-d896-50a7-9bf2-20635e39e60a",
+        "event_name": "StopConfigurationRecorder",
+        "event_source": "config.amazonaws.com",
+        "event_time": "2026-10-20T14:32:00Z",
+        "in_scope": true,
+        "principal": "arn:aws:iam::111122223333:user/ci-deploy",
+        "region": "us-east-1"
+      },
+      {
+        "account": "111122223333",
+        "effect": "stops a trail",
+        "error_code": null,
+        "event_id": "e510f9f7-b40d-594a-b7fd-60345a52ef80",
+        "event_name": "StopLogging",
+        "event_source": "cloudtrail.amazonaws.com",
+        "event_time": "2026-10-20T14:33:00Z",
+        "in_scope": true,
+        "principal": "arn:aws:iam::111122223333:user/ci-deploy",
+        "region": "us-east-1"
+      }
+    ],
+    "tampering_total": 4,
+    "unlogged_accounts": []
+  },
+  "events": [
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "5f00f41d-8b86-5299-b525-749bf3cb99cf",
+        "event_name": "GetCallerIdentity",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-20T14:30:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": null,
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T1405Z_4e0ef1c6.json",
+          "record": 5
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "facf69c4-71e9-57ad-8f76-5ec535b49c6c",
+        "event_name": "DescribeTrails",
+        "event_source": "cloudtrail.amazonaws.com",
+        "event_time": "2026-10-20T14:31:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": null,
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T1405Z_4e0ef1c6.json",
+          "record": 7
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "214625b6-6bcf-58ec-9956-4cc75ff606ce",
+        "event_name": "ListDetectors",
+        "event_source": "guardduty.amazonaws.com",
+        "event_time": "2026-10-20T14:31:30Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": null,
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T1405Z_4e0ef1c6.json",
+          "record": 8
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": "AccessDeniedException",
+        "error_message": "User is not authorized to perform: guardduty:DeleteDetector",
+        "event_id": "6e2a9f8d-7e60-51ca-84a2-d9f7b0fb63f5",
+        "event_name": "DeleteDetector",
+        "event_source": "guardduty.amazonaws.com",
+        "event_time": "2026-10-20T14:31:40Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "detectorId": "12abc34d567e8fa901bc2d34e56789f0"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T1405Z_4e0ef1c6.json",
+          "record": 9
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "f28e8312-d896-50a7-9bf2-20635e39e60a",
+        "event_name": "StopConfigurationRecorder",
+        "event_source": "config.amazonaws.com",
+        "event_time": "2026-10-20T14:32:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "configurationRecorderName": "default"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T1405Z_4e0ef1c6.json",
+          "record": 10
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "e510f9f7-b40d-594a-b7fd-60345a52ef80",
+        "event_name": "StopLogging",
+        "event_source": "cloudtrail.amazonaws.com",
+        "event_time": "2026-10-20T14:33:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "name": "arn:aws:cloudtrail:us-east-1:111122223333:trail/org-trail"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T1405Z_4e0ef1c6.json",
+          "record": 11
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "0c4724b0-c705-5f43-b734-61f1923edf71",
+        "event_name": "ListBuckets",
+        "event_source": "s3.amazonaws.com",
+        "event_time": "2026-10-20T17:00:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": null,
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T1640Z_97edbfb4.json",
+          "record": 5
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    }
+  ],
+  "inputs": {
+    "accounts": [
+      "111122223333"
+    ],
+    "duplicates_removed": 0,
+    "error_files": 0,
+    "errors": [],
+    "event_count": 200,
+    "file_count": 18,
+    "first_event_time": "2026-10-20T08:00:00Z",
+    "ignored_files": 0,
+    "ingested_files": 18,
+    "last_event_time": "2026-10-20T23:55:00Z",
+    "malformed_records": 0,
+    "malformed_samples": [],
+    "manifest_sha256": "a04ecafa4964a8f0d2ea97cb336b7c31b8f447e28f2e420911e325bab9bab99c",
+    "regions": [
+      "us-east-1",
+      "us-west-2"
+    ],
+    "skipped": [],
+    "skipped_files": 0
+  },
+  "near_miss_summary": {
+    "by_indicator": {},
+    "by_reason": {},
+    "listed": 0,
+    "total": 0
+  },
+  "near_misses": [],
+  "schema_version": "0.2",
+  "scope_sha256": "8834c10984f91bab8470a6367695324d152b077dcd29503c1c18370413a01ca8",
+  "seeds": {
+    "expression": "leaked_key",
+    "indicators": [
+      {
+        "kind": "access_key_id",
+        "match": "exact",
+        "name": "leaked_key",
+        "value": "AKIAIOSFODNN7LEAKED"
+      }
+    ],
+    "window": null
+  },
+  "summary": {
+    "by_account": {
+      "111122223333": 7
+    },
+    "by_confidence": {
+      "strong": 7,
+      "weak": 0
+    },
+    "by_origin": {
+      "propagated": 0,
+      "seed": 7
+    },
+    "by_region": {
+      "us-east-1": 7
+    },
+    "events_in_scope": 7,
+    "failed_calls": 1,
+    "first_event_time": "2026-10-20T14:30:00Z",
+    "last_event_time": "2026-10-20T17:00:00Z"
+  },
+  "taint": {
+    "enabled": true,
+    "identities": []
+  },
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}

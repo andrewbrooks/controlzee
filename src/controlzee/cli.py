@@ -59,12 +59,18 @@ def _print_summary(result: ScopeOutput, scope_path: Path, inputs_path: Path) -> 
               f"(read {t.ingest_s:.1f} s, match {t.seed_s:.1f} s, load {t.materialize_s:.1f} s)")
     out.print(f"In scope: {s.events_in_scope:,} events ({s.by_confidence.get('strong', 0):,} strong, "
               f"{s.by_confidence.get('weak', 0):,} weak), {s.failed_calls:,} of them failed calls")
+    taint = result.scope.taint
+    if taint.identities:
+        out.print(f"Followed {len(taint.identities):,} credential(s) or principal(s) the attacker created or obtained: "
+                  f"{s.by_origin.get('propagated', 0):,} of the events came from them")
     if s.first_event_time:
         out.print(f"First to last in-scope event: {s.first_event_time} to {s.last_event_time}")
     nm = result.scope.near_miss_summary
     if nm.total:
         out.print(f"Near misses: {nm.total:,} events matched a weak indicator but are not in scope "
                   f"({', '.join(f'{k}: {v:,}' for k, v in nm.by_reason.items())}); {nm.listed:,} listed")
+    for note in result.scope.coverage.notes:
+        err.print(Text("coverage: " + clean(note, 300), style="yellow"))
     if i.error_files:
         err.print(Text(f"{i.error_files} file(s) could not be read; e.g. {clean(i.errors[0].path)}: {clean(i.errors[0].note)}", style="yellow"))
     if i.skipped_files:
@@ -94,6 +100,8 @@ def scope(
     near_miss_limit: Annotated[int, typer.Option("--near-miss-limit", min=0, help="Most near misses to list; all are counted.")] = 500,
     embed_raw: Annotated[bool, typer.Option("--embed-raw", help="Embed each in-scope event's raw record in scope.json (much larger).")] = False,
     strict: Annotated[bool, typer.Option("--strict", help="Exit with status 3 if any input file or record could not be read.")] = False,
+    no_propagate: Annotated[bool, typer.Option("--no-propagate", help="Do not follow credentials and principals the attacker created or obtained.")] = False,
+    gap_minutes: Annotated[int, typer.Option("--gap-minutes", min=1, help="Shortest silence in the logs to report as a coverage gap.")] = 60,
 ) -> None:
     """Find what the attacker did: match indicators against CloudTrail and write scope.json."""
     if any(entry.startswith("s3://") for entry in logs):
@@ -118,7 +126,8 @@ def scope(
         spec = assemble(parts, expression=expression, window=win)
         validate_spec(spec)
         result = build_scope([Path(p) for p in logs], spec,
-                             ScopeOptions(workers=workers, near_miss_limit=near_miss_limit, embed_raw=embed_raw))
+                             ScopeOptions(workers=workers, near_miss_limit=near_miss_limit, embed_raw=embed_raw,
+                                          propagate=not no_propagate, gap_minutes=gap_minutes))
     except (SpecError, expr.ExpressionError, IngestError, ValueError) as e:
         raise _fail(clean(e, 600)) from None
     _write_atomic(out_path, result.scope_bytes)

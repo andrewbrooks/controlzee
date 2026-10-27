@@ -30,9 +30,10 @@ def test_scope_writes_both_files_and_reports(s01, tmp_path):
     out = tmp_path / "scope.json"
     r = run("scope", "--logs", s01 / "logs", "--iocs", s01 / "iocs.yaml", "-o", out, "--workers", 1)
     assert r.exit_code == 0, r.output
-    assert "In scope: 9 events (9 strong, 0 weak), 1 of them failed calls" in r.stdout
+    assert "In scope: 11 events (11 strong, 0 weak), 1 of them failed calls" in r.stdout
+    assert "Followed 2 credential(s) or principal(s)" in r.stdout and "coverage: no data events" in r.output
     doc = json.loads(out.read_text())
-    assert doc["summary"]["events_in_scope"] == 9 and (tmp_path / "scope.inputs.json").exists()
+    assert doc["summary"]["events_in_scope"] == 11 and (tmp_path / "scope.inputs.json").exists()
     assert stat.S_IMODE(os.stat(out).st_mode) == 0o600
     assert str(tmp_path) not in out.read_text()  # paths are shown on the terminal, never written into the artifact
 
@@ -47,7 +48,10 @@ def test_output_matches_the_golden_byte_for_byte(s01, tmp_path):
 def test_flags_without_a_file(s01, tmp_path):
     r = run("scope", "--logs", s01 / "logs", "--access-key", "AKIAIOSFODNN7LEAKED", "--ip", "198.51.100.77",
             "--expr", "access_key_1 AND ip_1", "-o", tmp_path / "s.json")
-    assert r.exit_code == 0 and "In scope: 9 events" in r.stdout
+    assert r.exit_code == 0 and "In scope: 11 events" in r.stdout
+    # the key alone matches 11 events; without propagation the backdoor key's two are not added
+    r = run("scope", "--logs", s01 / "logs", "--access-key", "AKIAIOSFODNN7LEAKED", "--no-propagate", "-o", tmp_path / "t.json")
+    assert r.exit_code == 0 and "In scope: 11 events" in r.stdout and "Followed" not in r.stdout
 
 
 def test_refuses_to_overwrite_without_force(s01, tmp_path):
@@ -114,4 +118,4 @@ def test_guardduty_import_prints_what_it_took(s01, tmp_path):
     finding = tmp_path / "f.json"
     finding.write_text(json.dumps({"Id": "f1", "Resource": {"AccessKeyDetails": {"AccessKeyId": "AKIAIOSFODNN7LEAKED"}}, "Service": {}}))
     r = run("scope", "--logs", s01 / "logs", "--guardduty", finding, "-o", tmp_path / "s.json")
-    assert r.exit_code == 0 and "imported access key AKIAIOSFODNN7LEAKED" in r.stdout and "In scope: 11 events" in r.stdout
+    assert r.exit_code == 0 and "imported access key AKIAIOSFODNN7LEAKED" in r.stdout and "In scope: 13 events" in r.stdout

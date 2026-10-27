@@ -10,6 +10,7 @@ import orjson
 
 from controlzee.ingest.index import FileEntry, Row
 from controlzee.ingest.source import Source
+from controlzee.taint.rules import issued_by
 from controlzee.timeutil import parse_time_us
 
 DEFAULT_MAX_FILE_BYTES = 1 << 30  # decompressed size cap per file
@@ -77,17 +78,17 @@ def row_of(rec: Any, file_index: int, record_index: int, table: dict[str, str]) 
         ro if ro.__class__ is bool else None, s(rec.get("sourceIPAddress")), s(rec.get("userAgent")),
         s(rec.get("errorCode")), s(ui.get("type")), s(ui.get("arn")), s(ui.get("principalId")),
         s(ui.get("accessKeyId")), s(iss.get("arn")) if isinstance(iss, dict) else None,
-        s(ui.get("sourceIdentity")), file_index, record_index,
+        s(ui.get("sourceIdentity")), issued_by(rec, source, name), file_index, record_index,
     )
 
 
 class FileResult:
     """What a worker sends back for one file."""
 
-    __slots__ = ("entry", "malformed", "rows", "samples")
+    __slots__ = ("data_events", "entry", "malformed", "rows", "samples")
 
-    def __init__(self, entry: FileEntry, rows: list[Row], malformed: int, samples: list[str]) -> None:
-        self.entry, self.rows, self.malformed, self.samples = entry, rows, malformed, samples
+    def __init__(self, entry: FileEntry, rows: list[Row], malformed: int, samples: list[str], data_events: int = 0) -> None:
+        self.entry, self.rows, self.malformed, self.samples, self.data_events = entry, rows, malformed, samples, data_events
 
 
 def index_file(file_index: int, source: Source, max_bytes: int) -> FileResult:
@@ -104,7 +105,7 @@ def index_file(file_index: int, source: Source, max_bytes: int) -> FileResult:
         return FileResult(FileEntry(rel, digest, size, 0, "error", str(e)), [], 0, [])
     table: dict[str, str] = {}
     rows: list[Row] = []
-    bad = 0
+    bad = data_events = 0
     samples: list[str] = []
     for ri, rec in enumerate(records):
         row = row_of(rec, file_index, ri, table)
@@ -114,7 +115,9 @@ def index_file(file_index: int, source: Source, max_bytes: int) -> FileResult:
                 samples.append(f"{rel}#{ri}")
         else:
             rows.append(row)
-    return FileResult(FileEntry(rel, digest, size, len(rows), "ingested"), rows, bad, samples)
+            if rec.get("eventCategory") == "Data":
+                data_events += 1
+    return FileResult(FileEntry(rel, digest, size, len(rows), "ingested"), rows, bad, samples, data_events)
 
 
 def index_chunk(chunk: list[tuple[int, Source]], max_bytes: int) -> list[FileResult]:

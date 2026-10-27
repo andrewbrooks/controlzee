@@ -1,0 +1,823 @@
+{
+  "coverage": {
+    "data_events": 0,
+    "gap_minutes": 60,
+    "gaps": [],
+    "notes": [
+      "no data events in the inputs: S3 object reads and writes, Lambda invocations and other data-plane activity are not visible",
+      "in-scope activity assumed roles in 1 account(s) with no logs in the inputs: 444455556666"
+    ],
+    "period_end": "2026-10-20T13:02:00Z",
+    "period_start": "2026-10-20T10:00:00Z",
+    "read_only_events": 21,
+    "streams": [
+      {
+        "account": "111122223333",
+        "events": 26,
+        "first_event_time": "2026-10-20T08:00:00Z",
+        "last_event_time": "2026-10-20T23:05:00Z",
+        "region": "us-east-1",
+        "typical_interval_s": 2172
+      },
+      {
+        "account": "111122223333",
+        "events": 8,
+        "first_event_time": "2026-10-20T08:30:00Z",
+        "last_event_time": "2026-10-20T22:30:00Z",
+        "region": "us-west-2",
+        "typical_interval_s": 7200
+      }
+    ],
+    "tampering": [],
+    "tampering_total": 0,
+    "unlogged_accounts": [
+      {
+        "account": "444455556666",
+        "event_ids": [
+          "cb96022f-25c2-56a3-ab3f-bf725e6fd694"
+        ],
+        "role_arns": [
+          "arn:aws:iam::444455556666:role/prod-deploy"
+        ]
+      }
+    ]
+  },
+  "events": [
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "79b57279-7f3c-5b8a-b198-3b0b181b9d46",
+        "event_name": "GetCallerIdentity",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-20T10:00:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": null,
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 2
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/jenkins",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDAD95B56CE41A2E1AC4",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "jenkins"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "8bb4cd19-45aa-5db0-ae36-93addf041786",
+        "event_name": "ListRoles",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-20T10:00:20Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": null,
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 3
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/jenkins",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDAD95B56CE41A2E1AC4",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "jenkins"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+        "event_name": "AssumeRole",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-20T10:01:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "roleArn": "arn:aws:iam::111122223333:role/ops-admin",
+          "roleSessionName": "maint"
+        },
+        "resources": [],
+        "response_elements": {
+          "assumedRoleUser": {
+            "arn": "arn:aws:sts::111122223333:assumed-role/ops-admin/maint",
+            "assumedRoleId": "AROAB1F1090D40114DE6E:maint"
+          },
+          "credentials": {
+            "accessKeyId": "ASIAIOSFODNN7OPSMNT",
+            "expiration": "Oct 20, 2026 11:00:00 PM",
+            "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS"
+          }
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 4
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/jenkins",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDAD95B56CE41A2E1AC4",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "jenkins"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "b2177994-d66c-53bd-8801-5261f0f910a8",
+        "event_name": "ListBuckets",
+        "event_source": "s3.amazonaws.com",
+        "event_time": "2026-10-20T10:02:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": null,
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 5
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7OPSMNT",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/ops-admin/maint",
+          "invoked_by": null,
+          "mfa_authenticated": false,
+          "principal_id": "AROAB1F1090D40114DE6E:maint",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/ops-admin",
+            "principal_id": "AROAB1F1090D40114DE6E",
+            "type": "Role",
+            "user_name": "ops-admin"
+          },
+          "session_name": "maint",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "access_key_id:ASIAIOSFODNN7OPSMNT"
+    },
+    {
+      "chain": [
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+        "event_name": "CreateRole",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-20T10:03:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "assumeRolePolicyDocument": "{\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::999900001111:root\"},\"Action\":\"sts:AssumeRole\"}]}",
+          "roleName": "support-audit"
+        },
+        "resources": [],
+        "response_elements": {
+          "role": {
+            "arn": "arn:aws:iam::111122223333:role/support-audit",
+            "path": "/",
+            "roleId": "AROA562411BDB29807BFD",
+            "roleName": "support-audit"
+          }
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 6
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7OPSMNT",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/ops-admin/maint",
+          "invoked_by": null,
+          "mfa_authenticated": false,
+          "principal_id": "AROAB1F1090D40114DE6E:maint",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/ops-admin",
+            "principal_id": "AROAB1F1090D40114DE6E",
+            "type": "Role",
+            "user_name": "ops-admin"
+          },
+          "session_name": "maint",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "access_key_id:ASIAIOSFODNN7OPSMNT"
+    },
+    {
+      "chain": [
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "50ee173c-5c13-5689-97cd-ef168207f84c",
+        "event_name": "AttachRolePolicy",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-20T10:03:10Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "policyArn": "arn:aws:iam::aws:policy/ReadOnlyAccess",
+          "roleName": "support-audit"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 7
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7OPSMNT",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/ops-admin/maint",
+          "invoked_by": null,
+          "mfa_authenticated": false,
+          "principal_id": "AROAB1F1090D40114DE6E:maint",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/ops-admin",
+            "principal_id": "AROAB1F1090D40114DE6E",
+            "type": "Role",
+            "user_name": "ops-admin"
+          },
+          "session_name": "maint",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "access_key_id:ASIAIOSFODNN7OPSMNT"
+    },
+    {
+      "chain": [
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "cb96022f-25c2-56a3-ab3f-bf725e6fd694",
+        "event_name": "AssumeRole",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-20T10:04:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "roleArn": "arn:aws:iam::444455556666:role/prod-deploy",
+          "roleSessionName": "maint"
+        },
+        "resources": [],
+        "response_elements": {
+          "assumedRoleUser": {
+            "arn": "arn:aws:sts::444455556666:assumed-role/prod-deploy/maint",
+            "assumedRoleId": "AROAF057A3E68DDE1ECD0:maint"
+          },
+          "credentials": {
+            "accessKeyId": "ASIAIOSFODNN7PRODMT",
+            "expiration": "Oct 20, 2026 11:00:00 PM",
+            "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS"
+          }
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 8
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7OPSMNT",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/ops-admin/maint",
+          "invoked_by": null,
+          "mfa_authenticated": false,
+          "principal_id": "AROAB1F1090D40114DE6E:maint",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/ops-admin",
+            "principal_id": "AROAB1F1090D40114DE6E",
+            "type": "Role",
+            "user_name": "ops-admin"
+          },
+          "session_name": "maint",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "access_key_id:ASIAIOSFODNN7OPSMNT"
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "94d6ce92-a4b5-5017-b554-c200a68a9aa4",
+        "event_name": "GetSessionToken",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-20T10:05:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "durationSeconds": 43200
+        },
+        "resources": [],
+        "response_elements": {
+          "credentials": {
+            "accessKeyId": "ASIAIOSFODNN7JNKTOK",
+            "expiration": "Oct 20, 2026 11:00:00 PM",
+            "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS"
+          }
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 9
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/jenkins",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDAD95B56CE41A2E1AC4",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "jenkins"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [
+        "94d6ce92-a4b5-5017-b554-c200a68a9aa4"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "ba5efc04-26a3-539d-90ad-b357e29515e5",
+        "event_name": "DescribeInstances",
+        "event_source": "ec2.amazonaws.com",
+        "event_time": "2026-10-20T10:20:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": null,
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 11
+        },
+        "source_ip": "198.51.100.78",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7JNKTOK",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/jenkins",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDAD95B56CE41A2E1AC4",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "jenkins"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "access_key_id:ASIAIOSFODNN7JNKTOK"
+    },
+    {
+      "chain": [
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+        "2ffe710f-fbb1-5679-86f8-d41da46a5f2c"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "9c765f05-4203-5522-a74d-58c985b1a06a",
+        "event_name": "AssumeRole",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-20T13:00:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "roleArn": "arn:aws:iam::111122223333:role/support-audit",
+          "roleSessionName": "audit"
+        },
+        "resources": [],
+        "response_elements": {
+          "assumedRoleUser": {
+            "arn": "arn:aws:sts::111122223333:assumed-role/support-audit/audit",
+            "assumedRoleId": "AROA562411BDB29807BFD:audit"
+          },
+          "credentials": {
+            "accessKeyId": "ASIAIOSFODNN7AUDITS",
+            "expiration": "Oct 20, 2026 11:00:00 PM",
+            "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS"
+          }
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T1100Z_d74739e5.json",
+          "record": 2
+        },
+        "source_ip": "198.51.100.200",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": null,
+          "account_id": "999900001111",
+          "arn": null,
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDAFF352DFFCA2DEA308",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "AWSAccount",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "role_id:AROA562411BDB29807BFD"
+    },
+    {
+      "chain": [
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+        "2ffe710f-fbb1-5679-86f8-d41da46a5f2c"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "ea972266-d206-5a49-9154-6b3c92801147",
+        "event_name": "ListBuckets",
+        "event_source": "s3.amazonaws.com",
+        "event_time": "2026-10-20T13:01:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": null,
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T1100Z_d74739e5.json",
+          "record": 3
+        },
+        "source_ip": "198.51.100.200",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7AUDITS",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/support-audit/audit",
+          "invoked_by": null,
+          "mfa_authenticated": false,
+          "principal_id": "AROA562411BDB29807BFD:audit",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/support-audit",
+            "principal_id": "AROA562411BDB29807BFD",
+            "type": "Role",
+            "user_name": "support-audit"
+          },
+          "session_name": "audit",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "role_id:AROA562411BDB29807BFD"
+    },
+    {
+      "chain": [
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+        "2ffe710f-fbb1-5679-86f8-d41da46a5f2c"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+        "event_name": "ListSecrets",
+        "event_source": "secretsmanager.amazonaws.com",
+        "event_time": "2026-10-20T13:02:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": null,
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T1100Z_d74739e5.json",
+          "record": 4
+        },
+        "source_ip": "198.51.100.200",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7AUDITS",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/support-audit/audit",
+          "invoked_by": null,
+          "mfa_authenticated": false,
+          "principal_id": "AROA562411BDB29807BFD:audit",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/support-audit",
+            "principal_id": "AROA562411BDB29807BFD",
+            "type": "Role",
+            "user_name": "support-audit"
+          },
+          "session_name": "audit",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "role_id:AROA562411BDB29807BFD"
+    }
+  ],
+  "inputs": {
+    "accounts": [
+      "111122223333"
+    ],
+    "duplicates_removed": 0,
+    "error_files": 0,
+    "errors": [],
+    "event_count": 34,
+    "file_count": 4,
+    "first_event_time": "2026-10-20T08:00:00Z",
+    "ignored_files": 0,
+    "ingested_files": 4,
+    "last_event_time": "2026-10-20T23:05:00Z",
+    "malformed_records": 0,
+    "malformed_samples": [],
+    "manifest_sha256": "0003caea6caeff962019d3a19ce8d205e753473b3bf637c9f5e14881136ccb81",
+    "regions": [
+      "us-east-1",
+      "us-west-2"
+    ],
+    "skipped": [],
+    "skipped_files": 0
+  },
+  "near_miss_summary": {
+    "by_indicator": {},
+    "by_reason": {},
+    "listed": 0,
+    "total": 0
+  },
+  "near_misses": [],
+  "schema_version": "0.2",
+  "scope_sha256": "4fa1c19c69fe32f1912d9c38ab3917e2aaa5c8c4dcb7384d930a66a9fbbbd6e4",
+  "seeds": {
+    "expression": "leaked_key",
+    "indicators": [
+      {
+        "kind": "access_key_id",
+        "match": "exact",
+        "name": "leaked_key",
+        "value": "AKIAIOSFODNN7LEAKED"
+      }
+    ],
+    "window": null
+  },
+  "summary": {
+    "by_account": {
+      "111122223333": 12
+    },
+    "by_confidence": {
+      "strong": 12,
+      "weak": 0
+    },
+    "by_origin": {
+      "propagated": 8,
+      "seed": 4
+    },
+    "by_region": {
+      "us-east-1": 12
+    },
+    "events_in_scope": 12,
+    "failed_calls": 0,
+    "first_event_time": "2026-10-20T10:00:00Z",
+    "last_event_time": "2026-10-20T13:02:00Z"
+  },
+  "taint": {
+    "enabled": true,
+    "identities": [
+      {
+        "chain": [
+          "d554bd6b-07d7-5564-b3ed-5c98efd37228"
+        ],
+        "confidence": "strong",
+        "events": 4,
+        "issued_at": "2026-10-20T10:01:00Z",
+        "issued_by": "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+        "kind": "access_key_id",
+        "rule": "sts:AssumeRole",
+        "value": "ASIAIOSFODNN7OPSMNT"
+      },
+      {
+        "chain": [
+          "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+          "2ffe710f-fbb1-5679-86f8-d41da46a5f2c"
+        ],
+        "confidence": "strong",
+        "events": 3,
+        "issued_at": "2026-10-20T10:03:00Z",
+        "issued_by": "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+        "kind": "role_id",
+        "rule": "iam:CreateRole",
+        "value": "AROA562411BDB29807BFD"
+      },
+      {
+        "chain": [
+          "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+          "cb96022f-25c2-56a3-ab3f-bf725e6fd694"
+        ],
+        "confidence": "strong",
+        "events": 0,
+        "issued_at": "2026-10-20T10:04:00Z",
+        "issued_by": "cb96022f-25c2-56a3-ab3f-bf725e6fd694",
+        "kind": "access_key_id",
+        "rule": "sts:AssumeRole",
+        "value": "ASIAIOSFODNN7PRODMT"
+      },
+      {
+        "chain": [
+          "94d6ce92-a4b5-5017-b554-c200a68a9aa4"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-20T10:05:00Z",
+        "issued_by": "94d6ce92-a4b5-5017-b554-c200a68a9aa4",
+        "kind": "access_key_id",
+        "rule": "sts:GetSessionToken",
+        "value": "ASIAIOSFODNN7JNKTOK"
+      },
+      {
+        "chain": [
+          "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+          "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+          "9c765f05-4203-5522-a74d-58c985b1a06a"
+        ],
+        "confidence": "strong",
+        "events": 2,
+        "issued_at": "2026-10-20T13:00:00Z",
+        "issued_by": "9c765f05-4203-5522-a74d-58c985b1a06a",
+        "kind": "access_key_id",
+        "rule": "sts:AssumeRole",
+        "value": "ASIAIOSFODNN7AUDITS"
+      }
+    ]
+  },
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}

@@ -8,6 +8,100 @@
       "title": "Confidence",
       "type": "string"
     },
+    "Coverage": {
+      "additionalProperties": false,
+      "description": "What the logs can and cannot show about this incident.",
+      "properties": {
+        "data_events": {
+          "title": "Data Events",
+          "type": "integer"
+        },
+        "gap_minutes": {
+          "title": "Gap Minutes",
+          "type": "integer"
+        },
+        "gaps": {
+          "items": {
+            "$ref": "#/$defs/Gap"
+          },
+          "title": "Gaps",
+          "type": "array"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "period_end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Period End"
+        },
+        "period_start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Period Start"
+        },
+        "read_only_events": {
+          "title": "Read Only Events",
+          "type": "integer"
+        },
+        "streams": {
+          "items": {
+            "$ref": "#/$defs/LogStream"
+          },
+          "title": "Streams",
+          "type": "array"
+        },
+        "tampering": {
+          "items": {
+            "$ref": "#/$defs/TamperingEvent"
+          },
+          "title": "Tampering",
+          "type": "array"
+        },
+        "tampering_total": {
+          "title": "Tampering Total",
+          "type": "integer"
+        },
+        "unlogged_accounts": {
+          "items": {
+            "$ref": "#/$defs/UnloggedAccount"
+          },
+          "title": "Unlogged Accounts",
+          "type": "array"
+        }
+      },
+      "required": [
+        "period_start",
+        "period_end",
+        "gap_minutes",
+        "streams",
+        "gaps",
+        "tampering",
+        "tampering_total",
+        "unlogged_accounts",
+        "data_events",
+        "read_only_events",
+        "notes"
+      ],
+      "title": "Coverage",
+      "type": "object"
+    },
     "Event": {
       "additionalProperties": false,
       "properties": {
@@ -206,6 +300,63 @@
       "title": "FileProblem",
       "type": "object"
     },
+    "Gap": {
+      "additionalProperties": false,
+      "description": "A silence in one stream during the incident, long for that stream. Logs may be missing; or it was just quiet.",
+      "properties": {
+        "account": {
+          "title": "Account",
+          "type": "string"
+        },
+        "end": {
+          "title": "End",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "silence",
+            "starts_late",
+            "ends_early"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "minutes": {
+          "title": "Minutes",
+          "type": "integer"
+        },
+        "possible_cause": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Possible Cause"
+        },
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "account",
+        "region",
+        "kind",
+        "start",
+        "end",
+        "minutes",
+        "possible_cause"
+      ],
+      "title": "Gap",
+      "type": "object"
+    },
     "Indicator": {
       "additionalProperties": false,
       "properties": {
@@ -369,6 +520,46 @@
       "title": "InputsSummary",
       "type": "object"
     },
+    "LogStream": {
+      "additionalProperties": false,
+      "description": "The events one account and region contributed: the span of time the logs cover there.",
+      "properties": {
+        "account": {
+          "title": "Account",
+          "type": "string"
+        },
+        "events": {
+          "title": "Events",
+          "type": "integer"
+        },
+        "first_event_time": {
+          "title": "First Event Time",
+          "type": "string"
+        },
+        "last_event_time": {
+          "title": "Last Event Time",
+          "type": "string"
+        },
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "typical_interval_s": {
+          "title": "Typical Interval S",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "account",
+        "region",
+        "events",
+        "first_event_time",
+        "last_event_time",
+        "typical_interval_s"
+      ],
+      "title": "LogStream",
+      "type": "object"
+    },
     "NearMiss": {
       "additionalProperties": false,
       "description": "An event that matched a weak indicator but is not in scope. Compact on purpose: there can be very many.",
@@ -507,6 +698,18 @@
           ],
           "title": "Origin",
           "type": "string"
+        },
+        "via": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Via"
         }
       },
       "required": [
@@ -654,6 +857,13 @@
           "title": "By Confidence",
           "type": "object"
         },
+        "by_origin": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "By Origin",
+          "type": "object"
+        },
         "by_region": {
           "additionalProperties": {
             "type": "integer"
@@ -695,6 +905,7 @@
       "required": [
         "events_in_scope",
         "by_confidence",
+        "by_origin",
         "by_account",
         "by_region",
         "failed_calls",
@@ -702,6 +913,191 @@
         "last_event_time"
       ],
       "title": "Summary",
+      "type": "object"
+    },
+    "TaintInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "identities": {
+          "items": {
+            "$ref": "#/$defs/TaintedIdentity"
+          },
+          "title": "Identities",
+          "type": "array"
+        }
+      },
+      "required": [
+        "enabled",
+        "identities"
+      ],
+      "title": "TaintInfo",
+      "type": "object"
+    },
+    "TaintedIdentity": {
+      "additionalProperties": false,
+      "description": "A credential or principal the attacker created or obtained, found by following the in-scope events.",
+      "properties": {
+        "chain": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Chain",
+          "type": "array"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "events": {
+          "title": "Events",
+          "type": "integer"
+        },
+        "issued_at": {
+          "title": "Issued At",
+          "type": "string"
+        },
+        "issued_by": {
+          "title": "Issued By",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "access_key_id",
+            "principal_id",
+            "role_id",
+            "instance_id"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "rule": {
+          "title": "Rule",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value",
+        "confidence",
+        "rule",
+        "issued_by",
+        "issued_at",
+        "chain",
+        "events"
+      ],
+      "title": "TaintedIdentity",
+      "type": "object"
+    },
+    "TamperingEvent": {
+      "additionalProperties": false,
+      "description": "A call that turns off, narrows or deletes logging or detection. Listed whoever made it.",
+      "properties": {
+        "account": {
+          "title": "Account",
+          "type": "string"
+        },
+        "effect": {
+          "title": "Effect",
+          "type": "string"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error Code"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_name": {
+          "title": "Event Name",
+          "type": "string"
+        },
+        "event_source": {
+          "title": "Event Source",
+          "type": "string"
+        },
+        "event_time": {
+          "title": "Event Time",
+          "type": "string"
+        },
+        "in_scope": {
+          "title": "In Scope",
+          "type": "boolean"
+        },
+        "principal": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Principal"
+        },
+        "region": {
+          "title": "Region",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_time",
+        "event_source",
+        "event_name",
+        "effect",
+        "account",
+        "region",
+        "principal",
+        "error_code",
+        "in_scope"
+      ],
+      "title": "TamperingEvent",
+      "type": "object"
+    },
+    "UnloggedAccount": {
+      "additionalProperties": false,
+      "description": "An account in-scope activity reached (by assuming a role in it) that none of the inputs come from.",
+      "properties": {
+        "account": {
+          "title": "Account",
+          "type": "string"
+        },
+        "event_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Event Ids",
+          "type": "array"
+        },
+        "role_arns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Role Arns",
+          "type": "array"
+        }
+      },
+      "required": [
+        "account",
+        "role_arns",
+        "event_ids"
+      ],
+      "title": "UnloggedAccount",
       "type": "object"
     },
     "UserIdentity": {
@@ -875,10 +1271,13 @@
       "type": "object"
     }
   },
-  "$id": "https://controlzee.invalid/schemas/scope-0.1.json",
+  "$id": "https://controlzee.invalid/schemas/scope-0.2.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "coverage": {
+      "$ref": "#/$defs/Coverage"
+    },
     "events": {
       "items": {
         "$ref": "#/$defs/ScopedEvent"
@@ -900,7 +1299,7 @@
       "type": "array"
     },
     "schema_version": {
-      "default": "0.1",
+      "default": "0.2",
       "title": "Schema Version",
       "type": "string"
     },
@@ -915,6 +1314,9 @@
     "summary": {
       "$ref": "#/$defs/Summary"
     },
+    "taint": {
+      "$ref": "#/$defs/TaintInfo"
+    },
     "tool": {
       "additionalProperties": true,
       "title": "Tool",
@@ -928,7 +1330,9 @@
     "summary",
     "events",
     "near_misses",
-    "near_miss_summary"
+    "near_miss_summary",
+    "taint",
+    "coverage"
   ],
   "title": "Scope",
   "type": "object"

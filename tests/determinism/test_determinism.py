@@ -12,6 +12,7 @@ import pytest
 
 from controlzee.scope import ScopeOptions, build_scope
 from controlzee.seed.spec import assemble, load_iocs_file
+from tests.builders.build_fixtures import SCENARIOS
 
 pytestmark = pytest.mark.slow
 
@@ -24,7 +25,7 @@ def scope_bytes(logs, spec, workers=1):
     return build_scope([logs], spec, ScopeOptions(workers=workers)).scope_bytes
 
 
-@pytest.mark.parametrize("scenario", ["01_leaked_key", "05_weak_ioc"])
+@pytest.mark.parametrize("scenario", SCENARIOS)
 def test_hash_seed_does_not_change_the_output(fixtures, tmp_path, scenario):
     root = fixtures / scenario
     outputs = set()
@@ -39,7 +40,7 @@ def test_hash_seed_does_not_change_the_output(fixtures, tmp_path, scenario):
     assert next(iter(outputs))[0] == (root / "expected/scope.json").read_bytes()
 
 
-@pytest.mark.parametrize("scenario", ["01_leaked_key", "05_weak_ioc"])
+@pytest.mark.parametrize("scenario", SCENARIOS)
 def test_worker_count_does_not_change_the_output(fixtures, scenario, monkeypatch):
     root = fixtures / scenario
     # force the process pool even though the fixtures are tiny
@@ -74,7 +75,7 @@ def _rewrite(records, dest, *, per_file, gz, seed):
             (dest / name).write_bytes(body)
 
 
-@pytest.mark.parametrize("scenario", ["01_leaked_key", "05_weak_ioc"])
+@pytest.mark.parametrize("scenario", SCENARIOS)
 def test_the_events_do_not_depend_on_how_the_files_are_arranged(fixtures, tmp_path, scenario):
     root = fixtures / scenario
     spec = spec_for(root)

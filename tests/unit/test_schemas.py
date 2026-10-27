@@ -6,6 +6,7 @@ import pytest
 
 from controlzee.model.scope import InputsManifest
 from controlzee.schemas import SCHEMAS, schema_bytes, schema_for
+from tests.builders.build_fixtures import SCENARIOS
 
 SCHEMA_DIR = Path(__file__).resolve().parents[2] / "schemas"
 
@@ -17,7 +18,7 @@ def test_committed_schema_is_current(name):
     assert committed.read_bytes() == schema_bytes(name), f"{committed.name} is stale; run: uv run python -m controlzee.schemas"
 
 
-@pytest.mark.parametrize("scenario", ["01_leaked_key", "05_weak_ioc"])
+@pytest.mark.parametrize("scenario", SCENARIOS)
 def test_goldens_validate_against_the_schemas(fixtures, scenario):
     expected = fixtures / scenario / "expected"
     for name, file in (("scope", "scope.json"), ("inputs", "scope.inputs.json")):

@@ -99,8 +99,8 @@ def load_index(inputs: Sequence[Path], options: IngestOptions | None = None) -> 
     sources, skipped, ignored = discover(inputs)
     if not sources:
         raise IngestError("no CloudTrail log files (.json / .json.gz) found in the given inputs")
-    # TODO(milestone-2): rows are all kept in memory (about 10M events per 8 GB); once taint rules exist, drop rows that
-    # no rule can use, or move to a disk-backed index.
+    # Rows are all kept in memory (about 10M events per 8 GB). Taint can reach any row, since any event may act as an
+    # identity the attacker obtained, so none can be dropped early; a disk-backed index is the fallback beyond that.
     was_enabled = gc.isenabled()
     gc.disable()
     try:
@@ -123,4 +123,4 @@ def load_index(inputs: Sequence[Path], options: IngestOptions | None = None) -> 
     entries = sorted([res.entry for res in results] + skipped, key=lambda e: e.path)
     return EventIndex(rows=rows, files=entries, duplicates_removed=dup,
                       malformed_records=sum(r.malformed for r in results), malformed_samples=samples,
-                      ignored_files=ignored, sources=sources)
+                      data_events=sum(r.data_events for r in results), ignored_files=ignored, sources=sources)

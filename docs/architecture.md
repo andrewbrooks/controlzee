@@ -1,8 +1,8 @@
 # Architecture notes
 
-## Pipeline (milestone 1 covers the first four steps)
+## Pipeline (milestones 1 to 3 cover the steps not in parentheses)
 
-ingest -> normalize -> seed -> (propagate taint) -> (timeline, exposure, coverage) -> (classify, plan) -> (report)
+ingest -> normalize -> seed -> propagate taint -> coverage -> (timeline, exposure) -> (classify, plan) -> (report)
 
 `scope.json` is the spine: every later command reads it. Steps in parentheses arrive in later milestones.
 
@@ -11,7 +11,7 @@ ingest -> normalize -> seed -> (propagate taint) -> (timeline, exposure, coverag
 Scoping has to be fast on millions of events, and almost all of them are irrelevant. So:
 
 1. **Index pass.** Each file is read, hashed, decompressed (with a size cap) and parsed with orjson. Per record only the
-   19 fields needed for matching are kept, as a plain tuple (`ingest/index.py`, `R_*` constants). No pydantic objects.
+   20 fields needed for matching and propagation are kept, as a plain tuple (`ingest/index.py`, `R_*` constants). No pydantic objects.
 2. **Materialize pass.** Only the files that hold in-scope events are read again, and full `Event` models are built for
    those events alone. An event-id check catches a file that changed between the passes.
 
@@ -31,7 +31,7 @@ End to end on the 1M-event set: about 2.6 s. Parallelism is skipped for inputs u
 where starting processes costs more than it saves.
 
 **Memory.** The index holds one tuple per event, so memory grows with event count: roughly 10M events per 8 GB.
-`TODO(milestone-2)` in `ingest/load.py` marks the place to drop rows that nothing downstream can need.
+Taint can reach any event (any of them may use a key the attacker obtained), so rows cannot be dropped early.
 A disk-backed index is the fallback if someone scopes much more than that in one run.
 
 ## Determinism
@@ -55,6 +55,31 @@ An expression combines them with AND / OR. A branch is strong if a strong indica
 indicators stays weak. A weak-only expression requires a window with a start and an end. Events that matched a weak
 indicator but were left out are recorded as near misses (counted in full, listed up to a limit) so a responder can see
 what the expression excluded.
+
+## Taint propagation
+
+`taint/rules.py` maps a handful of calls to what a successful one hands its caller: an access key, a user id, a role id,
+an instance id. The index workers apply it to every record (one dict lookup for the common case) and keep the result in
+the row's `issued` field, so propagation never re-reads a file.
+
+`taint/propagate.py` then walks breadth first from the seeds, strong seeds first and weak ones after. Each round takes
+the identities issued by the newest in-scope events and makes one pass over the rows from the earliest of them onwards,
+adding every event that acted as one (by access key, principal id, role-id prefix of the principal id, or instance-id
+session name). An event cannot act as an identity before the event that issued it. Each event and identity is reached
+once, by its shortest chain; an identity reached from a strong seed is strong.
+
+An `AssumeRole` call also records which role it obtained a session of. That is how the entry into a role the attacker
+created is found when the caller is another account with no tainted key.
+
+Measured on 1M synthetic rows: about 0.4 s per round. Most chains are a few rounds deep.
+
+## Coverage
+
+`coverage.py` makes one pass over the rows (about 0.2 s per 1M) to build per-(account, region) streams, collect every
+silence longer than `--gap-minutes`, and list tampering calls; data events are counted per file during the index pass.
+A silence is kept when it overlaps the incident period (the seed window together with the in-scope events) and is at
+least ten times the stream's mean interval, so busy streams flag missing logs while quiet ones do not flag every night.
+The mean is used rather than the median so the pass needs constant memory per stream.
 
 ## Untrusted input
 

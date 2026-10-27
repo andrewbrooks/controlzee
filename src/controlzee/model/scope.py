@@ -43,7 +43,29 @@ class ScopedEvent(Model):
     confidence: Confidence
     origin: Literal["seed", "propagated"] = "seed"
     matched_indicators: list[str]
-    chain: list[str] = []  # taint chain back to a seed; empty for seeds (filled in from milestone 2)
+    chain: list[str] = []  # event ids from a seed to the call that issued `via`; empty for seeds no taint reached
+    via: str | None = None  # the tainted identity the event acted as, "<kind>:<value>"
+
+
+IdentityKind = Literal["access_key_id", "principal_id", "role_id", "instance_id"]
+
+
+class TaintedIdentity(Model):
+    """A credential or principal the attacker created or obtained, found by following the in-scope events."""
+
+    kind: IdentityKind
+    value: str
+    confidence: Confidence
+    rule: str  # the call that issued it, e.g. "iam:CreateAccessKey"
+    issued_by: str  # event id
+    issued_at: str
+    chain: list[str]  # event ids from a seed to issued_by, inclusive
+    events: int  # in-scope events that acted as this identity
+
+
+class TaintInfo(Model):
+    enabled: bool
+    identities: list[TaintedIdentity]
 
 
 class NearMiss(Model):
@@ -69,11 +91,74 @@ class NearMissSummary(Model):
 class Summary(Model):
     events_in_scope: int
     by_confidence: dict[str, int]
+    by_origin: dict[str, int]
     by_account: dict[str, int]
     by_region: dict[str, int]
     failed_calls: int
     first_event_time: str | None
     last_event_time: str | None
+
+
+class LogStream(Model):
+    """The events one account and region contributed: the span of time the logs cover there."""
+
+    account: str
+    region: str
+    events: int
+    first_event_time: str
+    last_event_time: str
+    typical_interval_s: int  # mean time between events; 0 for a stream with one event
+
+
+class Gap(Model):
+    """A silence in one stream during the incident, long for that stream. Logs may be missing; or it was just quiet."""
+
+    account: str
+    region: str
+    kind: Literal["silence", "starts_late", "ends_early"]  # between two events, or before the first / after the last
+    start: str
+    end: str
+    minutes: int
+    possible_cause: str | None  # event id of a logging change in that account just before or during the gap
+
+
+class TamperingEvent(Model):
+    """A call that turns off, narrows or deletes logging or detection. Listed whoever made it."""
+
+    event_id: str
+    event_time: str
+    event_source: str
+    event_name: str
+    effect: str
+    account: str
+    region: str
+    principal: str | None
+    error_code: str | None  # set when the call failed
+    in_scope: bool
+
+
+class UnloggedAccount(Model):
+    """An account in-scope activity reached (by assuming a role in it) that none of the inputs come from."""
+
+    account: str
+    role_arns: list[str]
+    event_ids: list[str]
+
+
+class Coverage(Model):
+    """What the logs can and cannot show about this incident."""
+
+    period_start: str | None  # the incident period checked for gaps: the window and the in-scope events together
+    period_end: str | None
+    gap_minutes: int  # shortest silence reported
+    streams: list[LogStream]
+    gaps: list[Gap]
+    tampering: list[TamperingEvent]  # first 100 only
+    tampering_total: int
+    unlogged_accounts: list[UnloggedAccount]
+    data_events: int
+    read_only_events: int
+    notes: list[str]
 
 
 class Scope(Model):
@@ -85,6 +170,8 @@ class Scope(Model):
     events: list[ScopedEvent]
     near_misses: list[NearMiss]
     near_miss_summary: NearMissSummary
+    taint: TaintInfo
+    coverage: Coverage
     scope_sha256: str = ""  # SHA-256 of this document's canonical form without this field
 
 

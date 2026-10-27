@@ -1,0 +1,42 @@
+{
+  "Records": [
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "AssumedRole",
+        "principalId": "AROAC1AB9924ECDA1BEAF:poller",
+        "arn": "arn:aws:sts::111122223333:assumed-role/monitoring/poller",
+        "accountId": "111122223333",
+        "accessKeyId": "ASIAIOSFODNN7MONITR",
+        "sessionContext": {
+          "sessionIssuer": {
+            "type": "Role",
+            "principalId": "AROAC1AB9924ECDA1BEAF",
+            "arn": "arn:aws:iam::111122223333:role/monitoring",
+            "accountId": "111122223333",
+            "userName": "monitoring"
+          },
+          "attributes": {
+            "creationDate": "2026-10-20T08:00:00Z",
+            "mfaAuthenticated": "false"
+          }
+        }
+      },
+      "eventTime": "2026-10-20T23:55:00Z",
+      "eventSource": "monitoring.amazonaws.com",
+      "eventName": "DescribeAlarms",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "192.0.2.60",
+      "userAgent": "aws-sdk-java/2.25.0",
+      "requestParameters": null,
+      "responseElements": null,
+      "requestID": "39bb9395-dc1b-5486-a5bc-98c3a6aeb2d5",
+      "eventID": "41279399-d4eb-5fb0-ba84-7e144bade6fe",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    }
+  ]
+}

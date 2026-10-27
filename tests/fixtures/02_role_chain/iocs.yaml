@@ -1,0 +1,4 @@
+# Scenario 2: a leaked Jenkins key. Only the key is known; everything else is found by following what it obtained.
+version: 1
+indicators:
+  leaked_key: {type: access_key_id, value: AKIAIOSFODNN7LEAKED}

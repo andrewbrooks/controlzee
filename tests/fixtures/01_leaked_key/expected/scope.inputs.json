@@ -12,8 +12,8 @@
       "note": null,
       "path": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T1430Z_fb43664d.json",
       "records": 12,
-      "sha256": "28f865055d207791a8ec472630c9a1f0b8dd0be70dcd27bc46e940c40633c63d",
-      "size_bytes": 12000,
+      "sha256": "9816d8343280a7cef190bd9c0ba3b29397cefae6ee11d8a153ff619ac8a1e883",
+      "size_bytes": 12002,
       "status": "ingested"
     },
     {
@@ -33,8 +33,8 @@
       "status": "ingested"
     }
   ],
-  "manifest_sha256": "6c412a1d770bc610c177d8d19508461ad25f1f198118fc37be48ac1c42af3b09",
-  "schema_version": "0.1",
+  "manifest_sha256": "1b0363198d1a251b0a8164bbf19ca83e2121f2b0c09103a5c6a0f0ae81d44e6c",
+  "schema_version": "0.2",
   "tool": {
     "name": "controlzee",
     "version": "0.1.0.dev0"

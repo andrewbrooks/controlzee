@@ -34,19 +34,28 @@ def _id(prefix: str, name: str, n: int = 17) -> str:
     return prefix + hashlib.sha1(name.encode()).hexdigest()[:n].upper()
 
 
+def role_id(role: str) -> str:
+    return _id("AROA", role)
+
+
 def iam_user(name: str, access_key: str, *, account: str = ACCOUNT) -> dict[str, Any]:
     return {"type": "IAMUser", "principalId": _id("AIDA", name), "arn": f"arn:aws:iam::{account}:user/{name}",
             "accountId": account, "accessKeyId": access_key, "userName": name}
 
 
 def assumed_role(role: str, session: str, access_key: str, *, account: str = ACCOUNT, mfa: bool = False) -> dict[str, Any]:
-    rid = _id("AROA", role)
+    rid = role_id(role)
     return {"type": "AssumedRole", "principalId": f"{rid}:{session}", "arn": f"arn:aws:sts::{account}:assumed-role/{role}/{session}",
             "accountId": account, "accessKeyId": access_key,
             "sessionContext": {
                 "sessionIssuer": {"type": "Role", "principalId": rid, "arn": f"arn:aws:iam::{account}:role/{role}",
                                   "accountId": account, "userName": role},
                 "attributes": {"creationDate": "2026-10-20T08:00:00Z", "mfaAuthenticated": "true" if mfa else "false"}}}
+
+
+def other_account(account: str) -> dict[str, Any]:
+    """A caller from another account, as the target account logs it (for example when assuming one of its roles)."""
+    return {"type": "AWSAccount", "principalId": _id("AIDA", f"ext-{account}"), "accountId": account}
 
 
 @dataclass
@@ -57,7 +66,7 @@ class LogSet:
     def add(self, when: datetime, source: str, name: str, identity: dict[str, Any], *, region: str = "us-east-1",
             ip: str = "198.51.100.10", ua: str = "aws-cli/2.15.0 Python/3.11.6 Linux/5.10 exe/x86_64", request: dict[str, Any] | None = None,
             response: dict[str, Any] | None = None, error: tuple[str, str] | None = None, read_only: bool | None = None,
-            resources: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+            resources: list[dict[str, Any]] | None = None, category: str = "Management") -> dict[str, Any]:
         n = len(self.records)
         rec: dict[str, Any] = {
             "eventVersion": "1.09", "userIdentity": identity, "eventTime": when.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -65,7 +74,8 @@ class LogSet:
             "requestParameters": request, "responseElements": None if error else response,
             "requestID": str(uuid.uuid5(_NS, f"req-{self.account}-{n}")), "eventID": str(uuid.uuid5(_NS, f"evt-{self.account}-{n}")),
             "readOnly": name.startswith(_READ_PREFIXES) if read_only is None else read_only,
-            "eventType": "AwsApiCall", "managementEvent": True, "recipientAccountId": self.account, "eventCategory": "Management",
+            "eventType": "AwsApiCall", "managementEvent": category == "Management", "recipientAccountId": self.account,
+            "eventCategory": category,
         }
         if resources:
             rec["resources"] = resources

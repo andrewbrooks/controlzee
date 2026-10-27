@@ -77,7 +77,7 @@
         "user": {
           "path": "/",
           "userName": "backdoor-svc",
-          "userId": "AIDAIOSFODNN7BKDOOR",
+          "userId": "AIDAE18185DBD523AB726",
           "arn": "arn:aws:iam::111122223333:user/backdoor-svc",
           "createDate": "Oct 20, 2026 2:32:00 PM"
         }

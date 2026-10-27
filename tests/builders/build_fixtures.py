@@ -16,6 +16,9 @@ FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
 SCENARIOS = {
     "01_leaked_key": (scenarios.scenario_01_leaked_key, 0),
+    "02_role_chain": (scenarios.scenario_02_role_chain, 0),
+    "03_instance_role": (scenarios.scenario_03_instance_role, 2),
+    "04_log_tampering": (scenarios.scenario_04_log_tampering, 0),
     "05_weak_ioc": (scenarios.scenario_05_weak_ioc, 3),  # every third file gzipped, to exercise both formats
 }
 

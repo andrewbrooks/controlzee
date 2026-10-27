@@ -42,7 +42,7 @@
     }
   ],
   "manifest_sha256": "a4dd6eed01f0504e75f96dba6ed5cbbac7461b114812a26b16108a2a7d387c6c",
-  "schema_version": "0.1",
+  "schema_version": "0.2",
   "tool": {
     "name": "controlzee",
     "version": "0.1.0.dev0"

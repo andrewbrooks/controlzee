@@ -4,7 +4,7 @@ import zlib
 import orjson
 import pytest
 
-from controlzee.ingest.index import R_ID, R_TS
+from controlzee.ingest.index import R_ID, R_ISSUED, R_TS
 from controlzee.ingest.load import IngestError, IngestOptions, discover, load_index
 from controlzee.ingest.materialize import materialize
 from controlzee.ingest.parse import gunzip_capped, load_records, row_of
@@ -167,3 +167,15 @@ def test_materialize_detects_files_changed_underneath(tmp_path):
     put(p, [rec(1)])
     with pytest.raises(IngestError, match="changed while scoping"):
         materialize(idx, [1], max_bytes=LIMIT, workers=1)
+
+
+# ---- what calls hand over, and data events
+
+def test_rows_record_what_a_successful_call_handed_over(tmp_path):
+    made = rec(1, eventSource="iam.amazonaws.com", eventName="CreateAccessKey", responseElements={"accessKey": {"accessKeyId": "AKIANEW"}})
+    failed = rec(2, eventSource="iam.amazonaws.com", eventName="CreateAccessKey", errorCode="LimitExceeded")
+    data = rec(3, eventCategory="Data", eventName="GetObject")
+    put(tmp_path / "x.json", [made, failed, data])
+    idx = load_index([tmp_path], IngestOptions(workers=1))
+    assert [r[R_ISSUED] for r in idx.rows] == [(("access_key_id", "AKIANEW"),), None, None]
+    assert idx.data_events == 1

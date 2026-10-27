@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-controlzee is a Python 3.12 CLI ("incident response as code for AWS"): CloudTrail logs plus IOCs in, a reproducible scope of what the attacker did out. Only milestone 1 (`controlzee scope`) exists; taint propagation, timeline, plan and report are planned milestones (see `README.md`, `docs/architecture.md`).
+controlzee is a Python 3.12 CLI ("incident response as code for AWS"): CloudTrail logs plus IOCs in, a reproducible scope of what the attacker did out. Milestones 1-3 exist, all inside `controlzee scope`: IOC seeding, taint propagation and coverage. Timeline, exposure, plan and report are planned (see `README.md`, `docs/architecture.md`).
 
 ## Commands
 
@@ -20,11 +20,13 @@ UPDATE_GOLDENS=1 uv run pytest tests/unit/test_scope_scenarios.py   # rewrite go
 
 ## Architecture
 
-Pipeline: ingest -> normalize -> seed (IOC match) -> `scope.json`. `scope.json` is meant to be the spine that later commands read.
+Pipeline: ingest -> normalize -> seed (IOC match) -> propagate taint -> coverage -> `scope.json`. `scope.json` is meant to be the spine that later commands read.
 
-- **Two-pass ingest** (`ingest/`). Pass 1 (`load.py`, `parse.py`) parses every file in a spawn process pool into compact 19-field tuple rows (`index.py`; fields are addressed by the `R_*` constants, never by bare numbers). No pydantic objects at this stage. Pass 2 (`materialize.py`) re-reads only files containing in-scope events and builds full `Event` models, checking event ids against the index. Anything that touches every event must work on rows, not models.
+- **Two-pass ingest** (`ingest/`). Pass 1 (`load.py`, `parse.py`) parses every file in a spawn process pool into compact 20-field tuple rows (`index.py`; fields are addressed by the `R_*` constants, never by bare numbers). No pydantic objects at this stage. Pass 2 (`materialize.py`) re-reads only files containing in-scope events and builds full `Event` models, checking event ids against the index. Anything that touches every event must work on rows, not models.
 - **Sources**: `ingest/source.py` defines the `Source` protocol (picklable, relative names only). Only `LocalSource` exists; S3 and CloudTrail LookupEvents are planned to plug in here.
 - **Seeding** (`seed/`): `expr.py` is the AND/OR grammar and strong/weak evaluation, `match.py` compiles indicators to predicates and records near misses, `spec.py` and `guardduty.py` build a `SeedSpec` from YAML, CLI flags and GuardDuty findings (precedence: CLI, then IOC file, then GuardDuty). `scope.py` ties the phases together.
+- **Taint** (`taint/`): `rules.py` says what each call hands its caller (new key, user, role, instance); it runs in the index workers and fills the row's `R_ISSUED` field. `propagate.py` walks breadth first from the seeds over rows (strong seeds first), recording each event's `via` identity and chain.
+- **Coverage** (`coverage.py`): one pass over rows for per-(account, region) streams, unusual silences during the incident, logging tampering; plus accounts reached via AssumeRole that sent no logs and missing data/read-only events.
 - **Models** (`model/`) are frozen pydantic v2 models with `extra="forbid"`. `schemas.py` exports their JSON Schemas to `schemas/`, and a test fails if the committed files are stale.
 
 ## Invariants to preserve

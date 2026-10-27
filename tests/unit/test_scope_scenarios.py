@@ -4,6 +4,7 @@ import pytest
 from controlzee import canonical
 from controlzee.scope import ScopeOptions, build_scope
 from controlzee.seed.spec import SpecParts, assemble, from_flags, load_iocs_file
+from tests.builders.build_fixtures import SCENARIOS
 
 OPTS = ScopeOptions(workers=1)
 
@@ -20,13 +21,14 @@ def names(out):
 
 def test_scenario_01_and_expression_isolates_the_attackers_calls(fixtures):
     out = scope_for(fixtures, "01_leaked_key")
-    assert names(out) == ["GetCallerIdentity", "ListUsers", "ListRoles", "ListBuckets", "DescribeInstances",
-                          "GetAccountAuthorizationDetails", "CreateUser", "AttachUserPolicy", "CreateAccessKey"]
+    seeds = [s for s in out.scope.events if s.origin == "seed"]
+    assert [s.event.event_name for s in seeds] == ["GetCallerIdentity", "ListUsers", "ListRoles", "ListBuckets", "DescribeInstances",
+                                                   "GetAccountAuthorizationDetails", "CreateUser", "AttachUserPolicy", "CreateAccessKey"]
     assert {s.confidence.value for s in out.scope.events} == {"strong"}
-    assert {s.event.source_ip for s in out.scope.events} == {"198.51.100.77"}
+    assert {s.event.source_ip for s in seeds} == {"198.51.100.77"}
     s = out.scope.summary
-    assert (s.events_in_scope, s.failed_calls, s.by_confidence) == (9, 1, {"strong": 9, "weak": 0})
-    assert s.first_event_time == "2026-10-20T14:30:00Z" and s.last_event_time == "2026-10-20T14:32:20Z"
+    assert (s.events_in_scope, s.failed_calls, s.by_confidence) == (11, 1, {"strong": 11, "weak": 0})
+    assert s.first_event_time == "2026-10-20T14:30:00Z" and s.last_event_time == "2026-10-20T14:40:00Z"
     assert out.scope.seeds.expression == "leaked_key AND attacker_ip"
     assert out.scope.inputs.error_files == 0 and out.scope.inputs.accounts == ["111122223333"]
     assert out.scope.near_miss_summary.total == 0
@@ -34,15 +36,78 @@ def test_scenario_01_and_expression_isolates_the_attackers_calls(fixtures):
 
 def test_scenario_01_key_alone_also_catches_the_owners_own_use(fixtures):
     out = scope_for(fixtures, "01_leaked_key", "iocs_key_only.yaml")
-    assert len(out.scope.events) == 11
-    assert {s.event.source_ip for s in out.scope.events} == {"198.51.100.77", "203.0.113.10"}
+    assert out.scope.summary.by_origin == {"propagated": 2, "seed": 11}
+    assert {s.event.source_ip for s in out.scope.events if s.origin == "seed"} == {"198.51.100.77", "203.0.113.10"}
 
 
-def test_scenario_01_backdoor_key_activity_is_not_a_seed_yet(fixtures):
-    # taint propagation (milestone 2) is what follows CreateAccessKey to the new key; scoping alone must not
+def test_scenario_01_taint_follows_the_backdoor_key(fixtures):
     out = scope_for(fixtures, "01_leaked_key")
-    assert all(s.event.user_identity.access_key_id != "AKIAIOSFODNN7BKDOOR" for s in out.scope.events)
-    assert all(s.origin == "seed" and s.chain == [] for s in out.scope.events)
+    seeds = [s for s in out.scope.events if s.origin == "seed"]
+    followed = [s for s in out.scope.events if s.origin == "propagated"]
+    assert all(s.chain == [] and s.via is None for s in seeds)
+    create_key = next(s.event.event_id for s in seeds if s.event.event_name == "CreateAccessKey")
+    assert [(s.event.event_name, s.via, s.chain, s.confidence.value) for s in followed] == [
+        ("ListBuckets", "access_key_id:AKIAIOSFODNN7BKDOOR", [create_key], "strong"),
+        ("ListUsers", "access_key_id:AKIAIOSFODNN7BKDOOR", [create_key], "strong")]
+    # the new user and its key are both tainted; the user's calls were made with that key
+    assert [(i.rule, i.kind, i.events) for i in out.scope.taint.identities] == [
+        ("iam:CreateUser", "principal_id", 2), ("iam:CreateAccessKey", "access_key_id", 2)]
+    assert out.scope.summary.by_origin == {"propagated": 2, "seed": 9}
+
+
+def test_no_propagate_keeps_only_the_seeds(fixtures):
+    out = scope_for(fixtures, "01_leaked_key", options=ScopeOptions(workers=1, propagate=False))
+    assert len(out.scope.events) == 9 and all(s.origin == "seed" for s in out.scope.events)
+    assert out.scope.taint.enabled is False and out.scope.taint.identities == []
+
+
+def test_scenario_02_follows_sessions_tokens_and_a_created_role_but_not_the_role_itself(fixtures):
+    out = scope_for(fixtures, "02_role_chain")
+    events = {(s.event.event_time[11:19], s.event.event_name): s for s in out.scope.events}
+    assert events[("10:02:00", "ListBuckets")].via == "access_key_id:ASIAIOSFODNN7OPSMNT"  # the assumed ops-admin session
+    assert events[("10:20:00", "DescribeInstances")].via == "access_key_id:ASIAIOSFODNN7JNKTOK"  # GetSessionToken
+    # the outside account's entry into the role the attacker created, and its sessions: three hops from the seed
+    entry = events[("13:00:00", "AssumeRole")]
+    assert entry.event.user_identity.account_id == "999900001111" and entry.via and entry.via.startswith("role_id:")
+    assert len(entry.chain) == 2 and len(events[("13:02:00", "ListSecrets")].chain) == 2
+    # an administrator's session of the same existing role is not the attacker's
+    assert all(s.event.user_identity.session_name != "alice" for s in out.scope.events)
+    assert {s.confidence.value for s in out.scope.events} == {"strong"}
+    assert [(u.account, u.role_arns) for u in out.scope.coverage.unlogged_accounts] == [
+        ("444455556666", ["arn:aws:iam::444455556666:role/prod-deploy"])]
+
+
+def test_scenario_03_weak_seeds_give_weak_taint_that_outlives_the_window(fixtures):
+    out = scope_for(fixtures, "03_instance_role")
+    followed = [s for s in out.scope.events if s.origin == "propagated"]
+    assert [(s.event.event_name, s.via.split(":")[0]) for s in followed if s.via] == [
+        ("ListBuckets", "instance_id"), ("ListSecrets", "instance_id"), ("GetSecretValue", "instance_id"),
+        ("ConsoleLogin", "principal_id"), ("ListUsers", "principal_id")]
+    assert {s.confidence.value for s in out.scope.events} == {"weak"}
+    assert max(s.event.event_time for s in followed) > "2026-10-20T15:30:00Z"  # after the window end
+    # CI's instance, launched with the same profile, is not followed
+    assert all("i-0f9e8d7c6b5a40312" not in (s.event.user_identity.principal_id or "") for s in out.scope.events)
+    assert out.scope.coverage.period_start == "2026-10-20T15:00:00Z"
+
+
+def test_scenario_04_coverage_finds_the_stopped_trail_and_the_silence_after_it(fixtures):
+    out = scope_for(fixtures, "04_log_tampering")
+    cov = out.scope.coverage
+    stop = next(s.event.event_id for s in out.scope.events if s.event.event_name == "StopLogging")
+    assert [(g.region, g.kind, g.start, g.end, g.minutes, g.possible_cause) for g in cov.gaps] == [
+        ("us-east-1", "silence", "2026-10-20T14:33:00Z", "2026-10-20T16:40:00Z", 127, stop)]
+    # us-west-2 was just as silent, but it is a quiet stream, so the silence is not evidence of anything
+    assert {s.region: s.typical_interval_s for s in cov.streams}["us-west-2"] > 10 * 127 * 60 // 10
+    assert [(t.event_name, t.in_scope, t.error_code) for t in cov.tampering] == [
+        ("UpdateTrail", False, None), ("DeleteDetector", True, "AccessDeniedException"),
+        ("StopConfigurationRecorder", True, None), ("StopLogging", True, None)]
+    assert cov.data_events == 4 and not any("data events" in n for n in cov.notes)
+    assert "2 in-scope call(s) changed logging or detection" in cov.notes
+
+
+def test_coverage_notes_missing_data_events(fixtures):
+    notes = scope_for(fixtures, "01_leaked_key").scope.coverage.notes
+    assert any(n.startswith("no data events") for n in notes)
 
 
 def test_scenario_05_weak_indicators_need_the_window_and_report_near_misses(fixtures):
@@ -89,7 +154,7 @@ def test_the_scope_is_sealed_and_references_its_inputs_manifest(fixtures):
     assert all(not f["path"].startswith("/") for f in out.inputs_document["files"])
 
 
-@pytest.mark.parametrize("scenario", ["01_leaked_key", "05_weak_ioc"])
+@pytest.mark.parametrize("scenario", SCENARIOS)
 def test_goldens(fixtures, golden, scenario):
     out = scope_for(fixtures, scenario)
     golden(fixtures / scenario / "expected" / "scope.json", out.scope_bytes)

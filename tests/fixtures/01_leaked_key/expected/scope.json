@@ -1,4 +1,36 @@
 {
+  "coverage": {
+    "data_events": 0,
+    "gap_minutes": 60,
+    "gaps": [],
+    "notes": [
+      "no data events in the inputs: S3 object reads and writes, Lambda invocations and other data-plane activity are not visible"
+    ],
+    "period_end": "2026-10-20T14:40:00Z",
+    "period_start": "2026-10-20T14:30:00Z",
+    "read_only_events": 23,
+    "streams": [
+      {
+        "account": "111122223333",
+        "events": 26,
+        "first_event_time": "2026-10-20T08:00:00Z",
+        "last_event_time": "2026-10-20T23:05:00Z",
+        "region": "us-east-1",
+        "typical_interval_s": 2172
+      },
+      {
+        "account": "111122223333",
+        "events": 8,
+        "first_event_time": "2026-10-20T08:30:00Z",
+        "last_event_time": "2026-10-20T22:30:00Z",
+        "region": "us-west-2",
+        "typical_interval_s": 7200
+      }
+    ],
+    "tampering": [],
+    "tampering_total": 0,
+    "unlogged_accounts": []
+  },
   "events": [
     {
       "chain": [],
@@ -43,7 +75,8 @@
         "attacker_ip",
         "leaked_key"
       ],
-      "origin": "seed"
+      "origin": "seed",
+      "via": null
     },
     {
       "chain": [],
@@ -88,7 +121,8 @@
         "attacker_ip",
         "leaked_key"
       ],
-      "origin": "seed"
+      "origin": "seed",
+      "via": null
     },
     {
       "chain": [],
@@ -133,7 +167,8 @@
         "attacker_ip",
         "leaked_key"
       ],
-      "origin": "seed"
+      "origin": "seed",
+      "via": null
     },
     {
       "chain": [],
@@ -178,7 +213,8 @@
         "attacker_ip",
         "leaked_key"
       ],
-      "origin": "seed"
+      "origin": "seed",
+      "via": null
     },
     {
       "chain": [],
@@ -223,7 +259,8 @@
         "attacker_ip",
         "leaked_key"
       ],
-      "origin": "seed"
+      "origin": "seed",
+      "via": null
     },
     {
       "chain": [],
@@ -268,7 +305,8 @@
         "attacker_ip",
         "leaked_key"
       ],
-      "origin": "seed"
+      "origin": "seed",
+      "via": null
     },
     {
       "chain": [],
@@ -293,7 +331,7 @@
             "arn": "arn:aws:iam::111122223333:user/backdoor-svc",
             "createDate": "Oct 20, 2026 2:32:00 PM",
             "path": "/",
-            "userId": "AIDAIOSFODNN7BKDOOR",
+            "userId": "AIDAE18185DBD523AB726",
             "userName": "backdoor-svc"
           }
         },
@@ -323,7 +361,8 @@
         "attacker_ip",
         "leaked_key"
       ],
-      "origin": "seed"
+      "origin": "seed",
+      "via": null
     },
     {
       "chain": [],
@@ -371,7 +410,8 @@
         "attacker_ip",
         "leaked_key"
       ],
-      "origin": "seed"
+      "origin": "seed",
+      "via": null
     },
     {
       "chain": [],
@@ -426,7 +466,98 @@
         "attacker_ip",
         "leaked_key"
       ],
-      "origin": "seed"
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [
+        "9c765f05-4203-5522-a74d-58c985b1a06a"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "ea972266-d206-5a49-9154-6b3c92801147",
+        "event_name": "ListBuckets",
+        "event_source": "s3.amazonaws.com",
+        "event_time": "2026-10-20T14:39:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": null,
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T1430Z_fb43664d.json",
+          "record": 5
+        },
+        "source_ip": "198.51.100.78",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7BKDOOR",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/backdoor-svc",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDAE18185DBD523AB726",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "backdoor-svc"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "access_key_id:AKIAIOSFODNN7BKDOOR"
+    },
+    {
+      "chain": [
+        "9c765f05-4203-5522-a74d-58c985b1a06a"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+        "event_name": "ListUsers",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-20T14:40:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": null,
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T1430Z_fb43664d.json",
+          "record": 6
+        },
+        "source_ip": "198.51.100.78",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7BKDOOR",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/backdoor-svc",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDAE18185DBD523AB726",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "backdoor-svc"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "access_key_id:AKIAIOSFODNN7BKDOOR"
     }
   ],
   "inputs": {
@@ -444,7 +575,7 @@
     "last_event_time": "2026-10-20T23:05:00Z",
     "malformed_records": 0,
     "malformed_samples": [],
-    "manifest_sha256": "6c412a1d770bc610c177d8d19508461ad25f1f198118fc37be48ac1c42af3b09",
+    "manifest_sha256": "1b0363198d1a251b0a8164bbf19ca83e2121f2b0c09103a5c6a0f0ae81d44e6c",
     "regions": [
       "us-east-1",
       "us-west-2"
@@ -459,8 +590,8 @@
     "total": 0
   },
   "near_misses": [],
-  "schema_version": "0.1",
-  "scope_sha256": "f43bd860a9e5a151898e65065841be0d85cd3820cfb2d2b94cd42e1d9e7fe31d",
+  "schema_version": "0.2",
+  "scope_sha256": "167306f72aff700fd0a7f87390d2271ac900ec0e7aeb20745d0d4788e45f0fb3",
   "seeds": {
     "expression": "leaked_key AND attacker_ip",
     "indicators": [
@@ -481,19 +612,52 @@
   },
   "summary": {
     "by_account": {
-      "111122223333": 9
+      "111122223333": 11
     },
     "by_confidence": {
-      "strong": 9,
+      "strong": 11,
       "weak": 0
     },
-    "by_region": {
-      "us-east-1": 9
+    "by_origin": {
+      "propagated": 2,
+      "seed": 9
     },
-    "events_in_scope": 9,
+    "by_region": {
+      "us-east-1": 11
+    },
+    "events_in_scope": 11,
     "failed_calls": 1,
     "first_event_time": "2026-10-20T14:30:00Z",
-    "last_event_time": "2026-10-20T14:32:20Z"
+    "last_event_time": "2026-10-20T14:40:00Z"
+  },
+  "taint": {
+    "enabled": true,
+    "identities": [
+      {
+        "chain": [
+          "ba5efc04-26a3-539d-90ad-b357e29515e5"
+        ],
+        "confidence": "strong",
+        "events": 2,
+        "issued_at": "2026-10-20T14:32:00Z",
+        "issued_by": "ba5efc04-26a3-539d-90ad-b357e29515e5",
+        "kind": "principal_id",
+        "rule": "iam:CreateUser",
+        "value": "AIDAE18185DBD523AB726"
+      },
+      {
+        "chain": [
+          "9c765f05-4203-5522-a74d-58c985b1a06a"
+        ],
+        "confidence": "strong",
+        "events": 2,
+        "issued_at": "2026-10-20T14:32:20Z",
+        "issued_by": "9c765f05-4203-5522-a74d-58c985b1a06a",
+        "kind": "access_key_id",
+        "rule": "iam:CreateAccessKey",
+        "value": "AKIAIOSFODNN7BKDOOR"
+      }
+    ]
   },
   "tool": {
     "name": "controlzee",
