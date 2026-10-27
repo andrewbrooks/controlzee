@@ -1,17 +1,18 @@
 """The `controlzee` command line."""
 from __future__ import annotations
 
-import os
-import tempfile
+from collections.abc import Callable
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from rich.console import Console
 from rich.text import Text
 
-from controlzee import __version__
-from controlzee.ingest.load import IngestError
+from controlzee import __version__, canonical
+from controlzee.artifacts import ArtifactError, load_scope, write_atomic
+from controlzee.ingest.load import IngestError, Input
+from controlzee.ingest.remote import LookupInput, S3Input
 from controlzee.safety import clean
 from controlzee.scope import ScopeOptions, ScopeOutput, build_scope
 from controlzee.seed import expr
@@ -20,7 +21,8 @@ from controlzee.seed.match import validate_spec
 from controlzee.seed.spec import SpecError, SpecParts, assemble, from_flags, load_iocs_file, make_window
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, rich_markup_mode=None,
-                  help="Incident response as code for AWS: scope an incident from CloudTrail, then plan the response.")
+                  help="Incident response as code for AWS: scope an incident from CloudTrail, then plan the response.\n\n"
+                       "controlzee scope writes scope.json; timeline, plan and report each read it.")
 out = Console(highlight=False, markup=False)
 err = Console(stderr=True, highlight=False, markup=False)
 
@@ -41,17 +43,6 @@ def _fail(message: str, code: int = 2) -> typer.Exit:
     return typer.Exit(code)
 
 
-def _write_atomic(path: Path, data: bytes) -> None:
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".")
-    try:
-        with os.fdopen(fd, "wb") as f:
-            f.write(data)
-        os.replace(tmp, path)
-    except BaseException:
-        os.unlink(tmp)
-        raise
-
-
 def _print_summary(result: ScopeOutput, scope_path: Path, inputs_path: Path) -> None:
     s, i = result.scope.summary, result.scope.inputs
     t = result.timings
@@ -61,8 +52,9 @@ def _print_summary(result: ScopeOutput, scope_path: Path, inputs_path: Path) -> 
               f"{s.by_confidence.get('weak', 0):,} weak), {s.failed_calls:,} of them failed calls")
     taint = result.scope.taint
     if taint.identities:
+        acted = sum(1 for e in result.scope.events if e.via)
         out.print(f"Followed {len(taint.identities):,} credential(s) or principal(s) the attacker created or obtained: "
-                  f"{s.by_origin.get('propagated', 0):,} of the events came from them")
+                  f"{acted:,} in-scope event(s) acted as them, {s.by_origin.get('propagated', 0):,} found only that way")
     if s.first_event_time:
         out.print(f"First to last in-scope event: {s.first_event_time} to {s.last_event_time}")
     nm = result.scope.near_miss_summary
@@ -82,7 +74,9 @@ def _print_summary(result: ScopeOutput, scope_path: Path, inputs_path: Path) -> 
 
 @app.command()
 def scope(
-    logs: Annotated[list[str], typer.Option("--logs", help="CloudTrail file or directory (.json, .json.gz); repeatable.")],
+    logs: Annotated[list[str] | None, typer.Option("--logs", help="CloudTrail file, directory or s3://bucket/prefix (.json, .json.gz); repeatable.")] = None,
+    lookup_events: Annotated[list[str] | None, typer.Option("--lookup-events", metavar="REGION", help="Also read CloudTrail event history (LookupEvents) for this region over --window; repeatable.")] = None,
+    aws_profile: Annotated[str | None, typer.Option("--aws-profile", help="AWS profile for S3 and event history (default: the usual credential chain).")] = None,
     iocs: Annotated[Path | None, typer.Option("--iocs", help="IOC file (YAML); see examples/iocs.yaml.")] = None,
     guardduty: Annotated[list[Path] | None, typer.Option("--guardduty", help="GuardDuty finding JSON to import indicators from.")] = None,
     access_key: Annotated[list[str] | None, typer.Option("--access-key", help="Access key id (strong). Repeatable.")] = None,
@@ -104,8 +98,8 @@ def scope(
     gap_minutes: Annotated[int, typer.Option("--gap-minutes", min=1, help="Shortest silence in the logs to report as a coverage gap.")] = 60,
 ) -> None:
     """Find what the attacker did: match indicators against CloudTrail and write scope.json."""
-    if any(entry.startswith("s3://") for entry in logs):
-        raise _fail("S3 input is not available in this version yet. Download the logs and point --logs at the directory.")
+    if not logs and not lookup_events:
+        raise _fail("no logs given: pass --logs (a file, directory or s3:// prefix) or --lookup-events REGION")
     inputs_path = out_path.with_name(out_path.stem + ".inputs.json")
     existing = [p for p in (out_path, inputs_path) if p.exists()]
     if existing and not force:
@@ -125,14 +119,101 @@ def scope(
         win = make_window({"start": window[0], "end": window[1]}) if window else None
         spec = assemble(parts, expression=expression, window=win)
         validate_spec(spec)
-        result = build_scope([Path(p) for p in logs], spec,
+        sources: list[Input] = [S3Input(p, aws_profile) if p.startswith("s3://") else Path(p) for p in logs or []]
+        if lookup_events:
+            w = spec.window
+            if w is None or not (w.start and w.end):
+                raise SpecError("--lookup-events needs --window START END (or a window in the IOC file): event history is "
+                                "queried for exactly that range, so the result can be reproduced")
+            sources += [LookupInput(region, w.start, w.end, aws_profile) for region in sorted(set(lookup_events))]
+        result = build_scope(sources, spec,
                              ScopeOptions(workers=workers, near_miss_limit=near_miss_limit, embed_raw=embed_raw,
                                           propagate=not no_propagate, gap_minutes=gap_minutes))
     except (SpecError, expr.ExpressionError, IngestError, ValueError) as e:
         raise _fail(clean(e, 600)) from None
-    _write_atomic(out_path, result.scope_bytes)
-    _write_atomic(inputs_path, result.inputs_bytes)
+    write_atomic(out_path, result.scope_bytes)
+    write_atomic(inputs_path, result.inputs_bytes)
     _print_summary(result, out_path, inputs_path)
     i = result.scope.inputs
     if strict and (i.error_files or i.malformed_records):
         raise typer.Exit(3)
+
+
+ScopeArg = Annotated[Path, typer.Argument(help="A scope.json written by controlzee scope.", exists=False)]
+Force = Annotated[bool, typer.Option("--force", help="Overwrite the output file.")]
+
+
+def _derive(scope_path: Path, out_path: Path, force: bool, build: Callable[[Any], bytes]) -> Any:
+    """Shared by the commands that read a scope: refuse to overwrite, load and check the scope, build, write."""
+    if out_path.exists() and not force:
+        raise _fail(f"{out_path} already exists; use --force to overwrite it, or choose another --out")
+    try:
+        scope_doc = load_scope(scope_path)
+    except ArtifactError as e:
+        raise _fail(clean(e, 600)) from None
+    data = build(scope_doc)
+    write_atomic(out_path, data)
+    return scope_doc
+
+
+@app.command()
+def timeline(
+    scope_path: ScopeArg = Path("scope.json"),
+    out_path: Annotated[Path, typer.Option("--out", "-o", help="Where to write timeline.json.")] = Path("timeline.json"),
+    force: Force = False,
+) -> None:
+    """Order the in-scope events into a story (actors, tactics, gaps) and list what was exposed."""
+    from controlzee.model.timeline import Timeline
+    from controlzee.timeline import build_timeline
+
+    doc: dict[str, Any] = {}
+
+    def build(sc: Any) -> bytes:
+        doc.update(build_timeline(sc))
+        return canonical.dumps(doc)
+
+    _derive(scope_path, out_path, force, build)
+    tl = Timeline.model_validate(doc)
+    out.print(f"Timeline: {sum(1 for e in tl.entries if e.kind == 'event'):,} events by {len(tl.actors)} identit{'y' if len(tl.actors) == 1 else 'ies'}, "
+              f"{sum(1 for e in tl.entries if e.kind == 'gap')} gap(s); tactics: {', '.join(t.tactic for t in tl.tactics) or 'none'}")
+    x = tl.exposure
+    out.print(f"Exposure: {len(x.resources)} resource(s), {len(x.privilege_changes)} permission change(s)"
+              + ("; full administrative access was granted" if x.admin_granted else "")
+              + (f"; {len(x.credentials_read)} credential(s) read" if x.credentials_read else ""))
+    out.print(f"Wrote {out_path} (sha256 {tl.timeline_sha256[:16]}...)")
+
+
+@app.command()
+def plan(
+    scope_path: ScopeArg = Path("scope.json"),
+    out_path: Annotated[Path, typer.Option("--out", "-o", help="Where to write plan.json.")] = Path("plan.json"),
+    force: Force = False,
+) -> None:
+    """Write the response plan: contain, investigate, eradicate, recover, with AWS CLI commands (never run)."""
+    from controlzee.model.plan import Plan
+    from controlzee.plan import PHASES, build_plan
+
+    doc: dict[str, Any] = {}
+
+    def build(sc: Any) -> bytes:
+        doc.update(build_plan(sc))
+        return canonical.dumps(doc)
+
+    _derive(scope_path, out_path, force, build)
+    p = Plan.model_validate(doc)
+    counts = ", ".join(f"{n} {ph}" for ph in PHASES if (n := sum(1 for a in p.actions if a.phase == ph)))
+    out.print(f"Plan: {len(p.actions)} step(s) ({counts or 'nothing to do'}); controlzee runs none of the commands")
+    out.print(f"Wrote {out_path} (sha256 {p.plan_sha256[:16]}...)")
+
+
+@app.command()
+def report(
+    scope_path: ScopeArg = Path("scope.json"),
+    out_path: Annotated[Path, typer.Option("--out", "-o", help="Where to write the Markdown report.")] = Path("report.md"),
+    force: Force = False,
+) -> None:
+    """Write a Markdown report: summary, coverage, timeline, exposure and the response plan."""
+    from controlzee.report import build_report
+
+    _derive(scope_path, out_path, force, build_report)
+    out.print(f"Wrote {out_path}")

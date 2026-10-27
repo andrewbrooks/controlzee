@@ -21,7 +21,7 @@ def test_committed_schema_is_current(name):
 @pytest.mark.parametrize("scenario", SCENARIOS)
 def test_goldens_validate_against_the_schemas(fixtures, scenario):
     expected = fixtures / scenario / "expected"
-    for name, file in (("scope", "scope.json"), ("inputs", "scope.inputs.json")):
+    for name, file in (("scope", "scope.json"), ("inputs", "scope.inputs.json"), ("timeline", "timeline.json"), ("plan", "plan.json")):
         jsonschema.validate(json.loads((expected / file).read_text()), schema_for(name))
 
 

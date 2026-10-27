@@ -1,0 +1,132 @@
+{
+  "actors": [
+    {
+      "access_keys": [
+        "AKIAIOSFODNN7MALLORY"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:iam::111122223333:user/mallory-temp",
+      "confidence": "weak",
+      "events": 3,
+      "first_event_time": "2026-10-20T16:02:00Z",
+      "label": "user/mallory-temp",
+      "last_event_time": "2026-10-20T16:04:00Z",
+      "principal_id": "AIDA7327543EB571B509A",
+      "source_ips": [
+        "203.0.113.200"
+      ],
+      "tainted": false,
+      "user_agents": [
+        "curl/8.4.0"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "account": "111122223333",
+      "action": "iam:ListUsers",
+      "actor": "user/mallory-temp",
+      "confidence": "weak",
+      "end": null,
+      "event_id": "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "203.0.113.200",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T16:02:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:CreateAccessKey",
+      "actor": "user/mallory-temp",
+      "confidence": "weak",
+      "end": null,
+      "event_id": "b2177994-d66c-53bd-8801-5261f0f910a8",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "203.0.113.200",
+      "tactic": "persistence",
+      "targets": [
+        "user mallory-temp"
+      ],
+      "time": "2026-10-20T16:03:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "ec2:DescribeSecurityGroups",
+      "actor": "user/mallory-temp",
+      "confidence": "weak",
+      "end": null,
+      "event_id": "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "UnauthorizedOperation",
+      "region": "us-east-1",
+      "source_ip": "203.0.113.200",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T16:04:00Z",
+      "via": null
+    }
+  ],
+  "exposure": {
+    "accounts": [
+      "111122223333"
+    ],
+    "admin_granted": false,
+    "credentials_read": [],
+    "notes": [
+      "the inputs have no data events, so object-level S3 access (and similar) cannot be listed here"
+    ],
+    "privilege_changes": [],
+    "resources": [
+      {
+        "access": "write",
+        "actions": [
+          "iam:CreateAccessKey"
+        ],
+        "event_ids": [
+          "b2177994-d66c-53bd-8801-5261f0f910a8"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-20T16:03:00Z",
+        "last_event_time": "2026-10-20T16:03:00Z",
+        "name": "mallory-temp",
+        "service": "iam",
+        "type": "user"
+      }
+    ]
+  },
+  "schema_version": "0.2",
+  "scope_sha256": "657837bd47db8dd7733bd1c5f6b02448fe47a4cebc3623d968152dad8eb72325",
+  "tactics": [
+    {
+      "events": 1,
+      "failed": 0,
+      "first_event_time": "2026-10-20T16:03:00Z",
+      "tactic": "persistence"
+    },
+    {
+      "events": 1,
+      "failed": 1,
+      "first_event_time": "2026-10-20T16:02:00Z",
+      "tactic": "discovery"
+    }
+  ],
+  "timeline_sha256": "3270c3b01e77e027dcc8963e4afec20321a6b986c74a788311f7349cfa5a449c",
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}

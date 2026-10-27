@@ -1,0 +1,256 @@
+{
+  "actors": [
+    {
+      "access_keys": [
+        "AKIAIOSFODNN7LEAKED"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+      "confidence": "strong",
+      "events": 7,
+      "first_event_time": "2026-10-20T14:30:00Z",
+      "label": "user/ci-deploy",
+      "last_event_time": "2026-10-20T17:00:00Z",
+      "principal_id": "AIDA5D934EC130750BA8C",
+      "source_ips": [
+        "198.51.100.77"
+      ],
+      "tainted": false,
+      "user_agents": [
+        "python-requests/2.31.0"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "account": "111122223333",
+      "action": "sts:GetCallerIdentity",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "5f00f41d-8b86-5299-b525-749bf3cb99cf",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T14:30:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "cloudtrail:DescribeTrails",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "facf69c4-71e9-57ad-8f76-5ec535b49c6c",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T14:31:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "guardduty:ListDetectors",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "214625b6-6bcf-58ec-9956-4cc75ff606ce",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T14:31:30Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "guardduty:DeleteDetector",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "6e2a9f8d-7e60-51ca-84a2-d9f7b0fb63f5",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "AccessDeniedException",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "defense-evasion",
+      "targets": [
+        "detector 12abc34d567e8fa901bc2d34e56789f0"
+      ],
+      "time": "2026-10-20T14:31:40Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "config:StopConfigurationRecorder",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "f28e8312-d896-50a7-9bf2-20635e39e60a",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "defense-evasion",
+      "targets": [
+        "config recorder default"
+      ],
+      "time": "2026-10-20T14:32:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "cloudtrail:StopLogging",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "e510f9f7-b40d-594a-b7fd-60345a52ef80",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "defense-evasion",
+      "targets": [
+        "trail arn:aws:cloudtrail:us-east-1:111122223333:trail/org-trail"
+      ],
+      "time": "2026-10-20T14:33:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": null,
+      "actor": null,
+      "confidence": null,
+      "end": "2026-10-20T16:40:00Z",
+      "event_id": null,
+      "kind": "gap",
+      "note": "us-east-1: no events for 127 minutes; possibly caused by cloudtrail:StopLogging (e510f9f7-b40d-594a-b7fd-60345a52ef80)",
+      "origin": null,
+      "outcome": null,
+      "region": "us-east-1",
+      "source_ip": null,
+      "tactic": null,
+      "targets": [],
+      "time": "2026-10-20T14:33:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "s3:ListBuckets",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "0c4724b0-c705-5f43-b734-61f1923edf71",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T17:00:00Z",
+      "via": null
+    }
+  ],
+  "exposure": {
+    "accounts": [
+      "111122223333"
+    ],
+    "admin_granted": false,
+    "credentials_read": [],
+    "notes": [],
+    "privilege_changes": [],
+    "resources": [
+      {
+        "access": "write",
+        "actions": [
+          "cloudtrail:StopLogging"
+        ],
+        "event_ids": [
+          "e510f9f7-b40d-594a-b7fd-60345a52ef80"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-20T14:33:00Z",
+        "last_event_time": "2026-10-20T14:33:00Z",
+        "name": "arn:aws:cloudtrail:us-east-1:111122223333:trail/org-trail",
+        "service": "cloudtrail",
+        "type": "trail"
+      },
+      {
+        "access": "write",
+        "actions": [
+          "config:StopConfigurationRecorder"
+        ],
+        "event_ids": [
+          "f28e8312-d896-50a7-9bf2-20635e39e60a"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-20T14:32:00Z",
+        "last_event_time": "2026-10-20T14:32:00Z",
+        "name": "default",
+        "service": "config",
+        "type": "config recorder"
+      },
+      {
+        "access": "delete",
+        "actions": [
+          "guardduty:DeleteDetector"
+        ],
+        "event_ids": [
+          "6e2a9f8d-7e60-51ca-84a2-d9f7b0fb63f5"
+        ],
+        "events": 0,
+        "failed": 1,
+        "first_event_time": "2026-10-20T14:31:40Z",
+        "last_event_time": "2026-10-20T14:31:40Z",
+        "name": "12abc34d567e8fa901bc2d34e56789f0",
+        "service": "guardduty",
+        "type": "detector"
+      }
+    ]
+  },
+  "schema_version": "0.2",
+  "scope_sha256": "8834c10984f91bab8470a6367695324d152b077dcd29503c1c18370413a01ca8",
+  "tactics": [
+    {
+      "events": 2,
+      "failed": 1,
+      "first_event_time": "2026-10-20T14:31:40Z",
+      "tactic": "defense-evasion"
+    },
+    {
+      "events": 4,
+      "failed": 0,
+      "first_event_time": "2026-10-20T14:30:00Z",
+      "tactic": "discovery"
+    }
+  ],
+  "timeline_sha256": "7c58cb85464ef729011ac276b0d466fb151836a3cc46018a8d82c99b5487cd4e",
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}

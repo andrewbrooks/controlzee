@@ -1,4 +1,4 @@
-"""Where log files come from. Local files now; S3 and CloudTrail event history plug in here (milestone 1.5)."""
+"""Where log files come from: local files here; S3 objects and CloudTrail event history in `remote`."""
 from __future__ import annotations
 
 from dataclasses import dataclass

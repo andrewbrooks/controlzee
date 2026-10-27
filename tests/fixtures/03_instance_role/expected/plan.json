@@ -1,0 +1,193 @@
+{
+  "actions": [
+    {
+      "caution": "the key's legitimate owner will stop working until it has a replacement (see the recover steps)",
+      "commands": [
+        "aws iam update-access-key --user-name dev-sam --access-key-id AKIAIOSFODNN7DEVSAM --status Inactive"
+      ],
+      "confidence": "weak",
+      "evidence": [
+        "79b57279-7f3c-5b8a-b198-3b0b181b9d46",
+        "8bb4cd19-45aa-5db0-ae36-93addf041786",
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+        "b2177994-d66c-53bd-8801-5261f0f910a8"
+      ],
+      "id": "A01",
+      "phase": "contain",
+      "target": "access key AKIAIOSFODNN7DEVSAM of user dev-sam (account 111122223333)",
+      "title": "Deactivate an access key the attacker used",
+      "why": "4 in-scope call(s) were made with it"
+    },
+    {
+      "caution": "denies everything to credentials issued before now; remove the policy once the incident is over",
+      "commands": [
+        "aws iam put-user-policy --user-name svc-metrics --policy-name controlzee-revoke-older-sessions --policy-document '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"DateLessThan\":{\"aws:TokenIssueTime\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\"}}}]}'"
+      ],
+      "confidence": "weak",
+      "evidence": [
+        "9c765f05-4203-5522-a74d-58c985b1a06a"
+      ],
+      "id": "A02",
+      "phase": "contain",
+      "target": "session tokens of user svc-metrics (account 111122223333)",
+      "title": "Revoke the user's temporary credentials",
+      "why": "in-scope calls used temporary credentials of this user (GetSessionToken or federation); deactivating the user's keys does not end them"
+    },
+    {
+      "caution": "this also ends legitimate sessions of the role; they can assume it again",
+      "commands": [
+        "aws iam put-role-policy --role-name app-role --policy-name controlzee-revoke-older-sessions --policy-document '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"DateLessThan\":{\"aws:TokenIssueTime\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\"}}}]}'"
+      ],
+      "confidence": "weak",
+      "evidence": [
+        "50ee173c-5c13-5689-97cd-ef168207f84c",
+        "cb96022f-25c2-56a3-ab3f-bf725e6fd694",
+        "94d6ce92-a4b5-5017-b554-c200a68a9aa4"
+      ],
+      "id": "A03",
+      "phase": "contain",
+      "target": "role app-role (account 111122223333)",
+      "title": "Revoke the role's active sessions",
+      "why": "3 in-scope call(s) were made with sessions of this role"
+    },
+    {
+      "caution": null,
+      "commands": [
+        "aws iam delete-login-profile --user-name svc-metrics"
+      ],
+      "confidence": "weak",
+      "evidence": [
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228"
+      ],
+      "id": "A04",
+      "phase": "contain",
+      "target": "user svc-metrics",
+      "title": "Remove the console password of a user the attacker created",
+      "why": "an in-scope call gave it a console password"
+    },
+    {
+      "caution": "stopping the instance loses its memory; capture it first if you need it",
+      "commands": [
+        "aws ec2 describe-iam-instance-profile-associations --region us-east-1 --filters Name=instance-id,Values=i-0a1b2c3d4e5f60718 --query 'IamInstanceProfileAssociations[].AssociationId'",
+        "aws ec2 disassociate-iam-instance-profile --region us-east-1 --association-id ASSOCIATION_ID_FROM_ABOVE",
+        "aws ec2 stop-instances --region us-east-1 --instance-ids i-0a1b2c3d4e5f60718"
+      ],
+      "confidence": "weak",
+      "evidence": [
+        "8bb4cd19-45aa-5db0-ae36-93addf041786"
+      ],
+      "id": "A05",
+      "phase": "contain",
+      "target": "instance i-0a1b2c3d4e5f60718 (us-east-1)",
+      "title": "Cut an attacker's instance off from its role",
+      "why": "launched by an in-scope call with an instance profile; it keeps fetching new role credentials until the profile is removed"
+    },
+    {
+      "caution": "sources: S3 server access logs, CloudTrail data events on another trail, VPC flow logs",
+      "commands": [],
+      "confidence": "strong",
+      "evidence": [],
+      "id": "A06",
+      "phase": "investigate",
+      "target": "S3 and other data-plane activity",
+      "title": "Look for object-level access elsewhere",
+      "why": "the inputs have no data events, so reads of objects, secrets in Lambda and the like are invisible here"
+    },
+    {
+      "caution": null,
+      "commands": [
+        "aws ec2 describe-instances --region us-east-1 --instance-ids i-0a1b2c3d4e5f60718 --query 'Reservations[].Instances[].BlockDeviceMappings[].Ebs.VolumeId'",
+        "aws ec2 create-snapshot --region us-east-1 --volume-id VOLUME_ID_FROM_ABOVE --description 'controlzee: evidence from i-0a1b2c3d4e5f60718'"
+      ],
+      "confidence": "weak",
+      "evidence": [
+        "8bb4cd19-45aa-5db0-ae36-93addf041786"
+      ],
+      "id": "A07",
+      "phase": "investigate",
+      "target": "instance i-0a1b2c3d4e5f60718 (us-east-1)",
+      "title": "Preserve an attacker's instance for analysis",
+      "why": "snapshot its disks before it is terminated"
+    },
+    {
+      "caution": "delete-user fails while policies, keys, groups or MFA devices remain; the list commands show what is left, and delete-login-profile fails harmlessly if it has no password",
+      "commands": [
+        "aws iam delete-login-profile --user-name svc-metrics",
+        "aws iam list-attached-user-policies --user-name svc-metrics",
+        "aws iam list-user-policies --user-name svc-metrics",
+        "aws iam list-groups-for-user --user-name svc-metrics",
+        "aws iam delete-user --user-name svc-metrics"
+      ],
+      "confidence": "weak",
+      "evidence": [
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228"
+      ],
+      "id": "A08",
+      "phase": "eradicate",
+      "target": "user svc-metrics",
+      "title": "Delete a user the attacker created",
+      "why": "created by an in-scope call"
+    },
+    {
+      "caution": "only after its disks are preserved",
+      "commands": [
+        "aws ec2 terminate-instances --region us-east-1 --instance-ids i-0a1b2c3d4e5f60718"
+      ],
+      "confidence": "weak",
+      "evidence": [
+        "8bb4cd19-45aa-5db0-ae36-93addf041786"
+      ],
+      "id": "A09",
+      "phase": "eradicate",
+      "target": "instance i-0a1b2c3d4e5f60718 (us-east-1)",
+      "title": "Terminate an attacker's instance",
+      "why": "launched by an in-scope call"
+    },
+    {
+      "caution": "rotation needs a rotation function; otherwise set a new value and update its users",
+      "commands": [
+        "aws secretsmanager rotate-secret --region us-east-1 --secret-id prod/db"
+      ],
+      "confidence": "weak",
+      "evidence": [
+        "94d6ce92-a4b5-5017-b554-c200a68a9aa4"
+      ],
+      "id": "A10",
+      "phase": "recover",
+      "target": "secret prod/db",
+      "title": "Rotate a secret the attacker read",
+      "why": "read by an in-scope call"
+    },
+    {
+      "caution": "store the new secret where the owner reads it from, and find out how the old one leaked",
+      "commands": [
+        "aws iam create-access-key --user-name dev-sam",
+        "aws iam delete-access-key --user-name dev-sam --access-key-id AKIAIOSFODNN7DEVSAM"
+      ],
+      "confidence": "weak",
+      "evidence": [
+        "79b57279-7f3c-5b8a-b198-3b0b181b9d46",
+        "8bb4cd19-45aa-5db0-ae36-93addf041786",
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+        "b2177994-d66c-53bd-8801-5261f0f910a8"
+      ],
+      "id": "A11",
+      "phase": "recover",
+      "target": "user dev-sam, replacing AKIAIOSFODNN7DEVSAM",
+      "title": "Give the key's owner a new key, then delete the old one",
+      "why": "its key was deactivated in the contain steps"
+    }
+  ],
+  "notes": [
+    "controlzee does not run these commands: review each one, then run it with credentials for the account named in its target",
+    "work through the phases in order; within contain, act quickly, since the attacker may notice",
+    "steps marked weak rest on weak evidence (IP, user agent or ARN matches): confirm them before acting"
+  ],
+  "plan_sha256": "706294c0f106d2bb6efb3dcd450864cb06b5eff18aa45e3b7233200cea3b7eef",
+  "schema_version": "0.2",
+  "scope_sha256": "a0db0c5426321e76c51f845aebb12eda02a90fbd27fa14c31d564151410d72c5",
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}
