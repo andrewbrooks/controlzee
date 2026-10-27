@@ -1,0 +1,198 @@
+{
+  "actions": [
+    {
+      "account": "111122223333",
+      "caution": "the key's legitimate owner will stop working until it has a replacement (see the recover steps)",
+      "commands": [
+        "aws iam update-access-key --user-name ci-deploy --access-key-id AKIAIOSFODNN7LEAKED --status Inactive"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "8bb4cd19-45aa-5db0-ae36-93addf041786",
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+        "b2177994-d66c-53bd-8801-5261f0f910a8"
+      ],
+      "id": "A01",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "key": "AKIAIOSFODNN7LEAKED",
+            "user": "ci-deploy"
+          },
+          "op": "deactivate_access_key",
+          "region": null
+        }
+      ],
+      "phase": "contain",
+      "target": "access key AKIAIOSFODNN7LEAKED of user ci-deploy (account 111122223333)",
+      "title": "Deactivate an access key the attacker used",
+      "why": "3 in-scope call(s) were made with it"
+    },
+    {
+      "account": "111122223333",
+      "caution": "this also ends legitimate sessions of the role; they can assume it again",
+      "commands": [
+        "aws iam put-role-policy --role-name lambda-exec --policy-name controlzee-revoke-older-sessions --policy-document '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"DateLessThan\":{\"aws:TokenIssueTime\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\"}}}]}'"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+        "50ee173c-5c13-5689-97cd-ef168207f84c"
+      ],
+      "id": "A02",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "after": "2026-10-20T11:10:00Z",
+            "role": "lambda-exec"
+          },
+          "op": "revoke_role_sessions",
+          "region": null
+        }
+      ],
+      "phase": "contain",
+      "target": "role lambda-exec (account 111122223333)",
+      "title": "Revoke the role's active sessions",
+      "why": "2 in-scope call(s) were made with sessions of this role"
+    },
+    {
+      "account": null,
+      "caution": "sources: S3 server access logs, CloudTrail data events on another trail, VPC flow logs",
+      "commands": [],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [],
+      "id": "A03",
+      "on_request": false,
+      "operations": [],
+      "phase": "investigate",
+      "target": "S3 and other data-plane activity",
+      "title": "Look for object-level access elsewhere",
+      "why": "the inputs have no data events, so reads of objects, secrets in Lambda and the like are invisible here"
+    },
+    {
+      "account": "111122223333",
+      "caution": "the logs do not show the previous code: redeploy it from source control or your pipeline",
+      "commands": [
+        "aws lambda get-function --region us-east-1 --function-name billing-report"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "b2177994-d66c-53bd-8801-5261f0f910a8"
+      ],
+      "id": "A04",
+      "on_request": false,
+      "operations": [],
+      "phase": "eradicate",
+      "target": "function billing-report (us-east-1)",
+      "title": "Review a Lambda function the attacker changed",
+      "why": "an in-scope call replaced its code or configuration; its calls after that were followed"
+    },
+    {
+      "account": "111122223333",
+      "caution": "download the code first if you want to read what it did: get-function returns a temporary link to it. Deleting it does not revoke its role; see the contain steps",
+      "commands": [
+        "aws lambda get-function --region us-east-1 --function-name exfil-fn",
+        "aws lambda delete-function --region us-east-1 --function-name exfil-fn"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228"
+      ],
+      "id": "A05",
+      "on_request": false,
+      "operations": [],
+      "phase": "eradicate",
+      "target": "function exfil-fn (us-east-1)",
+      "title": "Delete a Lambda function the attacker created",
+      "why": "created by an in-scope call; its execution role's sessions were followed"
+    },
+    {
+      "account": "111122223333",
+      "caution": "rotation needs a rotation function; otherwise set a new value and update its users",
+      "commands": [
+        "aws secretsmanager rotate-secret --region us-east-1 --secret-id prod/db"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+        "50ee173c-5c13-5689-97cd-ef168207f84c"
+      ],
+      "id": "A06",
+      "on_request": false,
+      "operations": [],
+      "phase": "recover",
+      "target": "secret prod/db",
+      "title": "Rotate a secret the attacker read",
+      "why": "read by an in-scope call"
+    },
+    {
+      "account": "111122223333",
+      "caution": "only once the attacker's access is gone; respond runs this step only when it is named with --steps",
+      "commands": [
+        "aws iam delete-role-policy --role-name lambda-exec --policy-name controlzee-revoke-older-sessions"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+        "50ee173c-5c13-5689-97cd-ef168207f84c"
+      ],
+      "id": "A07",
+      "on_request": true,
+      "operations": [
+        {
+          "args": {
+            "role": "lambda-exec"
+          },
+          "op": "lift_role_revocation",
+          "region": null
+        }
+      ],
+      "phase": "recover",
+      "target": "role lambda-exec",
+      "title": "Lift the session revocation once the incident is over",
+      "why": "the deny on older credentials stays until it is removed; legitimate users of this role may need it gone"
+    },
+    {
+      "account": "111122223333",
+      "caution": "the new secret is shown once: create it where the owner's secret store can take it, and find out how the old one leaked",
+      "commands": [
+        "aws iam create-access-key --user-name ci-deploy",
+        "aws iam delete-access-key --user-name ci-deploy --access-key-id AKIAIOSFODNN7LEAKED"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "8bb4cd19-45aa-5db0-ae36-93addf041786",
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+        "b2177994-d66c-53bd-8801-5261f0f910a8"
+      ],
+      "id": "A08",
+      "on_request": false,
+      "operations": [],
+      "phase": "recover",
+      "target": "user ci-deploy, replacing AKIAIOSFODNN7LEAKED",
+      "title": "Give the key's owner a new key, then delete the old one",
+      "why": "its key was deactivated in the contain steps"
+    }
+  ],
+  "notes": [
+    "steps with operations can be carried out by `controlzee respond` after a dry run and your approval; the others are for a person. Either way, review each one first",
+    "work through the phases in order; within contain, act quickly, since the attacker may notice"
+  ],
+  "plan_sha256": "378866ed5896d22fdfd7f88094cb3ce506d15659c9448fbd7c09efab30cffd2e",
+  "schema_version": "0.2",
+  "scope_sha256": "2c81b81eafc44bcc7607c23b6d505ea383828db1e34cc30ab7dd5c06dd860b90",
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}

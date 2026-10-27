@@ -1,0 +1,388 @@
+{
+  "coverage": {
+    "data_events": 0,
+    "gap_minutes": 60,
+    "gaps": [],
+    "notes": [
+      "no data events in the inputs: S3 object reads and writes, Lambda invocations and other data-plane activity are not visible"
+    ],
+    "period_end": "2026-10-20T11:10:00Z",
+    "period_start": "2026-10-20T11:00:00Z",
+    "read_only_events": 18,
+    "streams": [
+      {
+        "account": "111122223333",
+        "events": 20,
+        "first_event_time": "2026-10-20T08:00:00Z",
+        "last_event_time": "2026-10-20T23:05:00Z",
+        "region": "us-east-1",
+        "typical_interval_s": 2857
+      },
+      {
+        "account": "111122223333",
+        "events": 8,
+        "first_event_time": "2026-10-20T08:30:00Z",
+        "last_event_time": "2026-10-20T22:30:00Z",
+        "region": "us-west-2",
+        "typical_interval_s": 7200
+      }
+    ],
+    "tampering": [],
+    "tampering_total": 0,
+    "unlogged_accounts": []
+  },
+  "events": [
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "8bb4cd19-45aa-5db0-ae36-93addf041786",
+        "event_name": "GetCallerIdentity",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-20T11:00:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": null,
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 3
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+        "event_name": "CreateFunction20150331",
+        "event_source": "lambda.amazonaws.com",
+        "event_time": "2026-10-20T11:01:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "functionName": "exfil-fn",
+          "handler": "app.handler",
+          "role": "arn:aws:iam::111122223333:role/lambda-exec",
+          "runtime": "python3.12"
+        },
+        "resources": [],
+        "response_elements": {
+          "functionArn": "arn:aws:lambda:us-east-1:111122223333:function:exfil-fn",
+          "functionName": "exfil-fn",
+          "role": "arn:aws:iam::111122223333:role/lambda-exec"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 5
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "b2177994-d66c-53bd-8801-5261f0f910a8",
+        "event_name": "UpdateFunctionCode20150331v2",
+        "event_source": "lambda.amazonaws.com",
+        "event_time": "2026-10-20T11:03:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "functionName": "arn:aws:lambda:us-east-1:111122223333:function:billing-report:$LATEST"
+        },
+        "resources": [],
+        "response_elements": {
+          "functionName": "billing-report",
+          "role": "arn:aws:iam::111122223333:role/lambda-exec"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 6
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+        "event_name": "GetSecretValue",
+        "event_source": "secretsmanager.amazonaws.com",
+        "event_time": "2026-10-20T11:05:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "secretId": "prod/db"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 7
+        },
+        "source_ip": "198.51.100.150",
+        "user_agent": "Boto3/1.34 exec-env/AWS_Lambda_python3.12",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7EXFIL01",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/lambda-exec/exfil-fn",
+          "invoked_by": "lambda.amazonaws.com",
+          "mfa_authenticated": false,
+          "principal_id": "AROA49B33609FA137A4FD:exfil-fn",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/lambda-exec",
+            "principal_id": "AROA49B33609FA137A4FD",
+            "type": "Role",
+            "user_name": "lambda-exec"
+          },
+          "session_name": "exfil-fn",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "function_name:exfil-fn"
+    },
+    {
+      "chain": [
+        "b2177994-d66c-53bd-8801-5261f0f910a8"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "50ee173c-5c13-5689-97cd-ef168207f84c",
+        "event_name": "GetSecretValue",
+        "event_source": "secretsmanager.amazonaws.com",
+        "event_time": "2026-10-20T11:10:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "secretId": "prod/db"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 9
+        },
+        "source_ip": "198.51.100.150",
+        "user_agent": "Boto3/1.34 exec-env/AWS_Lambda_python3.12",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7BILLR2",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/lambda-exec/billing-report",
+          "invoked_by": "lambda.amazonaws.com",
+          "mfa_authenticated": false,
+          "principal_id": "AROA49B33609FA137A4FD:billing-report",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/lambda-exec",
+            "principal_id": "AROA49B33609FA137A4FD",
+            "type": "Role",
+            "user_name": "lambda-exec"
+          },
+          "session_name": "billing-report",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "function_name:billing-report"
+    }
+  ],
+  "inputs": {
+    "accounts": [
+      "111122223333"
+    ],
+    "duplicates_removed": 0,
+    "error_files": 0,
+    "errors": [],
+    "event_count": 28,
+    "file_count": 3,
+    "first_event_time": "2026-10-20T08:00:00Z",
+    "ignored_files": 0,
+    "ingested_files": 3,
+    "last_event_time": "2026-10-20T23:05:00Z",
+    "malformed_records": 0,
+    "malformed_samples": [],
+    "manifest_sha256": "b372a7e3c583d93403d84672398863c3d8061bf541ab3cdf327f284d85c313db",
+    "regions": [
+      "us-east-1",
+      "us-west-2"
+    ],
+    "skipped": [],
+    "skipped_files": 0
+  },
+  "near_miss_summary": {
+    "by_indicator": {},
+    "by_reason": {},
+    "listed": 0,
+    "total": 0
+  },
+  "near_misses": [],
+  "schema_version": "0.2",
+  "scope_sha256": "2c81b81eafc44bcc7607c23b6d505ea383828db1e34cc30ab7dd5c06dd860b90",
+  "seeds": {
+    "expression": "leaked_key",
+    "indicators": [
+      {
+        "kind": "access_key_id",
+        "match": "exact",
+        "name": "leaked_key",
+        "value": "AKIAIOSFODNN7LEAKED"
+      }
+    ],
+    "window": null
+  },
+  "summary": {
+    "by_account": {
+      "111122223333": 5
+    },
+    "by_confidence": {
+      "strong": 5,
+      "weak": 0
+    },
+    "by_origin": {
+      "propagated": 2,
+      "seed": 3
+    },
+    "by_region": {
+      "us-east-1": 5
+    },
+    "events_in_scope": 5,
+    "failed_calls": 0,
+    "first_event_time": "2026-10-20T11:00:00Z",
+    "last_event_time": "2026-10-20T11:10:00Z"
+  },
+  "taint": {
+    "enabled": true,
+    "identities": [
+      {
+        "chain": [
+          "d554bd6b-07d7-5564-b3ed-5c98efd37228"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-20T11:01:00Z",
+        "issued_by": "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+        "kind": "function_name",
+        "rule": "lambda:CreateFunction",
+        "value": "exfil-fn"
+      },
+      {
+        "chain": [
+          "b2177994-d66c-53bd-8801-5261f0f910a8"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-20T11:03:00Z",
+        "issued_by": "b2177994-d66c-53bd-8801-5261f0f910a8",
+        "kind": "function_name",
+        "rule": "lambda:UpdateFunctionCode",
+        "value": "billing-report"
+      }
+    ]
+  },
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}

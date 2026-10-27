@@ -229,3 +229,80 @@ def test_plan_operations_never_carry_values_of_the_wrong_form(fixtures):
         for a in Plan.model_validate(build_plan(scope_of(fixtures, scenario))).actions:
             for o in a.operations:
                 validate(o.op, o.args, o.region)
+
+
+# ---- not cutting off the responder, and revoking only once
+
+def account_02(caller_role="IncidentResponder"):
+    return Account(caller_arn=f"arn:aws:sts::111122223333:assumed-role/{caller_role}/alice",
+                   users={"jenkins": User(keys={"AKIAIOSFODNN7LEAKED": "Active"})},
+                   roles={"IncidentResponder": Role(), "ops-admin": Role(),
+                          "support-audit": Role(attached={"arn:aws:iam::aws:policy/ReadOnlyAccess"})})
+
+
+def test_a_step_that_would_revoke_the_responder_fails_the_dry_run(fixtures, monkeypatch):
+    scope = scope_of(fixtures, "02_role_chain")
+    dr = check(scope, account_02("ops-admin"), monkeypatch)
+    blocked = [s for s in dr.steps if s.problem and "credentials running this response" in s.problem]
+    assert not dr.passed and [(s.op, s.args["role"]) for s in blocked] == [("revoke_role_sessions", "ops-admin")]
+    # leaving that step out lets the rest go ahead
+    others = {s.action_id for s in dr.steps} - {s.action_id for s in blocked}
+    assert check(scope, account_02("ops-admin"), monkeypatch, chosen=others).passed
+
+
+def test_revoking_twice_changes_nothing_the_second_time(fixtures, monkeypatch):
+    acct = account_02()
+    scope = scope_of(fixtures, "02_role_chain")
+    first = check(scope, acct, monkeypatch)
+    assert [s.op for s in first.steps].count("revoke_role_sessions") == 2
+    assert run(first.model_dump(mode="json")).completed
+    assert acct.documents[("role", "ops-admin", "controlzee-revoke-older-sessions")]["Statement"][0]["Effect"] == "Deny"
+    acct.calls.clear()
+    second = check(scope, acct, monkeypatch)
+    assert all(s.already_done for s in second.steps)
+    assert "which covers the attacker's last use at 2026-10-20T10:04:00Z" in next(
+        s.state for s in second.steps if s.args.get("role") == "ops-admin")
+    assert [s.result for s in run(second.model_dump(mode="json")).steps] == ["already done"] * len(second.steps)
+    assert acct.calls == []
+
+
+def test_a_revocation_that_ends_before_the_attackers_last_use_is_renewed(fixtures, monkeypatch):
+    acct = account_02()
+    acct.roles["ops-admin"].inline.add("controlzee-revoke-older-sessions")
+    acct.documents[("role", "ops-admin", "controlzee-revoke-older-sessions")] = {
+        "Statement": [{"Effect": "Deny", "Condition": {"DateLessThan": {"aws:TokenIssueTime": "2026-10-20T10:03:00Z"}}}]}
+    step = next(s for s in check(scope_of(fixtures, "02_role_chain"), acct, monkeypatch).steps if s.args.get("role") == "ops-admin")
+    assert not step.already_done and "ends at 2026-10-20T10:03:00Z, before the attacker's last use" in step.state
+
+
+def test_lifting_a_revocation_runs_only_when_named(fixtures, monkeypatch):
+    acct = account_02()
+    scope = scope_of(fixtures, "02_role_chain")
+    dr = check(scope, acct, monkeypatch)
+    lifts = [n for n in dr.not_selected if n.title == "Lift the session revocation once the incident is over"]
+    assert len(lifts) == 2 and all("only when named with --steps" in n.reason for n in lifts)  # jenkins and ops-admin
+    assert run(dr.model_dump(mode="json")).completed
+    lift = check(scope, acct, monkeypatch, chosen={lifts[0].action_id, lifts[1].action_id})
+    assert lift.passed and {s.op for s in lift.steps} == {"lift_user_revocation", "lift_role_revocation"}
+    assert run(lift.model_dump(mode="json")).completed
+    assert "controlzee-revoke-older-sessions" not in acct.roles["ops-admin"].inline | acct.users["jenkins"].inline
+
+
+def test_a_refused_password_check_does_not_block_deleting_a_user(fixtures, monkeypatch):
+    # seen in a real sandbox: an SCP denies iam:GetLoginProfile
+    from tests import fake_aws
+
+    def refuse(self, op, **kw):
+        raise fake_aws._err("AccessDenied", op)
+    acct = account_01()
+    monkeypatch.setattr(fake_aws.FakeClient, "_iam_get_login_profile", refuse)
+    dr = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch, chosen={"A04"}, allow_disruptive=True)
+    assert dr.passed and "iam:GetLoginProfile is refused" in dr.steps[0].state
+    assert run(dr.model_dump(mode="json")).completed and "backdoor-svc" not in acct.users
+    # if it did have a password that could not be removed, the delete stops with a conflict instead
+    acct2 = account_01()
+    acct2.users["backdoor-svc"].login = True
+    monkeypatch.setattr(fake_aws.FakeClient, "_iam_delete_login_profile", refuse)
+    dr2 = check(scope_of(fixtures, "01_leaked_key"), acct2, monkeypatch, chosen={"A04"}, allow_disruptive=True)
+    rec = run(dr2.model_dump(mode="json"))
+    assert not rec.completed and rec.steps[0].detail.startswith("DeleteConflict") and "backdoor-svc" in acct2.users

@@ -10,8 +10,10 @@ it is used, both when the plan is built and again before anything runs.
 """
 from __future__ import annotations
 
+import json
 import re
 import shlex
+import urllib.parse
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Final
@@ -28,6 +30,8 @@ SHAPES: Final[dict[str, re.Pattern[str]]] = {
     "recorder": re.compile(r"^[\w.-]{1,256}$"),
     "secret": re.compile(r"^[\w/+=.@:-]{1,2048}$"),
     "parameter": re.compile(r"^[\w/.-]{1,2048}$"),
+    "function": re.compile(r"^[\w-]{1,64}$"),
+    "time": re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"),
 }
 REVOKE_POLICY: Final = "controlzee-revoke-older-sessions"
 
@@ -134,18 +138,51 @@ def _probe_delete_key(ctx: Ctx, a: dict[str, str], region: str | None) -> Probe:
     return Probe(f"key {a['key']} exists ({status})", False, (("iam:DeleteAccessKey", arn),))
 
 
-def _probe_revoke_user(ctx: Ctx, a: dict[str, str], region: str | None) -> Probe:
-    arn = _user_arn(ctx, a["user"])
-    if arn is None:
-        return Probe(f"user {a['user']} does not exist", True, ())
-    return Probe(f"user {a['user']} exists; sessions issued before the change will be denied", False, (("iam:PutUserPolicy", arn),))
+def _revocation_cutoff(ctx: Ctx, kind: str, name: str) -> str | None:
+    """The aws:TokenIssueTime of controlzee's deny policy on this user or role, or None if there is none."""
+    param = "UserName" if kind == "user" else "RoleName"
+    found = _absent(lambda: getattr(ctx.c("iam"), f"get_{kind}_policy")(**{param: name, "PolicyName": REVOKE_POLICY}))
+    if found is None:
+        return None
+    doc = found.get("PolicyDocument")
+    if isinstance(doc, str):  # the API URL-encodes it; boto3 usually decodes it already
+        doc = json.loads(urllib.parse.unquote(doc))
+    times = [st.get("Condition", {}).get("DateLessThan", {}).get("aws:TokenIssueTime")
+             for st in (doc or {}).get("Statement", []) if isinstance(st, dict)]
+    return max((t for t in times if isinstance(t, str)), default=None)
 
 
-def _probe_revoke_role(ctx: Ctx, a: dict[str, str], region: str | None) -> Probe:
-    arn = _role_arn(ctx, a["role"])
-    if arn is None:
-        return Probe(f"role {a['role']} does not exist", True, ())
-    return Probe(f"role {a['role']} exists; sessions issued before the change will be denied", False, (("iam:PutRolePolicy", arn),))
+def _revoke_probe(kind: str) -> Callable[[Ctx, dict[str, str], str | None], Probe]:
+    def probe(ctx: Ctx, a: dict[str, str], region: str | None) -> Probe:
+        arn = _principal_arn(ctx, kind, a[kind])
+        if arn is None:
+            return Probe(f"{kind} {a[kind]} does not exist", True, ())
+        cutoff = _revocation_cutoff(ctx, kind, a[kind])
+        if cutoff is not None and cutoff >= a["after"]:
+            return Probe(f"credentials of {kind} {a[kind]} issued before {cutoff} are already denied, which covers the "
+                         f"attacker's last use at {a['after']}", True, ())
+        state = f"no revocation on {kind} {a[kind]}" if cutoff is None else f"the revocation on {kind} {a[kind]} ends at {cutoff}, before the attacker's last use at {a['after']}"
+        return Probe(state, False, ((f"iam:Put{kind.capitalize()}Policy", arn),))
+    return probe
+
+
+def _lift_probe(kind: str) -> Callable[[Ctx, dict[str, str], str | None], Probe]:
+    def probe(ctx: Ctx, a: dict[str, str], region: str | None) -> Probe:
+        arn = _principal_arn(ctx, kind, a[kind])
+        cutoff = _revocation_cutoff(ctx, kind, a[kind]) if arn else None
+        if arn is None or cutoff is None:
+            return Probe(f"no revocation on {kind} {a[kind]}", True, ())
+        return Probe(f"credentials of {kind} {a[kind]} issued before {cutoff} are denied", False,
+                     ((f"iam:Delete{kind.capitalize()}Policy", arn),))
+    return probe
+
+
+def _lift(kind: str) -> Callable[[Ctx, dict[str, str], str | None], str]:
+    def apply(ctx: Ctx, a: dict[str, str], region: str | None) -> str:
+        param = "UserName" if kind == "user" else "RoleName"
+        getattr(ctx.c("iam"), f"delete_{kind}_policy")(**{param: a[kind], "PolicyName": REVOKE_POLICY})
+        return f"lifted the session revocation on {kind} {a[kind]}"
+    return apply
 
 
 def _probe_login_profile(ctx: Ctx, a: dict[str, str], region: str | None) -> Probe:
@@ -216,7 +253,7 @@ def _probe_group_member(ctx: Ctx, a: dict[str, str], region: str | None) -> Prob
 @dataclass(frozen=True)
 class _UserParts:
     keys: list[str]
-    login: bool
+    login: bool | None  # None: the password check itself was refused (an SCP, say), so it is not known
     attached: list[str]
     inline: list[str]
     groups: list[tuple[str, str]]  # (name, arn)
@@ -226,11 +263,20 @@ class _UserParts:
     service_creds: list[str]
 
 
+def _has_login(iam: Any, user: str) -> bool | None:
+    try:
+        return _absent(lambda: iam.get_login_profile(UserName=user)) is not None
+    except Exception as e:
+        if _code(e) in ("AccessDenied", "AccessDeniedException"):
+            return None
+        raise
+
+
 def _user_parts(ctx: Ctx, user: str) -> _UserParts:
     iam = ctx.c("iam")
     return _UserParts(
         keys=[k["AccessKeyId"] for k in _pages(iam, "list_access_keys", "AccessKeyMetadata", UserName=user)],
-        login=_absent(lambda: iam.get_login_profile(UserName=user)) is not None,
+        login=_has_login(iam, user),
         attached=[p["PolicyArn"] for p in _pages(iam, "list_attached_user_policies", "AttachedPolicies", UserName=user)],
         inline=list(_pages(iam, "list_user_policies", "PolicyNames", UserName=user)),
         groups=[(g["GroupName"], g["Arn"]) for g in _pages(iam, "list_groups_for_user", "Groups", UserName=user)],
@@ -258,7 +304,10 @@ def _probe_delete_user(ctx: Ctx, a: dict[str, str], region: str | None) -> Probe
     checks += [("iam:DeleteSSHPublicKey", arn)] if p.ssh else []
     checks += [("iam:DeleteSigningCertificate", arn)] if p.certs else []
     checks += [("iam:DeleteServiceSpecificCredential", arn)] if p.service_creds else []
-    state = (f"user {a['user']} exists with {len(p.keys)} key(s), {'a' if p.login else 'no'} console password, "
+    password = {True: "a console password", False: "no console password",
+                None: "a console password or not (iam:GetLoginProfile is refused; if it has one, deleting the user will "
+                      "stop with a conflict)"}[p.login]
+    state = (f"user {a['user']} exists with {len(p.keys)} key(s), {password}, "
              f"{len(p.attached)} attached and {len(p.inline)} inline policy(ies), {len(p.groups)} group(s), {len(p.mfa)} MFA device(s)")
     return Probe(state, False, tuple(checks))
 
@@ -270,6 +319,12 @@ def _apply_delete_user(ctx: Ctx, a: dict[str, str], region: str | None) -> str:
         iam.delete_access_key(UserName=user, AccessKeyId=k)
     if p.login:
         iam.delete_login_profile(UserName=user)
+    elif p.login is None:  # not known: try, and let delete_user report a conflict if a password is left
+        try:
+            iam.delete_login_profile(UserName=user)
+        except Exception as e:
+            if _code(e) not in ("NoSuchEntity", "AccessDenied", "AccessDeniedException"):
+                raise
     for arn in p.attached:
         iam.detach_user_policy(UserName=user, PolicyArn=arn)
     for name in p.inline:
@@ -451,6 +506,7 @@ class OpSpec:
     cli: Callable[[dict[str, str], str | None], list[str]]
     probe: Probe_
     apply: Apply
+    on_request: bool = False  # never selected by default: only when its step is named with --steps
 
 
 def _r(region: str | None) -> str:
@@ -501,13 +557,23 @@ OPS: Final[dict[str, OpSpec]] = {
         lambda a, r: [f"aws iam delete-access-key --user-name {q('iam', a['user'])} --access-key-id {q('key', a['key'])}"],
         _probe_delete_key, _iam_call("delete_access_key", UserName="user", AccessKeyId="key")),
     "revoke_user_sessions": OpSpec(
-        {"user": "iam"}, False, False, lambda a, r: f"deny credentials of user {a['user']} issued before now",
+        {"user": "iam", "after": "time"}, False, False,
+        lambda a, r: f"deny credentials of user {a['user']} issued before now (the attacker last used them at {a['after']})",
         lambda a, r: [f"aws iam put-user-policy --user-name {q('iam', a['user'])} --policy-name {REVOKE_POLICY} --policy-document '{_REVOKE_CLI}'"],
-        _probe_revoke_user, _revoke("user")),
+        _revoke_probe("user"), _revoke("user")),
     "revoke_role_sessions": OpSpec(
-        {"role": "iam"}, False, False, lambda a, r: f"deny sessions of role {a['role']} issued before now",
+        {"role": "iam", "after": "time"}, False, False,
+        lambda a, r: f"deny sessions of role {a['role']} issued before now (the attacker last used one at {a['after']})",
         lambda a, r: [f"aws iam put-role-policy --role-name {q('iam', a['role'])} --policy-name {REVOKE_POLICY} --policy-document '{_REVOKE_CLI}'"],
-        _probe_revoke_role, _revoke("role")),
+        _revoke_probe("role"), _revoke("role")),
+    "lift_user_revocation": OpSpec(
+        {"user": "iam"}, False, False, lambda a, r: f"remove controlzee's session revocation from user {a['user']}",
+        lambda a, r: [f"aws iam delete-user-policy --user-name {q('iam', a['user'])} --policy-name {REVOKE_POLICY}"],
+        _lift_probe("user"), _lift("user"), on_request=True),
+    "lift_role_revocation": OpSpec(
+        {"role": "iam"}, False, False, lambda a, r: f"remove controlzee's session revocation from role {a['role']}",
+        lambda a, r: [f"aws iam delete-role-policy --role-name {q('iam', a['role'])} --policy-name {REVOKE_POLICY}"],
+        _lift_probe("role"), _lift("role"), on_request=True),
     "delete_login_profile": OpSpec(
         {"user": "iam"}, False, False, lambda a, r: f"remove the console password of user {a['user']}",
         lambda a, r: [f"aws iam delete-login-profile --user-name {q('iam', a['user'])}"],

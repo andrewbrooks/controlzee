@@ -20,7 +20,7 @@ from operator import itemgetter
 from controlzee.ingest.index import R_AK, R_ID, R_ISSUED, R_PID, R_TS, R_UITYPE, EventIndex, Row
 from controlzee.model.common import Confidence
 from controlzee.seed.match import SeedHit
-from controlzee.taint.rules import ACCESS_KEY, ASSUMES, INSTANCE, PRINCIPAL, ROLE
+from controlzee.taint.rules import ACCESS_KEY, ASSUMES, FUNCTION, INSTANCE, PRINCIPAL, ROLE
 
 
 @dataclass(frozen=True)
@@ -50,7 +50,7 @@ class Propagation:
 
 
 def acting_as(row: Row, found: dict[tuple[str, str], Taint]) -> list[Taint]:
-    """Every tainted identity this event acted as, in a fixed order (key, principal, role, instance, role assumed)."""
+    """Every tainted identity this event acted as, in a fixed order (key, principal, role, instance, function, role assumed)."""
     keys: list[tuple[str, str]] = []
     if (ak := row[R_AK]) is not None:
         keys.append((ACCESS_KEY, ak))
@@ -60,7 +60,7 @@ def acting_as(row: Row, found: dict[tuple[str, str], Taint]) -> list[Taint]:
         if sep:
             keys.append((ROLE, role))
             if row[R_UITYPE] == "AssumedRole":
-                keys.append((INSTANCE, session))
+                keys.extend([(INSTANCE, session), (FUNCTION, session)])
     keys += [(ROLE, v) for k, v in row[R_ISSUED] or () if k == ASSUMES]
     return [t for k in keys if (t := found.get(k)) is not None]
 

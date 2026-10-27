@@ -93,6 +93,10 @@
           "title": "Id",
           "type": "string"
         },
+        "on_request": {
+          "title": "On Request",
+          "type": "boolean"
+        },
         "operations": {
           "items": {
             "$ref": "#/$defs/Operation"
@@ -134,6 +138,7 @@
         "commands",
         "operations",
         "disruptive",
+        "on_request",
         "caution",
         "evidence"
       ],
