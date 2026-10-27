@@ -263,6 +263,8 @@ def respond_dry_run(
             err.print(Text(f"      {clean(st.problem, 400)}", style="red"))
     for n in dr.not_selected:
         out.print(f"  {n.action_id} not included: {clean(n.reason, 300)}")
+    for w in dr.warnings:
+        err.print(Text(f"Warning: {clean(w, 300)}", style="yellow"))
     out.print(f"Wrote {out_path}")
     if not dr.passed:
         err.print(Text(f"Dry run FAILED: {len(dr.problems)} problem(s); nothing can be executed from it", style="bold red"))
@@ -272,12 +274,13 @@ def respond_dry_run(
         out.print("Nothing to do: every selected step is already in place")
         return
     out.print(f"Dry run passed: {todo} change(s) to make. Review the steps above (and {out_path}); to make them, run:")
-    out.print(f"  controlzee respond execute {out_path} --approve {dr.dryrun_sha256[:16]}")
+    out.print(f"  controlzee respond execute {out_path} --scope {scope_path} --approve {dr.dryrun_sha256[:16]}")
 
 
 @respond_app.command("execute")
 def respond_execute(
     dryrun_path: Annotated[Path, typer.Argument(help="A dry run written by controlzee respond dry-run.")] = Path("dryrun.json"),
+    scope_path: Annotated[Path, typer.Option("--scope", help="The scope.json the dry run was made from; the plan is rebuilt from it and the dry run's steps must match.")] = Path("scope.json"),
     approve: Annotated[str, typer.Option("--approve", help="The dry run's sha256 (or its first 12+ characters): your approval of exactly that dry run.")] = "",
     out_path: Annotated[Path, typer.Option("--out", "-o", help="Where to write the record of what was done.")] = Path("response.json"),
     aws_profile: Profile = None,
@@ -301,13 +304,13 @@ def respond_execute(
         if dryrun_path.stat().st_size > MAX_DRY_RUN_BYTES:
             raise argcheck.ArgError(f"{dryrun_path.name} is too large to be a dry run")
         doc = orjson.loads(dryrun_path.read_bytes())
-        result = execute(doc, approve=approval, profile=profile, max_age=timedelta(minutes=max_age_minutes),
+        result = execute(doc, load_scope(scope_path), approve=approval, profile=profile, max_age=timedelta(minutes=max_age_minutes),
                          progress=lambda st: out.print(f"  {st.action_id} {st.result}: {clean(st.detail, 300)}"))
     except OSError as e:
         raise _fail(f"cannot read {dryrun_path.name}: {e.strerror}") from None
     except orjson.JSONDecodeError:
         raise _fail(f"{dryrun_path.name} is not valid JSON") from None
-    except (RespondError, argcheck.ArgError) as e:
+    except (RespondError, ArtifactError, argcheck.ArgError) as e:
         raise _fail(clean(e, 600)) from None
     write_atomic(out_path, canonical.dumps(result))
     rec = ResponseRecord.model_validate(result)

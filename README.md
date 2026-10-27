@@ -26,7 +26,7 @@ controlzee timeline scope.json                                  # timeline.json:
 controlzee plan scope.json                                      # plan.json: contain, investigate, eradicate, recover
 controlzee report scope.json                                    # report.md: all of it, for people
 controlzee respond dry-run scope.json                           # dryrun.json: what would change, and may we? (changes nothing)
-controlzee respond execute dryrun.json --approve <sha256>       # response.json: make the approved changes
+controlzee respond execute dryrun.json --scope scope.json --approve <sha256>       # response.json: make the approved changes
 ```
 
 ## Revert the attacker's changes: `controlzee respond`
@@ -54,7 +54,7 @@ another account, and disruptive steps (delete, stop, terminate), which need `--a
 **2. Review, approve, execute.**
 
 ```
-controlzee respond execute dryrun.json --approve 3f9a1c0be2d47a65
+controlzee respond execute dryrun.json --scope scope.json --approve 3f9a1c0be2d47a65
 ```
 
 `--approve` takes the dry run's sha256, as the dry run prints it: it is your approval of exactly that dry run. Execute
@@ -67,9 +67,11 @@ order, reads each target again first (anything already put right is skipped), st
 
 - No shell, ever: every change is a boto3 call with typed parameters. The AWS CLI text in the plan is for people.
 - The dry run builds the plan from the sealed `scope.json` itself, so only operations the plan builder produced (from a
-  fixed list) are put in it. `execute` does not rebuild the plan, but it refuses a dry run file that was edited to add a
-  step: every step must be a known operation, chosen by `--steps` (or in the default set), disruptive only if the dry
-  run allowed it, and must not cut off the responder's own access. Each step is simulated again just before it runs.
+  fixed list) are put in it. `execute` takes the same `--scope`, rebuilds the plan, and refuses any dry run whose steps
+  are not exactly what that plan gives for the dry run's `--steps` and `--allow-disruptive`, so an edited file cannot add
+  an operation. It also refuses a step that would cut off the responder's own access, and simulates each step again just
+  before it runs. The seal on `dryrun.json` is a plain hash that catches accidents, not a signature: what ties execution
+  to what a person reviewed is the `--approve` hash they pass.
 - Every value that came from the logs (user, role, key, instance, trail, region...) must have the documented form for
   its kind before it is used, and is checked again before each call. Anything else makes the step manual.
 - Command-line values are checked too: `--aws-profile`, `--region`, `--steps`, `--approve`, `--lookup-events` regions and
