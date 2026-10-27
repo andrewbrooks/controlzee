@@ -30,6 +30,7 @@ SHAPES: Final[dict[str, re.Pattern[str]]] = {
     "recorder": re.compile(r"^[\w.-]{1,256}$"),
     "secret": re.compile(r"^[\w/+=.@:-]{1,2048}$"),
     "parameter": re.compile(r"^[\w/.-]{1,2048}$"),
+    "function": re.compile(r"^[\w-]{1,64}$"),
     "time": re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"),
 }
 REVOKE_POLICY: Final = "controlzee-revoke-older-sessions"

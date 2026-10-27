@@ -88,6 +88,7 @@ class _Builder:
         self.created_roles: dict[str, ScopedEvent] = {}
         self.created_keys: dict[str, tuple[str, ScopedEvent]] = {}  # key -> (user name, CreateAccessKey event)
         self.instances: dict[str, ScopedEvent] = {}  # instance id -> RunInstances event
+        self.functions: dict[str, tuple[ScopedEvent, bool]] = {}  # function name -> (first call, created by the attacker)
         self.revoked: list[tuple[str, str, str | None, list[ScopedEvent]]] = []  # (user|role, name, account, evidence)
         for t in scope.taint.identities:
             s = self.by_id.get(t.issued_by)
@@ -103,6 +104,8 @@ class _Builder:
                     self.created_keys[t.value] = (owner, s)
             elif t.rule == "ec2:RunInstances":
                 self.instances[t.value] = s
+            elif t.kind == "function_name":
+                self.functions[t.value] = (s, t.rule == "lambda:CreateFunction")
 
     def _manual(self, draft: _Draft, kind: str) -> None:
         note = f"a {kind} value from the logs does not have the expected form, so nothing is given to run: check the target by hand"
@@ -243,6 +246,7 @@ class _Builder:
             self.run(_Draft("eradicate", "Delete a role the attacker created", f"role {name}", "created by an in-scope call", [s],
                             s.event.recipient_account_id),
                      [("delete_role", {"role": name}, None)])
+        self.lambda_functions()
         for pc, s in changes:
             kind, _, who = pc.principal.partition(" ")
             if (kind == "user" and who in self.created_users) or (kind == "role" and who in self.created_roles):
@@ -253,6 +257,22 @@ class _Builder:
             self.run(_Draft("eradicate", "Terminate an attacker's instance", f"instance {instance} ({r})",
                             "launched by an in-scope call", [s], s.event.recipient_account_id, caution="only after its disks are preserved"),
                      [("terminate_instance", {"instance": instance}, r)])
+
+    def lambda_functions(self) -> None:
+        for name, (s, created) in sorted(self.functions.items()):
+            r, account = s.event.aws_region, s.event.recipient_account_id
+            if created:
+                draft = _Draft("eradicate", "Delete a Lambda function the attacker created", f"function {name} ({r})",
+                               "created by an in-scope call; its execution role's sessions were followed", [s], account,
+                               caution="download the code first if you want to read what it did: get-function returns a "
+                                       "temporary link to it. Deleting it does not revoke its role; see the contain steps")
+                self.manual(draft, lambda n=name, r=r: [f"aws lambda get-function --region {q('region', r)} --function-name {q('function', n)}",
+                                                        f"aws lambda delete-function --region {q('region', r)} --function-name {q('function', n)}"])
+            else:
+                draft = _Draft("eradicate", "Review a Lambda function the attacker changed", f"function {name} ({r})",
+                               "an in-scope call replaced its code or configuration; its calls after that were followed", [s], account,
+                               caution="the logs do not show the previous code: redeploy it from source control or your pipeline")
+                self.manual(draft, lambda n=name, r=r: [f"aws lambda get-function --region {q('region', r)} --function-name {q('function', n)}"])
 
     _UNDO = {"iam:AttachUserPolicy": ("detach_user_policy", "user", "policy_arn"),
              "iam:AttachRolePolicy": ("detach_role_policy", "role", "policy_arn"),

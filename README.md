@@ -123,13 +123,16 @@ event made with it joins the scope, and so on from there:
 | `iam:CreateRole` | every session of the new role, and every `AssumeRole` into it, even from another account |
 | `sts:AssumeRole`, `sts:GetSessionToken`, `sts:GetFederationToken` | the temporary key |
 | `ec2:RunInstances` with an instance profile | the instance's role sessions |
+| `lambda:CreateFunction`, `UpdateFunctionCode`, `UpdateFunctionConfiguration` | the function's execution-role sessions (named after the function), from the change onwards |
 
 Each followed event says which identity it acted as (`via`) and the chain of event ids back to its seed; `taint.identities`
 lists everything followed. Confidence carries over: what a weak seed obtained stays weak. The seed window does not limit
 propagation, since a key the attacker created is theirs whenever it is used. `--no-propagate` turns this off.
 
 Not followed: existing roles the attacker merely assumed (only their own session is), passwords set on existing users,
-Lambda functions, and anything outside these rules.
+ECS task roles, and anything outside these rules. IAM Identity Center has no taint rule: its role sessions are named after
+the user, so seed with the user name (`--principal-id user@example.com` matches the session-name part), and its changes
+(assignments, permission sets, identity store users) are classified in the timeline.
 
 ## What the logs cannot show
 

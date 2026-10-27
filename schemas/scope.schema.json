@@ -968,7 +968,8 @@
             "access_key_id",
             "principal_id",
             "role_id",
-            "instance_id"
+            "instance_id",
+            "function_name"
           ],
           "title": "Kind",
           "type": "string"

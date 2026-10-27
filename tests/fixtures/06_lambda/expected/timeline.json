@@ -1,0 +1,256 @@
+{
+  "actors": [
+    {
+      "access_keys": [
+        "AKIAIOSFODNN7LEAKED"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+      "confidence": "strong",
+      "events": 3,
+      "first_event_time": "2026-10-20T11:00:00Z",
+      "label": "user/ci-deploy",
+      "last_event_time": "2026-10-20T11:03:00Z",
+      "principal_id": "AIDA5D934EC130750BA8C",
+      "source_ips": [
+        "198.51.100.77"
+      ],
+      "tainted": false,
+      "user_agents": [
+        "python-requests/2.31.0"
+      ]
+    },
+    {
+      "access_keys": [
+        "ASIAIOSFODNN7EXFIL01"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:sts::111122223333:assumed-role/lambda-exec/exfil-fn",
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-20T11:05:00Z",
+      "label": "assumed-role/lambda-exec/exfil-fn",
+      "last_event_time": "2026-10-20T11:05:00Z",
+      "principal_id": "AROA49B33609FA137A4FD:exfil-fn",
+      "source_ips": [
+        "198.51.100.150"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "Boto3/1.34 exec-env/AWS_Lambda_python3.12"
+      ]
+    },
+    {
+      "access_keys": [
+        "ASIAIOSFODNN7BILLR2"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:sts::111122223333:assumed-role/lambda-exec/billing-report",
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-20T11:10:00Z",
+      "label": "assumed-role/lambda-exec/billing-report",
+      "last_event_time": "2026-10-20T11:10:00Z",
+      "principal_id": "AROA49B33609FA137A4FD:billing-report",
+      "source_ips": [
+        "198.51.100.150"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "Boto3/1.34 exec-env/AWS_Lambda_python3.12"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "account": "111122223333",
+      "action": "sts:GetCallerIdentity",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "8bb4cd19-45aa-5db0-ae36-93addf041786",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T11:00:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "lambda:CreateFunction",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [
+        "function exfil-fn"
+      ],
+      "time": "2026-10-20T11:01:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "lambda:UpdateFunctionCode",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "b2177994-d66c-53bd-8801-5261f0f910a8",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [
+        "function arn:aws:lambda:us-east-1:111122223333:function:billing-report:$LATEST"
+      ],
+      "time": "2026-10-20T11:03:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "secretsmanager:GetSecretValue",
+      "actor": "assumed-role/lambda-exec/exfil-fn",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.150",
+      "tactic": "credential-access",
+      "targets": [
+        "secret prod/db"
+      ],
+      "time": "2026-10-20T11:05:00Z",
+      "via": "function_name:exfil-fn"
+    },
+    {
+      "account": "111122223333",
+      "action": "secretsmanager:GetSecretValue",
+      "actor": "assumed-role/lambda-exec/billing-report",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "50ee173c-5c13-5689-97cd-ef168207f84c",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.150",
+      "tactic": "credential-access",
+      "targets": [
+        "secret prod/db"
+      ],
+      "time": "2026-10-20T11:10:00Z",
+      "via": "function_name:billing-report"
+    }
+  ],
+  "exposure": {
+    "accounts": [
+      "111122223333"
+    ],
+    "admin_granted": false,
+    "credentials_read": [
+      "secret prod/db"
+    ],
+    "notes": [
+      "1 secret(s) or parameter(s) were read: treat their values as known to the attacker",
+      "the inputs have no data events, so object-level S3 access (and similar) cannot be listed here"
+    ],
+    "privilege_changes": [],
+    "resources": [
+      {
+        "access": "write",
+        "actions": [
+          "lambda:UpdateFunctionCode"
+        ],
+        "event_ids": [
+          "b2177994-d66c-53bd-8801-5261f0f910a8"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-20T11:03:00Z",
+        "last_event_time": "2026-10-20T11:03:00Z",
+        "name": "arn:aws:lambda:us-east-1:111122223333:function:billing-report:$LATEST",
+        "service": "lambda",
+        "type": "function"
+      },
+      {
+        "access": "write",
+        "actions": [
+          "lambda:CreateFunction"
+        ],
+        "event_ids": [
+          "d554bd6b-07d7-5564-b3ed-5c98efd37228"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-20T11:01:00Z",
+        "last_event_time": "2026-10-20T11:01:00Z",
+        "name": "exfil-fn",
+        "service": "lambda",
+        "type": "function"
+      },
+      {
+        "access": "read",
+        "actions": [
+          "secretsmanager:GetSecretValue"
+        ],
+        "event_ids": [
+          "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+          "50ee173c-5c13-5689-97cd-ef168207f84c"
+        ],
+        "events": 2,
+        "failed": 0,
+        "first_event_time": "2026-10-20T11:05:00Z",
+        "last_event_time": "2026-10-20T11:10:00Z",
+        "name": "prod/db",
+        "service": "secretsmanager",
+        "type": "secret"
+      }
+    ]
+  },
+  "schema_version": "0.2",
+  "scope_sha256": "2c81b81eafc44bcc7607c23b6d505ea383828db1e34cc30ab7dd5c06dd860b90",
+  "tactics": [
+    {
+      "events": 2,
+      "failed": 0,
+      "first_event_time": "2026-10-20T11:01:00Z",
+      "tactic": "persistence"
+    },
+    {
+      "events": 2,
+      "failed": 0,
+      "first_event_time": "2026-10-20T11:05:00Z",
+      "tactic": "credential-access"
+    },
+    {
+      "events": 1,
+      "failed": 0,
+      "first_event_time": "2026-10-20T11:00:00Z",
+      "tactic": "discovery"
+    }
+  ],
+  "timeline_sha256": "ec4538e1fadccefbe5a9b66aa4c9fa94df63fdd8692379624e80dd8d03b3b808",
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}
