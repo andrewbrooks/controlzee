@@ -1,0 +1,30 @@
+{
+  "Records": [
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA522B276A356BDF390",
+        "arn": "arn:aws:iam::111122223333:user/alice",
+        "accountId": "111122223333",
+        "accessKeyId": "AKIAIOSFODNN7ALICE0",
+        "userName": "alice"
+      },
+      "eventTime": "2026-10-19T16:00:00Z",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "ListBuckets",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "203.0.113.200",
+      "userAgent": "aws-cli/2.15.0",
+      "requestParameters": null,
+      "responseElements": null,
+      "requestID": "1ce51514-aae3-594a-b3db-45361c7d2aac",
+      "eventID": "79b57279-7f3c-5b8a-b198-3b0b181b9d46",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    }
+  ]
+}

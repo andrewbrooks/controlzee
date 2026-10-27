@@ -1,0 +1,8 @@
+# Scenario 5: all that is known is a shared NAT address and that the tool used was curl. Both indicators are weak,
+# so a window is required.
+version: 1
+indicators:
+  nat: {type: source_ip, value: 203.0.113.200}
+  curl: {type: user_agent, value: "curl/"}
+expression: nat AND curl
+window: {start: "2026-10-20T16:00:00Z", end: "2026-10-20T17:00:00Z"}

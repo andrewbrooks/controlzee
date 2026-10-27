@@ -1,0 +1,3 @@
+version: 1
+indicators:
+  leaked_key: {type: access_key_id, value: AKIAIOSFODNN7LEAKED}

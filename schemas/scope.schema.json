@@ -1,0 +1,935 @@
+{
+  "$defs": {
+    "Confidence": {
+      "enum": [
+        "strong",
+        "weak"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "Event": {
+      "additionalProperties": false,
+      "properties": {
+        "aws_region": {
+          "title": "Aws Region",
+          "type": "string"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "error_message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Message"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_name": {
+          "title": "Event Name",
+          "type": "string"
+        },
+        "event_source": {
+          "title": "Event Source",
+          "type": "string"
+        },
+        "event_time": {
+          "title": "Event Time",
+          "type": "string"
+        },
+        "raw": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw"
+        },
+        "read_only": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Read Only"
+        },
+        "recipient_account_id": {
+          "title": "Recipient Account Id",
+          "type": "string"
+        },
+        "request_parameters": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Request Parameters"
+        },
+        "resources": {
+          "default": [],
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Resources",
+          "type": "array"
+        },
+        "response_elements": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response Elements"
+        },
+        "shared_event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shared Event Id"
+        },
+        "source": {
+          "$ref": "#/$defs/SourceRef"
+        },
+        "source_ip": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ip"
+        },
+        "user_agent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Agent"
+        },
+        "user_identity": {
+          "$ref": "#/$defs/UserIdentity"
+        },
+        "vpc_endpoint_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vpc Endpoint Id"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_time",
+        "event_source",
+        "event_name",
+        "aws_region",
+        "recipient_account_id",
+        "user_identity",
+        "source"
+      ],
+      "title": "Event",
+      "type": "object"
+    },
+    "FileProblem": {
+      "additionalProperties": false,
+      "properties": {
+        "note": {
+          "title": "Note",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "note"
+      ],
+      "title": "FileProblem",
+      "type": "object"
+    },
+    "Indicator": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/IndicatorKind"
+        },
+        "match": {
+          "default": "exact",
+          "enum": [
+            "exact",
+            "substring",
+            "regex"
+          ],
+          "title": "Match",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "value"
+      ],
+      "title": "Indicator",
+      "type": "object"
+    },
+    "IndicatorKind": {
+      "enum": [
+        "access_key_id",
+        "principal_id",
+        "source_identity",
+        "principal_arn",
+        "source_ip",
+        "user_agent"
+      ],
+      "title": "IndicatorKind",
+      "type": "string"
+    },
+    "InputsSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "accounts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Accounts",
+          "type": "array"
+        },
+        "duplicates_removed": {
+          "title": "Duplicates Removed",
+          "type": "integer"
+        },
+        "error_files": {
+          "title": "Error Files",
+          "type": "integer"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/FileProblem"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "event_count": {
+          "title": "Event Count",
+          "type": "integer"
+        },
+        "file_count": {
+          "title": "File Count",
+          "type": "integer"
+        },
+        "first_event_time": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "First Event Time"
+        },
+        "ignored_files": {
+          "title": "Ignored Files",
+          "type": "integer"
+        },
+        "ingested_files": {
+          "title": "Ingested Files",
+          "type": "integer"
+        },
+        "last_event_time": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Last Event Time"
+        },
+        "malformed_records": {
+          "title": "Malformed Records",
+          "type": "integer"
+        },
+        "malformed_samples": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Malformed Samples",
+          "type": "array"
+        },
+        "manifest_sha256": {
+          "title": "Manifest Sha256",
+          "type": "string"
+        },
+        "regions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "skipped": {
+          "items": {
+            "$ref": "#/$defs/FileProblem"
+          },
+          "title": "Skipped",
+          "type": "array"
+        },
+        "skipped_files": {
+          "title": "Skipped Files",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "manifest_sha256",
+        "file_count",
+        "ingested_files",
+        "skipped_files",
+        "error_files",
+        "ignored_files",
+        "event_count",
+        "duplicates_removed",
+        "malformed_records",
+        "first_event_time",
+        "last_event_time",
+        "accounts",
+        "regions",
+        "errors",
+        "skipped",
+        "malformed_samples"
+      ],
+      "title": "InputsSummary",
+      "type": "object"
+    },
+    "NearMiss": {
+      "additionalProperties": false,
+      "description": "An event that matched a weak indicator but is not in scope. Compact on purpose: there can be very many.",
+      "properties": {
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "event_name": {
+          "title": "Event Name",
+          "type": "string"
+        },
+        "event_source": {
+          "title": "Event Source",
+          "type": "string"
+        },
+        "event_time": {
+          "title": "Event Time",
+          "type": "string"
+        },
+        "matched_indicators": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Matched Indicators",
+          "type": "array"
+        },
+        "principal": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Principal"
+        },
+        "reason": {
+          "enum": [
+            "expression",
+            "window"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "source_ip": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Ip"
+        }
+      },
+      "required": [
+        "event_id",
+        "event_time",
+        "event_source",
+        "event_name",
+        "source_ip",
+        "principal",
+        "matched_indicators",
+        "reason"
+      ],
+      "title": "NearMiss",
+      "type": "object"
+    },
+    "NearMissSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "by_indicator": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "By Indicator",
+          "type": "object"
+        },
+        "by_reason": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "By Reason",
+          "type": "object"
+        },
+        "listed": {
+          "title": "Listed",
+          "type": "integer"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "listed",
+        "by_reason",
+        "by_indicator"
+      ],
+      "title": "NearMissSummary",
+      "type": "object"
+    },
+    "ScopedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "chain": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Chain",
+          "type": "array"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "event": {
+          "$ref": "#/$defs/Event"
+        },
+        "matched_indicators": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Matched Indicators",
+          "type": "array"
+        },
+        "origin": {
+          "default": "seed",
+          "enum": [
+            "seed",
+            "propagated"
+          ],
+          "title": "Origin",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event",
+        "confidence",
+        "matched_indicators"
+      ],
+      "title": "ScopedEvent",
+      "type": "object"
+    },
+    "SeedInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "expression": {
+          "title": "Expression",
+          "type": "string"
+        },
+        "indicators": {
+          "items": {
+            "$ref": "#/$defs/Indicator"
+          },
+          "title": "Indicators",
+          "type": "array"
+        },
+        "window": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Window"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "expression",
+        "indicators",
+        "window"
+      ],
+      "title": "SeedInfo",
+      "type": "object"
+    },
+    "SessionIssuer": {
+      "additionalProperties": false,
+      "properties": {
+        "account_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Account Id"
+        },
+        "arn": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arn"
+        },
+        "principal_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Principal Id"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        },
+        "user_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Name"
+        }
+      },
+      "title": "SessionIssuer",
+      "type": "object"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "description": "Where the record came from, so the raw record can be fetched again without storing it in every artifact.",
+      "properties": {
+        "input": {
+          "title": "Input",
+          "type": "string"
+        },
+        "record": {
+          "title": "Record",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "input",
+        "record"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "Summary": {
+      "additionalProperties": false,
+      "properties": {
+        "by_account": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "By Account",
+          "type": "object"
+        },
+        "by_confidence": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "By Confidence",
+          "type": "object"
+        },
+        "by_region": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "By Region",
+          "type": "object"
+        },
+        "events_in_scope": {
+          "title": "Events In Scope",
+          "type": "integer"
+        },
+        "failed_calls": {
+          "title": "Failed Calls",
+          "type": "integer"
+        },
+        "first_event_time": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "First Event Time"
+        },
+        "last_event_time": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Last Event Time"
+        }
+      },
+      "required": [
+        "events_in_scope",
+        "by_confidence",
+        "by_account",
+        "by_region",
+        "failed_calls",
+        "first_event_time",
+        "last_event_time"
+      ],
+      "title": "Summary",
+      "type": "object"
+    },
+    "UserIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "access_key_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Access Key Id"
+        },
+        "account_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Account Id"
+        },
+        "arn": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arn"
+        },
+        "invoked_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Invoked By"
+        },
+        "mfa_authenticated": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mfa Authenticated"
+        },
+        "principal_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Principal Id"
+        },
+        "session_issuer": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SessionIssuer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "session_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Name"
+        },
+        "source_identity": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Identity"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        },
+        "user_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Name"
+        }
+      },
+      "title": "UserIdentity",
+      "type": "object"
+    },
+    "Window": {
+      "additionalProperties": false,
+      "description": "Inclusive time window in UTC, as ISO-8601 strings ending in Z.",
+      "properties": {
+        "end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start"
+        }
+      },
+      "title": "Window",
+      "type": "object"
+    }
+  },
+  "$id": "https://controlzee.invalid/schemas/scope-0.1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "events": {
+      "items": {
+        "$ref": "#/$defs/ScopedEvent"
+      },
+      "title": "Events",
+      "type": "array"
+    },
+    "inputs": {
+      "$ref": "#/$defs/InputsSummary"
+    },
+    "near_miss_summary": {
+      "$ref": "#/$defs/NearMissSummary"
+    },
+    "near_misses": {
+      "items": {
+        "$ref": "#/$defs/NearMiss"
+      },
+      "title": "Near Misses",
+      "type": "array"
+    },
+    "schema_version": {
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope_sha256": {
+      "default": "",
+      "title": "Scope Sha256",
+      "type": "string"
+    },
+    "seeds": {
+      "$ref": "#/$defs/SeedInfo"
+    },
+    "summary": {
+      "$ref": "#/$defs/Summary"
+    },
+    "tool": {
+      "additionalProperties": true,
+      "title": "Tool",
+      "type": "object"
+    }
+  },
+  "required": [
+    "tool",
+    "inputs",
+    "seeds",
+    "summary",
+    "events",
+    "near_misses",
+    "near_miss_summary"
+  ],
+  "title": "Scope",
+  "type": "object"
+}

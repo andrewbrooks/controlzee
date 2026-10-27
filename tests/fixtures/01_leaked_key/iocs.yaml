@@ -1,0 +1,7 @@
+# Scenario 1: a leaked CI access key. The attacker used it from 198.51.100.77.
+# The key alone also matches the CI job's legitimate use from the office; ANDing the attacker IP removes those events.
+version: 1
+indicators:
+  leaked_key: {type: access_key_id, value: AKIAIOSFODNN7LEAKED}
+  attacker_ip: {type: source_ip, value: 198.51.100.77}
+expression: leaked_key AND attacker_ip

@@ -1,0 +1,89 @@
+{
+  "$defs": {
+    "ManifestFile": {
+      "additionalProperties": false,
+      "properties": {
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Note"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "records": {
+          "title": "Records",
+          "type": "integer"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "ingested",
+            "skipped",
+            "error"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes",
+        "records",
+        "status",
+        "note"
+      ],
+      "title": "ManifestFile",
+      "type": "object"
+    }
+  },
+  "$id": "https://controlzee.invalid/schemas/inputs-0.1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The sidecar `<scope>.inputs.json`: every input file with its hash, so a result can be tied to the exact evidence.",
+  "properties": {
+    "files": {
+      "items": {
+        "$ref": "#/$defs/ManifestFile"
+      },
+      "title": "Files",
+      "type": "array"
+    },
+    "manifest_sha256": {
+      "title": "Manifest Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "tool": {
+      "additionalProperties": true,
+      "title": "Tool",
+      "type": "object"
+    }
+  },
+  "required": [
+    "tool",
+    "manifest_sha256",
+    "files"
+  ],
+  "title": "InputsManifest",
+  "type": "object"
+}

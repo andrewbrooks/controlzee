@@ -1,0 +1,263 @@
+{
+  "events": [
+    {
+      "chain": [],
+      "confidence": "weak",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+        "event_name": "ListUsers",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-20T16:02:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": null,
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 7
+        },
+        "source_ip": "203.0.113.200",
+        "user_agent": "curl/8.4.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7MALLORY",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/mallory-temp",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA7327543EB571B509A",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "mallory-temp"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "curl",
+        "nat"
+      ],
+      "origin": "seed"
+    },
+    {
+      "chain": [],
+      "confidence": "weak",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "b2177994-d66c-53bd-8801-5261f0f910a8",
+        "event_name": "CreateAccessKey",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-20T16:03:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "userName": "mallory-temp"
+        },
+        "resources": [],
+        "response_elements": {
+          "accessKey": {
+            "accessKeyId": "AKIAIOSFODNN7MALKEY2",
+            "secretAccessKey": "HIDDEN_DUE_TO_SECURITY_REASONS"
+          }
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 8
+        },
+        "source_ip": "203.0.113.200",
+        "user_agent": "curl/8.4.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7MALLORY",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/mallory-temp",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA7327543EB571B509A",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "mallory-temp"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "curl",
+        "nat"
+      ],
+      "origin": "seed"
+    },
+    {
+      "chain": [],
+      "confidence": "weak",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": "UnauthorizedOperation",
+        "error_message": "You are not authorized to perform this operation.",
+        "event_id": "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+        "event_name": "DescribeSecurityGroups",
+        "event_source": "ec2.amazonaws.com",
+        "event_time": "2026-10-20T16:04:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": null,
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+          "record": 9
+        },
+        "source_ip": "203.0.113.200",
+        "user_agent": "curl/8.4.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7MALLORY",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/mallory-temp",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA7327543EB571B509A",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "mallory-temp"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "curl",
+        "nat"
+      ],
+      "origin": "seed"
+    }
+  ],
+  "inputs": {
+    "accounts": [
+      "111122223333"
+    ],
+    "duplicates_removed": 0,
+    "error_files": 0,
+    "errors": [],
+    "event_count": 27,
+    "file_count": 5,
+    "first_event_time": "2026-10-19T16:00:00Z",
+    "ignored_files": 0,
+    "ingested_files": 5,
+    "last_event_time": "2026-10-21T16:00:00Z",
+    "malformed_records": 0,
+    "malformed_samples": [],
+    "manifest_sha256": "a4dd6eed01f0504e75f96dba6ed5cbbac7461b114812a26b16108a2a7d387c6c",
+    "regions": [
+      "us-east-1",
+      "us-west-2"
+    ],
+    "skipped": [],
+    "skipped_files": 0
+  },
+  "near_miss_summary": {
+    "by_indicator": {
+      "curl": 1,
+      "nat": 3
+    },
+    "by_reason": {
+      "expression": 2,
+      "window": 1
+    },
+    "listed": 3,
+    "total": 3
+  },
+  "near_misses": [
+    {
+      "event_id": "79b57279-7f3c-5b8a-b198-3b0b181b9d46",
+      "event_name": "ListBuckets",
+      "event_source": "s3.amazonaws.com",
+      "event_time": "2026-10-19T16:00:00Z",
+      "matched_indicators": [
+        "nat"
+      ],
+      "principal": "arn:aws:iam::111122223333:user/alice",
+      "reason": "expression",
+      "source_ip": "203.0.113.200"
+    },
+    {
+      "event_id": "8bb4cd19-45aa-5db0-ae36-93addf041786",
+      "event_name": "ListBuckets",
+      "event_source": "s3.amazonaws.com",
+      "event_time": "2026-10-20T16:01:00Z",
+      "matched_indicators": [
+        "nat"
+      ],
+      "principal": "arn:aws:iam::111122223333:user/alice",
+      "reason": "expression",
+      "source_ip": "203.0.113.200"
+    },
+    {
+      "event_id": "50ee173c-5c13-5689-97cd-ef168207f84c",
+      "event_name": "ListBuckets",
+      "event_source": "s3.amazonaws.com",
+      "event_time": "2026-10-21T16:00:00Z",
+      "matched_indicators": [
+        "curl",
+        "nat"
+      ],
+      "principal": "arn:aws:iam::111122223333:user/mallory-temp",
+      "reason": "window",
+      "source_ip": "203.0.113.200"
+    }
+  ],
+  "schema_version": "0.1",
+  "scope_sha256": "9673cc24517e6e75ef3e367bc0744c29d6c1fddc665d0884d5f4573de6e6f40d",
+  "seeds": {
+    "expression": "nat AND curl",
+    "indicators": [
+      {
+        "kind": "user_agent",
+        "match": "substring",
+        "name": "curl",
+        "value": "curl/"
+      },
+      {
+        "kind": "source_ip",
+        "match": "exact",
+        "name": "nat",
+        "value": "203.0.113.200"
+      }
+    ],
+    "window": {
+      "end": "2026-10-20T17:00:00Z",
+      "start": "2026-10-20T16:00:00Z"
+    }
+  },
+  "summary": {
+    "by_account": {
+      "111122223333": 3
+    },
+    "by_confidence": {
+      "strong": 0,
+      "weak": 3
+    },
+    "by_region": {
+      "us-east-1": 3
+    },
+    "events_in_scope": 3,
+    "failed_calls": 1,
+    "first_event_time": "2026-10-20T16:02:00Z",
+    "last_event_time": "2026-10-20T16:04:00Z"
+  },
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "Records": [
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA7327543EB571B509A",
+        "arn": "arn:aws:iam::111122223333:user/mallory-temp",
+        "accountId": "111122223333",
+        "accessKeyId": "AKIAIOSFODNN7MALLORY",
+        "userName": "mallory-temp"
+      },
+      "eventTime": "2026-10-21T16:00:00Z",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "ListBuckets",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "203.0.113.200",
+      "userAgent": "curl/8.4.0",
+      "requestParameters": null,
+      "responseElements": null,
+      "requestID": "6d23ad7b-86db-52fd-acd4-a410fb188e47",
+      "eventID": "50ee173c-5c13-5689-97cd-ef168207f84c",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    }
+  ]
+}

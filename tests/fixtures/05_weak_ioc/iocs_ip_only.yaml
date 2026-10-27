@@ -1,0 +1,4 @@
+version: 1
+indicators:
+  nat: {type: source_ip, value: 203.0.113.200}
+window: {start: "2026-10-20T16:00:00Z", end: "2026-10-20T17:00:00Z"}

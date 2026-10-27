@@ -1,0 +1,56 @@
+{
+  "Records": [
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA522B276A356BDF390",
+        "arn": "arn:aws:iam::111122223333:user/alice",
+        "accountId": "111122223333",
+        "accessKeyId": "AKIAIOSFODNN7ALICE0",
+        "userName": "alice"
+      },
+      "eventTime": "2026-10-20T23:00:00Z",
+      "eventSource": "ec2.amazonaws.com",
+      "eventName": "DescribeInstances",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "203.0.113.10",
+      "userAgent": "aws-cli/2.15.0 Python/3.11.6 Linux/5.10 exe/x86_64",
+      "requestParameters": null,
+      "responseElements": null,
+      "requestID": "8b354b04-fc14-5ab3-9176-c9706f31ee9b",
+      "eventID": "e335223c-1e59-55f6-a940-486fe55e89c1",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA522B276A356BDF390",
+        "arn": "arn:aws:iam::111122223333:user/alice",
+        "accountId": "111122223333",
+        "accessKeyId": "AKIAIOSFODNN7ALICE0",
+        "userName": "alice"
+      },
+      "eventTime": "2026-10-20T23:05:00Z",
+      "eventSource": "s3.amazonaws.com",
+      "eventName": "ListBuckets",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "203.0.113.10",
+      "userAgent": "aws-cli/2.15.0 Python/3.11.6 Linux/5.10 exe/x86_64",
+      "requestParameters": null,
+      "responseElements": null,
+      "requestID": "e0b23925-0162-5e84-a902-9032ad1e21ef",
+      "eventID": "6eb74e75-5f65-51a4-8628-b40ad7e0c1ba",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+[project]
+name = "controlzee"
+version = "0.1.0.dev0"
+description = "Incident response as code for AWS: scope an incident from CloudTrail, then plan the response."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+keywords = ["aws", "cloudtrail", "incident-response", "dfir", "security"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Information Technology",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+]
+dependencies = [
+    "boto3>=1.34",
+    "orjson>=3.10",
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+    "rich>=13.7",
+    "typer>=0.12",
+]
+
+[project.scripts]
+controlzee = "controlzee.cli:app"
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.100",
+    "jsonschema>=4.26.0",
+    "mypy>=1.11",
+    "pytest>=8",
+    "pytest-socket>=0.7",
+    "ruff>=0.6",
+    "types-jsonschema>=4.26.0.20261006",
+    "types-PyYAML",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/controlzee"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E9", "F", "B", "UP", "SIM", "C4", "I"]
+ignore = ["E501", "SIM108", "B008"]
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+python_version = "3.12"
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--disable-socket --allow-unix-socket"
+markers = ["slow: larger datasets, excluded from the default run"]

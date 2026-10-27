@@ -1,0 +1,42 @@
+{
+  "files": [
+    {
+      "note": null,
+      "path": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T0800Z_8bf94b58.json",
+      "records": 12,
+      "sha256": "76b0a0b89e8a1e0db0ae0129f5e53d096f530496b29e7a2f115ffd4d816a168f",
+      "size_bytes": 11155,
+      "status": "ingested"
+    },
+    {
+      "note": null,
+      "path": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T1430Z_fb43664d.json",
+      "records": 12,
+      "sha256": "28f865055d207791a8ec472630c9a1f0b8dd0be70dcd27bc46e940c40633c63d",
+      "size_bytes": 12000,
+      "status": "ingested"
+    },
+    {
+      "note": null,
+      "path": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/20/111122223333_CloudTrail_us-east-1_20261020T2300Z_0aa24822.json",
+      "records": 2,
+      "sha256": "b3544eb5dfcdc910f00d2a9b9dfbb445bb44362e836ffb9b0e4dadc1d017acd8",
+      "size_bytes": 1889,
+      "status": "ingested"
+    },
+    {
+      "note": null,
+      "path": "AWSLogs/111122223333/CloudTrail/us-west-2/2026/10/20/111122223333_CloudTrail_us-west-2_20261020T0830Z_87031cde.json",
+      "records": 8,
+      "sha256": "ba947c4dbd89009623070bc9a72de626a76241ac90bac5d03f6cf9f4d68b3a3d",
+      "size_bytes": 11630,
+      "status": "ingested"
+    }
+  ],
+  "manifest_sha256": "6c412a1d770bc610c177d8d19508461ad25f1f198118fc37be48ac1c42af3b09",
+  "schema_version": "0.1",
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}

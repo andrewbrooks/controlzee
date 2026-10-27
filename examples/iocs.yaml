@@ -1,0 +1,27 @@
+# Indicators of compromise for `controlzee scope --iocs iocs.yaml`.
+#
+# Strong indicators identify one actor and are safe to act on:
+#   access_key_id    userIdentity.accessKeyId (AKIA... long-term, ASIA... temporary)
+#   principal_id     userIdentity.principalId, or just the session-name part after the colon
+#   source_identity  userIdentity.sourceIdentity
+# Weak indicators only suggest an actor and need a time window when used alone:
+#   principal_arn    userIdentity.arn, or the role ARN that an assumed-role session was issued by
+#   source_ip        a single address or a CIDR range
+#   user_agent       a substring (default) or, with match: regex, a regular expression
+version: 1
+indicators:
+  leaked_key:
+    type: access_key_id
+    value: AKIAIOSFODNN7EXAMPLE
+  attacker_net:
+    type: source_ip
+    value: 198.51.100.0/24
+  scripted_client:
+    type: user_agent
+    value: python-requests/
+# AND binds tighter than OR; parentheses group. Omit the line to match any indicator.
+expression: leaked_key OR (attacker_net AND scripted_client)
+# Times are UTC. Both ends are required when the expression has only weak indicators.
+window:
+  start: "2026-10-20T00:00:00Z"
+  end: "2026-10-21T00:00:00Z"
