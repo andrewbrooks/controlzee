@@ -15,6 +15,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from email.utils import parsedate_to_datetime
 from typing import Any, Literal
 
 from controlzee import canonical
@@ -32,7 +33,7 @@ from controlzee.model.respond import (
 )
 from controlzee.model.scope import Scope
 from controlzee.plan import build_plan
-from controlzee.respond.ops import OPS, Ctx, Probe, Unsafe, validate
+from controlzee.respond.ops import MAX_SKEW, OPS, WARN_SKEW, Ctx, Probe, Unsafe, validate
 from controlzee.safety import clean
 
 Clock = Callable[[], datetime]
@@ -56,6 +57,29 @@ def _unexpected(e: Exception) -> str:
     return clean(f"unexpected error {type(e).__name__}: {e}", 300)
 
 
+def _skew(response: dict[str, Any]) -> timedelta | None:
+    """AWS's clock minus this machine's, from the Date header of a response; None if there is none to read."""
+    header = response.get("ResponseMetadata", {}).get("HTTPHeaders", {}).get("date")
+    try:
+        return parsedate_to_datetime(str(header)).astimezone(UTC) - datetime.now(UTC)
+    except (TypeError, ValueError):
+        return None
+
+
+def _clock_notes(ctx: Ctx, revokes: bool) -> tuple[list[str], list[str]]:
+    """(warnings, problems) about this machine's clock. Only session revocations depend on it, so only they can fail."""
+    if ctx.skew is None:
+        return ["AWS did not report the time, so this machine's clock could not be compared with it"], (
+            ["a session revocation sets its cutoff from AWS's clock, which could not be read"] if revokes else [])
+    seconds = int(ctx.skew.total_seconds())
+    if abs(ctx.skew) < WARN_SKEW:
+        return [], []
+    note = f"this machine's clock is {abs(seconds)} seconds {'behind' if seconds > 0 else 'ahead of'} AWS's"
+    if revokes and abs(ctx.skew) >= MAX_SKEW:
+        return [note], [note + ", too far off to set the cutoff of a session revocation: fix the clock"]
+    return [note + (" (a session revocation uses AWS's time, so it is not affected)" if revokes else "")], []
+
+
 def identify(profile: str | None, home_region: str) -> tuple[Ctx, Caller]:
     """The caller, and the principal whose policies the simulator should evaluate."""
     try:
@@ -64,7 +88,7 @@ def identify(profile: str | None, home_region: str) -> tuple[Ctx, Caller]:
         raise RespondError(f"cannot identify the supplied credentials: {_aws_message(e)}") from None
     arn, account = str(ident["Arn"]), str(ident["Account"])
     partition = arn.split(":", 2)[1]
-    ctx = Ctx(account=account, partition=partition, profile=profile, home_region=home_region)
+    ctx = Ctx(account=account, partition=partition, profile=profile, home_region=home_region, skew=_skew(ident))
     if arn.endswith(":root"):
         raise RespondError("these are the account's root credentials; use an IAM role or user so permissions can be checked")
     if ":assumed-role/" in arn:
@@ -92,7 +116,12 @@ def simulate(ctx: Ctx, principal_arn: str, checks: list[tuple[str, str]]) -> dic
                 PolicySourceArn=principal_arn, ActionNames=sorted(by_resource[resource]), ResourceArns=[resource])
             for page in pages:
                 for r in page.get("EvaluationResults", []):
-                    decisions[(r["EvalActionName"], resource)] = str(r["EvalDecision"])
+                    decision = str(r["EvalDecision"])
+                    if decision != "allowed" and r.get("MissingContextValues"):
+                        # not a missing permission: a condition the simulator was given no value for (MFA, source IP, tags)
+                        keys = ", ".join(clean(str(k), 60) for k in sorted(r["MissingContextValues"])[:5])
+                        decision += f"; the policy has conditions on {keys} that the simulator cannot evaluate, so this may be allowed in practice"
+                    decisions[(r["EvalActionName"], resource)] = decision
     except aws_errors() as e:
         raise RespondError(f"cannot check permissions with the IAM policy simulator (needs iam:SimulatePrincipalPolicy): "
                            f"{_aws_message(e)}") from None
@@ -197,10 +226,12 @@ def dry_run(scope: Scope, *, profile: str | None, home_region: str, chosen: set[
                                 state=p.state if p else "unknown", already_done=bool(p and p.done), checks=checks,
                                 ok=problem is None, problem=problem))
     problems += [f"{s.action_id} {s.op}: {s.problem}" for s in steps if s.problem]
+    warnings, clock_problems = _clock_notes(ctx, any(s.op.endswith("_sessions") for s in steps))
+    problems += clock_problems
     doc = DryRun(tool=tool_info(), scope_sha256=scope.scope_sha256, plan_sha256=plan.plan_sha256, caller=caller,
                  home_region=home_region, checked_at=_now(clock), allow_disruptive=allow_disruptive,
                  chosen_steps=sorted(chosen) if chosen is not None else None, steps=steps,
-                 not_selected=skipped, problems=problems, passed=not problems)
+                 not_selected=skipped, warnings=warnings, problems=problems, passed=not problems)
     return canonical.seal(doc.model_dump(mode="json"), "dryrun_sha256")
 
 

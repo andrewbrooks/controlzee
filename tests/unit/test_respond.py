@@ -367,3 +367,59 @@ def test_an_unexpected_error_is_recorded_not_raised(fixtures, monkeypatch):
     rec = run(doc)
     assert not rec.completed and [s.result for s in rec.steps][:2] == ["done", "failed"]
     assert "may be partly made" in rec.steps[1].detail
+
+
+# ---- clock skew and simulator context (items 6 and 7)
+
+def _cutoff(acct):
+    return acct.documents[("role", "ops-admin", "controlzee-revoke-older-sessions")]["Statement"][0]["Condition"]["DateLessThan"]["aws:TokenIssueTime"]
+
+
+def test_a_revocation_cutoff_is_awss_time_not_this_machines(fixtures, monkeypatch):
+    acct = account_02()
+    acct.skew = timedelta(minutes=-2)  # AWS is 2 minutes behind this machine
+    dr = check(scope_of(fixtures, "02_role_chain"), acct, monkeypatch)
+    assert dr.passed and any("behind" in w or "ahead" in w for w in dr.warnings)
+    before = datetime.now(UTC) + acct.skew
+    assert run(dr.model_dump(mode="json")).completed
+    cutoff = datetime.strptime(_cutoff(acct), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    assert before - timedelta(seconds=2) <= cutoff <= datetime.now(UTC) + acct.skew + timedelta(seconds=2)
+
+
+def test_small_skew_is_quiet_and_a_large_one_stops_revocations_only(fixtures, monkeypatch):
+    scope = scope_of(fixtures, "02_role_chain")
+    assert check(scope, account_02(), monkeypatch).warnings == []
+    acct = account_02()
+    acct.skew = timedelta(minutes=10)
+    dr = check(scope, acct, monkeypatch)
+    assert not dr.passed and any("fix the clock" in p for p in dr.problems)
+    # a plan with no revocation in it is only warned
+    other = account_01()
+    other.skew = timedelta(minutes=10)
+    dr = check(scope_of(fixtures, "01_leaked_key"), other, monkeypatch)
+    assert dr.passed and dr.warnings
+
+
+def test_execute_will_not_revoke_if_the_clock_drifted_after_the_dry_run(fixtures, monkeypatch):
+    acct = account_02()
+    doc = check(scope_of(fixtures, "02_role_chain"), acct, monkeypatch).model_dump(mode="json")
+    acct.skew = timedelta(minutes=10)
+    rec = run(doc)
+    failed = [x for x in rec.steps if x.result == "failed"]
+    assert not rec.completed and failed[0].op.endswith("_sessions") and "clock" in failed[0].detail and acct.documents == {}
+
+
+def test_no_date_header_fails_a_revocation_closed(fixtures, monkeypatch):
+    acct = account_02()
+    acct.skew = None
+    dr = check(scope_of(fixtures, "02_role_chain"), acct, monkeypatch)
+    assert not dr.passed and dr.warnings
+
+
+def test_missing_context_is_reported_not_guessed(fixtures, monkeypatch):
+    acct = account_01()
+    acct.denied = {"iam:UpdateAccessKey"}
+    acct.missing_context = {"iam:UpdateAccessKey": ["aws:MultiFactorAuthPresent"]}
+    dr = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch)
+    assert not dr.passed  # still a failure
+    assert "aws:MultiFactorAuthPresent that the simulator cannot evaluate" in dr.problems[0]
