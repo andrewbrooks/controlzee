@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from email.utils import format_datetime
 from typing import Any
 
 import boto3
@@ -45,6 +47,8 @@ class Account:
     hub: bool = True
     instances: dict[str, dict[str, Any]] = field(default_factory=dict)
     denied: set[str] = field(default_factory=set)  # IAM actions the simulator denies
+    missing_context: dict[str, list[str]] = field(default_factory=dict)  # denied action -> condition keys the simulator lacked
+    skew: timedelta | None = timedelta(0)  # AWS's clock minus the local one; None = no Date header
     documents: dict[tuple[str, str, str], dict[str, Any]] = field(default_factory=dict)  # (user|role, name, policy) -> inline document
     calls: list[tuple[str, str, dict[str, Any]]] = field(default_factory=list)  # (service, operation, params), writes only
 
@@ -88,7 +92,8 @@ class FakeClient:
     # ---- sts / iam
 
     def _sts_get_caller_identity(self, op: str) -> Any:
-        return {"Account": ACCOUNT, "Arn": self.acct.caller_arn, "UserId": "AROAFAKE:alice"}
+        meta = {} if self.acct.skew is None else {"HTTPHeaders": {"date": format_datetime(datetime.now(UTC) + self.acct.skew, usegmt=True)}}
+        return {"Account": ACCOUNT, "Arn": self.acct.caller_arn, "UserId": "AROAFAKE:alice", "ResponseMetadata": meta}
 
     def _user(self, op: str, name: str) -> User:
         if name not in self.acct.users:
@@ -222,7 +227,8 @@ class FakeClient:
         if "iam:SimulatePrincipalPolicy" in self.acct.denied:
             raise _err("AccessDenied", op)
         return {"EvaluationResults": [{"EvalActionName": a, "EvalResourceName": r,
-                                       "EvalDecision": "implicitDeny" if a in self.acct.denied else "allowed"}
+                                       "EvalDecision": "implicitDeny" if a in self.acct.denied else "allowed",
+                                       **({"MissingContextValues": self.acct.missing_context[a]} if a in self.acct.missing_context else {})}
                                       for a in ActionNames for r in ResourceArns], "IsTruncated": False}
 
     # ---- logging and detection

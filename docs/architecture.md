@@ -119,7 +119,7 @@ what is attached so every needed action is checked. `respond/run.py`:
   ones only with `--allow-disruptive`; only the caller's account), identifies the caller (`sts:GetCallerIdentity`, then
   `iam:GetRole` to turn a role session into its role ARN), probes, and asks `iam:SimulatePrincipalPolicy` about every
   pair, grouped by resource. Anything not "allowed", and any probe that cannot read, fails it.
-- `execute` checks the dry run's seal, version, pass, age and approval prefix, and that the caller is the same principal
+- `execute` checks the dry run's seal, that it is not dated in the future, that its steps are known, chosen and allowed (an edited, re-sealed file cannot add one), version, pass, age and approval prefix, and that the caller is the same principal
   and account; then per step: validate again, probe again, apply, record, stop at the first failure.
 
 Nothing is executed through a shell. `argcheck.py` holds the patterns for command-line values that reach AWS.

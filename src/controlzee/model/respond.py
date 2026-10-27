@@ -55,8 +55,10 @@ class DryRun(Model):
     home_region: str
     checked_at: str
     allow_disruptive: bool
+    chosen_steps: list[str] | None  # the plan steps named with --steps, or None for "every step that can run"
     steps: list[DryRunStep]  # in the order execute would run them
     not_selected: list[NotSelected]
+    warnings: list[str] = []  # worth reading, but they do not stop execute
     problems: list[str]
     passed: bool  # every selected step can be done with these credentials; execute refuses otherwise
     dryrun_sha256: str = ""

@@ -46,10 +46,11 @@ def test_dry_run_reads_checks_and_changes_nothing(fixtures, monkeypatch):
     assert dr.passed and dr.caller.principal_arn == "arn:aws:iam::111122223333:role/IncidentResponder"
     assert [(s.action_id, s.op, s.state) for s in dr.steps] == [
         ("A01", "deactivate_access_key", "key AKIAIOSFODNN7BKDOOR is Active"),
-        ("A02", "deactivate_access_key", "key AKIAIOSFODNN7LEAKED is Active")]
+        ("A02", "deactivate_access_key", "key AKIAIOSFODNN7LEAKED is Active"),
+        ("A04", "detach_user_policy", "arn:aws:iam::aws:policy/AdministratorAccess is attached to user backdoor-svc")]
     assert [c.action for c in dr.steps[0].checks] == ["iam:UpdateAccessKey"]
     assert {n.action_id: n.reason.split(":")[0].split(" (")[0] for n in dr.not_selected} == {
-        "A03": "a manual step", "A04": "disruptive", "A05": "a manual step"}
+        "A03": "a manual step", "A05": "disruptive", "A06": "a manual step"}
     assert acct.calls == []  # nothing but reads
 
 
@@ -57,7 +58,7 @@ def test_a_missing_permission_fails_the_dry_run(fixtures, monkeypatch):
     acct = account_01()
     acct.denied = {"iam:UpdateAccessKey"}
     dr = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch)
-    assert not dr.passed and all(not s.ok for s in dr.steps)
+    assert not dr.passed and [s.ok for s in dr.steps] == [False, False, True]
     assert "not permitted: iam:UpdateAccessKey on arn:aws:iam::111122223333:user/backdoor-svc (implicitDeny)" in dr.problems[0]
     with pytest.raises(RespondError, match="did not pass"):
         run(dr.model_dump(mode="json"))
@@ -81,8 +82,8 @@ def test_steps_choose_and_must_be_runnable(fixtures, monkeypatch):
     scope = scope_of(fixtures, "01_leaked_key")
     dr = check(scope, account_01(), monkeypatch, chosen={"A02"})
     assert [s.action_id for s in dr.steps] == ["A02"] and dr.passed
-    dr = check(scope, account_01(), monkeypatch, chosen={"A03", "A04", "A99"})
-    assert not dr.passed and [p.split(" ")[0] for p in dr.problems] == ["--steps", "A03", "A04"]
+    dr = check(scope, account_01(), monkeypatch, chosen={"A03", "A05", "A99"})
+    assert not dr.passed and [p.split(" ")[0] for p in dr.problems] == ["--steps", "A03", "A05"]
 
 
 # ---- execute
@@ -91,14 +92,14 @@ def test_execute_makes_the_approved_changes(fixtures, monkeypatch):
     acct = account_01()
     dr = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch)
     rec = run(dr.model_dump(mode="json"))
-    assert rec.completed and [s.result for s in rec.steps] == ["done", "done"]
+    assert rec.completed and [s.result for s in rec.steps] == ["done", "done", "done"]
     assert acct.users["ci-deploy"].keys == {"AKIAIOSFODNN7LEAKED": "Inactive"}
     assert acct.users["backdoor-svc"].keys == {"AKIAIOSFODNN7BKDOOR": "Inactive"}
-    assert [(svc, m) for svc, m, _ in acct.calls] == [("iam", "update_access_key"), ("iam", "update_access_key")]
+    assert [(svc, m) for svc, m, _ in acct.calls] == [("iam", "update_access_key"), ("iam", "update_access_key"), ("iam", "detach_user_policy")]
     # run again: everything is already in place, and nothing is written
     acct.calls.clear()
     again = run(check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch).model_dump(mode="json"))
-    assert [s.result for s in again.steps] == ["already done", "already done"] and acct.calls == []
+    assert [s.result for s in again.steps] == ["already done"] * 3 and acct.calls == []
 
 
 def test_disruptive_steps_need_the_flag_and_delete_everything(fixtures, monkeypatch):
@@ -106,8 +107,8 @@ def test_disruptive_steps_need_the_flag_and_delete_everything(fixtures, monkeypa
     acct.users["backdoor-svc"].login = True
     acct.users["backdoor-svc"].groups = {"admins"}
     dr = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch, allow_disruptive=True)
-    assert [s.op for s in dr.steps] == ["deactivate_access_key", "deactivate_access_key", "delete_user"]
-    assert {c.action for c in dr.steps[2].checks} == {"iam:DeleteUser", "iam:DeleteAccessKey", "iam:DeleteLoginProfile",
+    assert [s.op for s in dr.steps] == ["deactivate_access_key", "deactivate_access_key", "detach_user_policy", "delete_user"]
+    assert {c.action for c in dr.steps[3].checks} == {"iam:DeleteUser", "iam:DeleteAccessKey", "iam:DeleteLoginProfile",
                                                      "iam:DetachUserPolicy", "iam:RemoveUserFromGroup"}
     assert run(dr.model_dump(mode="json")).completed and "backdoor-svc" not in acct.users
 
@@ -145,7 +146,7 @@ def test_execute_stops_at_the_first_failure(fixtures, monkeypatch):
         raise fake_aws._err("AccessDenied", op)
     monkeypatch.setattr(fake_aws.FakeClient, "_iam_update_access_key", refuse)
     rec = run(doc)
-    assert not rec.completed and [s.result for s in rec.steps] == ["failed", "not run"]
+    assert not rec.completed and [s.result for s in rec.steps] == ["failed", "not run", "not run"]
     assert rec.steps[0].detail.startswith("AccessDenied")
 
 
@@ -186,7 +187,7 @@ def test_cli_dry_run_then_execute(fixtures, monkeypatch, tmp_path):
     assert r.exit_code == 2 and "--approve is required" in r.output
     r = cli("respond", "execute", tmp_path / "dryrun.json", "--approve", doc["dryrun_sha256"][:16], "-o", tmp_path / "response.json")
     assert r.exit_code == 0, r.output
-    assert "Done: 2 change(s) made, 0 already in place" in r.stdout
+    assert "Done: 3 change(s) made, 0 already in place" in r.stdout
     assert canonical.is_sealed(json.loads((tmp_path / "response.json").read_text()), "response_sha256")
 
 
@@ -296,13 +297,129 @@ def test_a_refused_password_check_does_not_block_deleting_a_user(fixtures, monke
         raise fake_aws._err("AccessDenied", op)
     acct = account_01()
     monkeypatch.setattr(fake_aws.FakeClient, "_iam_get_login_profile", refuse)
-    dr = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch, chosen={"A04"}, allow_disruptive=True)
+    dr = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch, chosen={"A05"}, allow_disruptive=True)
     assert dr.passed and "iam:GetLoginProfile is refused" in dr.steps[0].state
     assert run(dr.model_dump(mode="json")).completed and "backdoor-svc" not in acct.users
     # if it did have a password that could not be removed, the delete stops with a conflict instead
     acct2 = account_01()
     acct2.users["backdoor-svc"].login = True
     monkeypatch.setattr(fake_aws.FakeClient, "_iam_delete_login_profile", refuse)
-    dr2 = check(scope_of(fixtures, "01_leaked_key"), acct2, monkeypatch, chosen={"A04"}, allow_disruptive=True)
+    dr2 = check(scope_of(fixtures, "01_leaked_key"), acct2, monkeypatch, chosen={"A05"}, allow_disruptive=True)
     rec = run(dr2.model_dump(mode="json"))
     assert not rec.completed and rec.steps[0].detail.startswith("DeleteConflict") and "backdoor-svc" in acct2.users
+
+
+# ---- regressions from the line-by-line review
+
+def _resealed(doc):
+    return canonical.seal({k: v for k, v in doc.items() if k != "dryrun_sha256"}, "dryrun_sha256")
+
+
+def test_execute_refuses_a_dry_run_dated_in_the_future(fixtures, monkeypatch):
+    doc = check(scope_of(fixtures, "01_leaked_key"), account_01(), monkeypatch).model_dump(mode="json")
+    with pytest.raises(RespondError):
+        run(doc, at=T0 - timedelta(days=30))
+
+
+def test_execute_refuses_an_edited_and_resealed_dry_run(fixtures, monkeypatch):
+    acct = account_01()
+    doc = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch).model_dump(mode="json")
+    extra = {**doc["steps"][0], "action_id": "A99", "op": "delete_user", "args": {"user": "ci-deploy"}, "region": None, "checks": []}
+    edited = _resealed({**doc, "steps": [*doc["steps"], extra]})
+    with pytest.raises(RespondError):
+        run(edited)
+    assert "ci-deploy" in acct.users and acct.calls == []
+
+
+def test_execute_simulates_again_before_each_change(fixtures, monkeypatch):
+    acct = account_01()
+    doc = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch).model_dump(mode="json")
+    acct.denied = {"iam:UpdateAccessKey"}  # permission lost after the dry run
+    rec = run(doc)
+    assert not rec.completed and rec.steps[0].result == "failed" and "no longer permitted" in rec.steps[0].detail
+    assert acct.calls == []
+
+
+def test_the_responder_cannot_cut_itself_off():
+    from controlzee.model.respond import Caller
+    from controlzee.respond.run import cuts_off_caller
+    caller = Caller(account="1", arn="arn:aws:sts::1:assumed-role/IncidentResponder/a", principal_arn="arn:aws:iam::1:role/IncidentResponder")
+    assert cuts_off_caller("revoke_role_sessions", {"role": "IncidentResponder"}, caller)
+    assert cuts_off_caller("revoke_role_sessions", {"role": "Other"}, caller) is None
+    user = Caller(account="1", arn="arn:aws:iam::1:user/alice", principal_arn="arn:aws:iam::1:user/alice")
+    assert cuts_off_caller("detach_group_policy", {"group": "admins", "policy_arn": "p"}, user, frozenset({"admins"}))
+    assert cuts_off_caller("detach_group_policy", {"group": "admins", "policy_arn": "p"}, user, frozenset()) is None
+
+
+def test_an_unexpected_error_is_recorded_not_raised(fixtures, monkeypatch):
+    from tests import fake_aws
+    acct = account_01()
+    doc = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch).model_dump(mode="json")
+    orig = fake_aws.FakeClient._iam_update_access_key
+    n = []
+
+    def boom(self, op, **kw):
+        n.append(1)
+        if len(n) == 2:
+            raise RuntimeError("unexpected response shape")
+        return orig(self, op, **kw)
+    monkeypatch.setattr(fake_aws.FakeClient, "_iam_update_access_key", boom)
+    rec = run(doc)
+    assert not rec.completed and [s.result for s in rec.steps][:2] == ["done", "failed"]
+    assert "may be partly made" in rec.steps[1].detail
+
+
+# ---- clock skew and simulator context (items 6 and 7)
+
+def _cutoff(acct):
+    return acct.documents[("role", "ops-admin", "controlzee-revoke-older-sessions")]["Statement"][0]["Condition"]["DateLessThan"]["aws:TokenIssueTime"]
+
+
+def test_a_revocation_cutoff_is_awss_time_not_this_machines(fixtures, monkeypatch):
+    acct = account_02()
+    acct.skew = timedelta(minutes=-2)  # AWS is 2 minutes behind this machine
+    dr = check(scope_of(fixtures, "02_role_chain"), acct, monkeypatch)
+    assert dr.passed and any("behind" in w or "ahead" in w for w in dr.warnings)
+    before = datetime.now(UTC) + acct.skew
+    assert run(dr.model_dump(mode="json")).completed
+    cutoff = datetime.strptime(_cutoff(acct), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    assert before - timedelta(seconds=2) <= cutoff <= datetime.now(UTC) + acct.skew + timedelta(seconds=2)
+
+
+def test_small_skew_is_quiet_and_a_large_one_stops_revocations_only(fixtures, monkeypatch):
+    scope = scope_of(fixtures, "02_role_chain")
+    assert check(scope, account_02(), monkeypatch).warnings == []
+    acct = account_02()
+    acct.skew = timedelta(minutes=10)
+    dr = check(scope, acct, monkeypatch)
+    assert not dr.passed and any("fix the clock" in p for p in dr.problems)
+    # a plan with no revocation in it is only warned
+    other = account_01()
+    other.skew = timedelta(minutes=10)
+    dr = check(scope_of(fixtures, "01_leaked_key"), other, monkeypatch)
+    assert dr.passed and dr.warnings
+
+
+def test_execute_will_not_revoke_if_the_clock_drifted_after_the_dry_run(fixtures, monkeypatch):
+    acct = account_02()
+    doc = check(scope_of(fixtures, "02_role_chain"), acct, monkeypatch).model_dump(mode="json")
+    acct.skew = timedelta(minutes=10)
+    rec = run(doc)
+    failed = [x for x in rec.steps if x.result == "failed"]
+    assert not rec.completed and failed[0].op.endswith("_sessions") and "clock" in failed[0].detail and acct.documents == {}
+
+
+def test_no_date_header_fails_a_revocation_closed(fixtures, monkeypatch):
+    acct = account_02()
+    acct.skew = None
+    dr = check(scope_of(fixtures, "02_role_chain"), acct, monkeypatch)
+    assert not dr.passed and dr.warnings
+
+
+def test_missing_context_is_reported_not_guessed(fixtures, monkeypatch):
+    acct = account_01()
+    acct.denied = {"iam:UpdateAccessKey"}
+    acct.missing_context = {"iam:UpdateAccessKey": ["aws:MultiFactorAuthPresent"]}
+    dr = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch)
+    assert not dr.passed  # still a failure
+    assert "the simulator had no value for the condition keys aws:MultiFactorAuthPresent" in dr.problems[0]
