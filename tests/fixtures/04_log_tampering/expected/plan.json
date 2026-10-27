@@ -18,6 +18,7 @@
         "0c4724b0-c705-5f43-b734-61f1923edf71"
       ],
       "id": "A01",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -45,6 +46,7 @@
         "e510f9f7-b40d-594a-b7fd-60345a52ef80"
       ],
       "id": "A02",
+      "on_request": false,
       "operations": [],
       "phase": "investigate",
       "target": "us-east-1 in account 111122223333, 2026-10-20T14:33:00Z to 2026-10-20T16:40:00Z",
@@ -63,6 +65,7 @@
         "f28e8312-d896-50a7-9bf2-20635e39e60a"
       ],
       "id": "A03",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -90,6 +93,7 @@
         "e510f9f7-b40d-594a-b7fd-60345a52ef80"
       ],
       "id": "A04",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -123,6 +127,7 @@
         "0c4724b0-c705-5f43-b734-61f1923edf71"
       ],
       "id": "A05",
+      "on_request": false,
       "operations": [],
       "phase": "recover",
       "target": "user ci-deploy, replacing AKIAIOSFODNN7LEAKED",
@@ -134,7 +139,7 @@
     "steps with operations can be carried out by `controlzee respond` after a dry run and your approval; the others are for a person. Either way, review each one first",
     "work through the phases in order; within contain, act quickly, since the attacker may notice"
   ],
-  "plan_sha256": "d0cc93b9eed356c69d1739bba927ec512c39ca726a0017ce393a826ed139c5ea",
+  "plan_sha256": "cbb3067572b68e2a327433f33dcf596e0884709896da8d7d04ecba50979df3d8",
   "schema_version": "0.2",
   "scope_sha256": "8834c10984f91bab8470a6367695324d152b077dcd29503c1c18370413a01ca8",
   "tool": {

@@ -31,6 +31,7 @@ class PlanAction(Model):
     commands: list[str]  # AWS CLI text; empty when the step needs judgement rather than a command
     operations: list[Operation]  # what respond would do; empty for manual steps
     disruptive: bool  # deletes, terminates or stops something: respond runs it only with --allow-disruptive
+    on_request: bool  # respond runs it only when it is named with --steps (undoing a containment step, say)
     caution: str | None
     evidence: list[str]  # event ids, first 10
 

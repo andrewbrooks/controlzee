@@ -106,6 +106,8 @@ def _select(plan: Plan, caller: Caller, chosen: set[str] | None, allow_disruptiv
             reason = "not chosen with --steps"
         elif not a.operations:
             reason = "a manual step: controlzee cannot carry it out"
+        elif a.on_request and not explicit:
+            reason = "runs only when named with --steps (it undoes a containment step)"
         elif a.disruptive and not allow_disruptive:
             reason = "disruptive (deletes, stops or terminates something): pass --allow-disruptive to include it"
         elif a.account and a.account != caller.account:
@@ -119,6 +121,21 @@ def _select(plan: Plan, caller: Caller, chosen: set[str] | None, allow_disruptiv
     return selected, skipped, problems
 
 
+# operations that would cut off the principal running the response, by the argument naming it
+_CUTS_OFF = {"role": {"revoke_role_sessions", "delete_role"},
+             "user": {"revoke_user_sessions", "deactivate_access_key", "delete_access_key", "delete_user"}}
+
+
+def cuts_off_caller(op: str, args: dict[str, str], caller: Caller) -> str | None:
+    """Why `op` would revoke the credentials running the response, or None. Checked before anything else."""
+    kind = "role" if ":role/" in caller.principal_arn else "user"
+    name = caller.principal_arn.rsplit("/", 1)[1]
+    if op in _CUTS_OFF[kind] and args.get(kind) == name:
+        return (f"it would revoke the credentials running this response ({kind} {name}), so the steps after it would fail: "
+                "run the response as a different role or user, or leave this step out with --steps")
+    return None
+
+
 def dry_run(scope: Scope, *, profile: str | None, home_region: str, chosen: set[str] | None = None, allow_disruptive: bool = False,
             clock: Clock = lambda: datetime.now(UTC)) -> dict[str, Any]:
     plan = Plan.model_validate(build_plan(scope))
@@ -129,6 +146,9 @@ def dry_run(scope: Scope, *, profile: str | None, home_region: str, chosen: set[
         for o in a.operations:
             try:
                 validate(o.op, o.args, o.region)
+                if (harm := cuts_off_caller(o.op, o.args, caller)) is not None:
+                    probed.append((a, o, None, harm))
+                    continue
                 probed.append((a, o, OPS[o.op].probe(ctx, o.args, o.region), None))
             except (Unsafe, KeyError):
                 probed.append((a, o, None, "the operation's arguments are not valid"))
