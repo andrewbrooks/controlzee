@@ -195,14 +195,21 @@ def dry_run(scope: Scope, *, profile: str | None, home_region: str, chosen: set[
     ctx, caller = identify(profile, home_region)
     selected, skipped, problems = _select(plan, caller, chosen, allow_disruptive)
     probed: list[tuple[PlanAction, Any, Probe | None, str | None]] = []
-    groups: frozenset[str] | None = None
+    groups: frozenset[str] = frozenset()
+    groups_error: str | None = None
+    if any(o.op in _GROUP_OPS for a in selected for o in a.operations):
+        try:  # once: the same answer (or failure) applies to every group step
+            groups = caller_groups(ctx, caller)
+        except aws_errors() as e:
+            groups_error = f"cannot read the groups of the credentials running this response (needs iam:ListGroupsForUser): {_aws_message(e)}"
     for a in selected:
         for o in a.operations:
             try:
                 validate(o.op, o.args, o.region)
-                if o.op in _GROUP_OPS and groups is None:
-                    groups = caller_groups(ctx, caller)
-                if (harm := cuts_off_caller(o.op, o.args, caller, groups or frozenset())) is not None:
+                if o.op in _GROUP_OPS and groups_error:
+                    probed.append((a, o, None, groups_error))
+                    continue
+                if (harm := cuts_off_caller(o.op, o.args, caller, groups)) is not None:
                     probed.append((a, o, None, harm))
                     continue
                 probed.append((a, o, OPS[o.op].probe(ctx, o.args, o.region), None))
@@ -240,6 +247,8 @@ def load_dry_run(doc: Any) -> DryRun:
         raise RespondError("not a dry run written by controlzee respond dry-run")
     if doc.get("schema_version") != SCHEMA_VERSION:
         raise RespondError(f"the dry run has schema version {doc.get('schema_version')!r}; run the dry run again with this version")
+    if "chosen_steps" not in doc:
+        raise RespondError("the dry run was written by an older version of controlzee; run the dry run again")
     if not canonical.is_sealed(doc, "dryrun_sha256"):
         raise RespondError("the dry run was changed after it was written (its dryrun_sha256 does not match its content)")
     try:
@@ -248,12 +257,18 @@ def load_dry_run(doc: Any) -> DryRun:
         raise RespondError(f"the dry run does not match its schema: {clean(e, 200)}") from None
 
 
-def _refuse_edited(dr: DryRun, caller: Caller, ctx: Ctx) -> None:
-    """The dry run's filters (disruptive, --steps, the responder's own access) were applied when it was made. The file is
-    sealed with a hash anyone can recompute, so they are applied again here, before anything is changed."""
+def _refuse_edited(dr: DryRun, plan: Plan, caller: Caller, ctx: Ctx) -> None:
+    """The dry run's steps must be exactly what this plan, rebuilt from the scope, yields for the dry run's own --steps and
+    --allow-disruptive; the filters and the responder's own access are checked again. The seal is a hash anyone can
+    recompute, so it catches accidents only: the --approve hash is what ties execution to what a person reviewed."""
     if dr.problems or not all(s.ok for s in dr.steps):
         raise RespondError("this dry run lists problems; run the dry run again")
     chosen = set(dr.chosen_steps) if dr.chosen_steps is not None else None
+    selected, _, select_problems = _select(plan, caller, chosen, dr.allow_disruptive)
+    expected = [(a.id, o.op, o.args, o.region) for a in selected for o in a.operations]
+    if select_problems or [(s.action_id, s.op, s.args, s.region) for s in dr.steps] != expected:
+        raise RespondError("the steps of this dry run are not the ones this scope's plan gives for its --steps and "
+                           "--allow-disruptive: the file was edited, or the scope is not the one it was made from")
     try:
         groups = caller_groups(ctx, caller) if any(s.op in _GROUP_OPS for s in dr.steps) else frozenset()
     except aws_errors() as e:
@@ -276,7 +291,7 @@ def _refuse_edited(dr: DryRun, caller: Caller, ctx: Ctx) -> None:
             raise RespondError(f"step {clean(s.action_id)}: {harm}")
 
 
-def execute(doc: Any, *, approve: str, profile: str | None, max_age: timedelta,
+def execute(doc: Any, scope: Scope, *, approve: str, profile: str | None, max_age: timedelta,
             clock: Clock = lambda: datetime.now(UTC), progress: Callable[[ExecutedStep], None] = lambda s: None) -> dict[str, Any]:
     dr = load_dry_run(doc)
     if not dr.passed:
@@ -284,16 +299,21 @@ def execute(doc: Any, *, approve: str, profile: str | None, max_age: timedelta,
     if len(approve) < 12 or not dr.dryrun_sha256.startswith(approve):
         raise RespondError("--approve does not match this dry run's sha256; approve the dry run you reviewed")
     checked = datetime.strptime(dr.checked_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
-    if checked - clock() > timedelta(minutes=5):
+    if checked - clock() > MAX_SKEW:
         raise RespondError("the dry run is dated in the future, so its age cannot be trusted; run the dry run again")
     if clock() - checked > max_age:
         raise RespondError(f"the dry run is older than {int(max_age.total_seconds() // 60)} minutes; run it again so the "
                            "checks reflect the account as it is now")
+    if dr.scope_sha256 != scope.scope_sha256:
+        raise RespondError("this scope.json is not the one the dry run was made from (scope_sha256 differs); pass the same --scope")
+    plan = Plan.model_validate(build_plan(scope))
+    if dr.plan_sha256 != plan.plan_sha256:
+        raise RespondError("the plan built from this scope is not the one the dry run was made from; run the dry run again")
     ctx, caller = identify(profile, dr.home_region)
     if (caller.account, caller.principal_arn) != (dr.caller.account, dr.caller.principal_arn):
         raise RespondError(f"these credentials are {clean(caller.principal_arn)} in {caller.account}; the dry run was checked for "
                            f"{clean(dr.caller.principal_arn)} in {dr.caller.account}")
-    _refuse_edited(dr, caller, ctx)
+    _refuse_edited(dr, plan, caller, ctx)
     started = _now(clock)
     done: list[ExecutedStep] = []
     failed = False
@@ -324,6 +344,8 @@ def execute(doc: Any, *, approve: str, profile: str | None, max_age: timedelta,
             step = record(s, "failed", "interrupted; the change may be partly made: check the target")
         except aws_errors() as e:
             step = record(s, "failed", _aws_message(e))
+        except RespondError as e:  # the permission re-check itself failed: apply was never called
+            step = record(s, "failed", f"{clean(e, 300)}; nothing was changed by this step")
         except Exception as e:  # recorded, not raised: changes already made must not be left without a record
             step = record(s, "failed", f"{_unexpected(e)}; the change may be partly made: check the target")
         failed = step.result == "failed"
