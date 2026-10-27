@@ -196,8 +196,21 @@ Each output cites the scope it came from; the same scope always gives the same b
 - **`report`**: Markdown with the summary, coverage, timeline, exposure, plan and indicators. Everything from the logs
   is escaped, so log content cannot add links, HTML or table cells.
 
-Try them on a committed scenario: `controlzee report tests/fixtures/02_role_chain/expected/scope.json -o report.md`, or
-read `tests/fixtures/*/expected/report.md`.
+### Example reports
+
+These reports are generated from synthetic CloudTrail by the test suite (and kept current by it), so you can read real
+output without running anything:
+
+| scenario | what it shows | report | plan |
+|---|---|---|---|
+| leaked key | a leaked key creates a backdoor user with admin access | [report](tests/fixtures/01_leaked_key/expected/report.md) | [plan](tests/fixtures/01_leaked_key/expected/plan.json) |
+| role chain | a key assumes roles, including into a second account (444455556666) whose logs are missing | [report](tests/fixtures/02_role_chain/expected/report.md) | [plan](tests/fixtures/02_role_chain/expected/plan.json) |
+| instance role | seeded by a weak indicator; the instance the attacker launched acts through its role and a secret is read | [report](tests/fixtures/03_instance_role/expected/report.md) | [plan](tests/fixtures/03_instance_role/expected/plan.json) |
+| log tampering | `StopLogging` and a 127-minute gap the report ties to it | [report](tests/fixtures/04_log_tampering/expected/report.md) | [plan](tests/fixtures/04_log_tampering/expected/plan.json) |
+| weak indicators | a shared NAT address and `curl`, bounded by a time window; events outside it are listed as near misses | [report](tests/fixtures/05_weak_ioc/expected/report.md) | [plan](tests/fixtures/05_weak_ioc/expected/plan.json) |
+| Lambda | functions the attacker created or changed run with their execution role, and read a secret | [report](tests/fixtures/06_lambda/expected/report.md) | [plan](tests/fixtures/06_lambda/expected/plan.json) |
+
+To make one yourself: `controlzee report tests/fixtures/02_role_chain/expected/scope.json -o report.md`.
 
 ## What it will not tell you
 
