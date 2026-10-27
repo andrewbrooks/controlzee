@@ -70,6 +70,16 @@ def _req(ev: Event, key: str) -> Any:
     return (ev.request_parameters or {}).get(key)
 
 
+def _reads(ev: Event, kind: str, name: str) -> bool:
+    """Whether this call read the secret or parameter (path) `name`."""
+    if kind == "secret":
+        return bool(_req(ev, "secretId") == name)
+    if kind == "parameter path":
+        return bool(_req(ev, "path") == name)
+    names = _req(ev, "names")
+    return bool(_req(ev, "name") == name or (isinstance(names, list) and name in names))
+
+
 def _account(ev: Event) -> str:
     return ev.user_identity.account_id or ev.recipient_account_id
 
@@ -234,8 +244,13 @@ class _Builder:
     # ---- eradicate
 
     def eradicate(self) -> None:
+        # Permission changes are undone first, even on a user or role that is then deleted: deleting is disruptive and
+        # needs --allow-disruptive, and the privilege the attacker granted must not stay in place when it is left out.
         changes = [(pc, self.by_id[pc.event_id]) for pc in exposure(self.scope).privilege_changes
                    if pc.outcome == "ok" and pc.event_id in self.by_id]
+        for pc, s in changes:
+            kind, _, who = pc.principal.partition(" ")
+            self._undo(pc.action, kind, who, pc.policy, s)
         for name, s in sorted(self.created_users.items()):
             self.run(_Draft("eradicate", "Delete a user the attacker created", f"user {name}", "created by an in-scope call", [s],
                             s.event.recipient_account_id,
@@ -247,11 +262,6 @@ class _Builder:
                             s.event.recipient_account_id),
                      [("delete_role", {"role": name}, None)])
         self.lambda_functions()
-        for pc, s in changes:
-            kind, _, who = pc.principal.partition(" ")
-            if (kind == "user" and who in self.created_users) or (kind == "role" and who in self.created_roles):
-                continue  # deleted with the principal
-            self._undo(pc.action, kind, who, pc.policy, s)
         for instance, s in sorted(self.instances.items()):
             r = s.event.aws_region
             self.run(_Draft("eradicate", "Terminate an attacker's instance", f"instance {instance} ({r})",
@@ -321,20 +331,32 @@ class _Builder:
             self.run(_Draft("recover", title, target, f"an in-scope {t.event_name} {t.effect}", [s], t.account, caution=caution),
                      [(op, args, t.region)])
         for item in exposure(self.scope).credentials_read:
-            kind, _, name = item.partition(" ")
-            readers = [s for s in self.scope.events if s.event.error_code is None and name in
-                       (_req(s.event, "secretId"), _req(s.event, "name"), _req(s.event, "path"))]
+            kind, name = next(((k, item[len(k) + 1:]) for k in ("parameter path", "parameter", "secret") if item.startswith(k + " ")),
+                              ("", item))
+            readers = [s for s in self.scope.events if s.event.error_code is None and _reads(s.event, kind, name)]
             r = readers[0].event.aws_region if readers else "us-east-1"
             account = readers[0].event.recipient_account_id if readers else None
             if kind == "secret":
                 self.manual(_Draft("recover", "Rotate a secret the attacker read", item, "read by an in-scope call", readers, account,
                                    caution="rotation needs a rotation function; otherwise set a new value and update its users"),
                             lambda n=name, r=r: [f"aws secretsmanager rotate-secret --region {q('region', r)} --secret-id {q('secret', n)}"])
-            else:
+            elif kind == "parameter":
                 self.manual(_Draft("recover", "Change a parameter the attacker read", item, "read by an in-scope call", readers, account,
                                    caution="the value is a credential only if it is one; check before changing it"),
                             lambda n=name, r=r: [f"aws ssm put-parameter --region {q('region', r)} --name {q('parameter', n)} "
                                                  "--type SecureString --overwrite --value NEW_VALUE"])
+            elif kind == "parameter path":
+                self.manual(_Draft("recover", "Change the parameters under a path the attacker read", item, "read by an in-scope call",
+                                   readers, account,
+                                   caution="the attacker could read every parameter under the path; the value of each is a credential "
+                                           "only if it is one, so check before changing it"),
+                            lambda n=name, r=r: [f"aws ssm get-parameters-by-path --region {q('region', r)} --path {q('parameter', n)} "
+                                                 "--recursive --query 'Parameters[].Name'",
+                                                 f"aws ssm put-parameter --region {q('region', r)} --name NAME_FROM_ABOVE "
+                                                 "--type SecureString --overwrite --value NEW_VALUE"])
+            else:
+                self.manual(_Draft("recover", "Review something the attacker read", item, "read by an in-scope call", readers, account,
+                                   caution="controlzee does not know this kind of credential; rotate or review it by hand"))
         for kind, name, account, evs in self.revoked:
             if kind == "role" and name in self.created_roles:
                 continue  # deleted in the eradicate steps

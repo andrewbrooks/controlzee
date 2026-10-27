@@ -157,6 +157,34 @@
       "account": "111122223333",
       "caution": null,
       "commands": [
+        "aws iam detach-role-policy --role-name support-audit --policy-arn arn:aws:iam::aws:policy/ReadOnlyAccess"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "50ee173c-5c13-5689-97cd-ef168207f84c"
+      ],
+      "id": "A07",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "policy_arn": "arn:aws:iam::aws:policy/ReadOnlyAccess",
+            "role": "support-audit"
+          },
+          "op": "detach_role_policy",
+          "region": null
+        }
+      ],
+      "phase": "eradicate",
+      "target": "role support-audit",
+      "title": "Undo a permission change",
+      "why": "iam:AttachRolePolicy by an in-scope call (arn:aws:iam::aws:policy/ReadOnlyAccess)"
+    },
+    {
+      "account": "111122223333",
+      "caution": null,
+      "commands": [
         "aws iam list-attached-role-policies --role-name support-audit",
         "aws iam detach-role-policy --role-name support-audit --policy-arn EACH_POLICY_FROM_ABOVE",
         "aws iam list-role-policies --role-name support-audit",
@@ -170,7 +198,7 @@
       "evidence": [
         "2ffe710f-fbb1-5679-86f8-d41da46a5f2c"
       ],
-      "id": "A07",
+      "id": "A08",
       "on_request": false,
       "operations": [
         {
@@ -197,7 +225,7 @@
       "evidence": [
         "ba5efc04-26a3-539d-90ad-b357e29515e5"
       ],
-      "id": "A08",
+      "id": "A09",
       "on_request": true,
       "operations": [
         {
@@ -227,7 +255,7 @@
         "50ee173c-5c13-5689-97cd-ef168207f84c",
         "cb96022f-25c2-56a3-ab3f-bf725e6fd694"
       ],
-      "id": "A09",
+      "id": "A10",
       "on_request": true,
       "operations": [
         {
@@ -258,7 +286,7 @@
         "d554bd6b-07d7-5564-b3ed-5c98efd37228",
         "94d6ce92-a4b5-5017-b554-c200a68a9aa4"
       ],
-      "id": "A10",
+      "id": "A11",
       "on_request": false,
       "operations": [],
       "phase": "recover",
@@ -271,7 +299,7 @@
     "steps with operations can be carried out by `controlzee respond` after a dry run and your approval; the others are for a person. Either way, review each one first",
     "work through the phases in order; within contain, act quickly, since the attacker may notice"
   ],
-  "plan_sha256": "0ba18eb5eb882526df8cf80729a8f22422bd5f7d4527557a66e3ef0a5bf391d3",
+  "plan_sha256": "4b68ac9534068f4f6656e0b8639ac26c27d9782d64b61240b2871207f394fabf",
   "schema_version": "0.2",
   "scope_sha256": "4fa1c19c69fe32f1912d9c38ab3917e2aaa5c8c4dcb7384d930a66a9fbbbd6e4",
   "tool": {

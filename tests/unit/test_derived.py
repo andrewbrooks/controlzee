@@ -79,12 +79,15 @@ def test_scenario_01_timeline_and_plan(fixtures):
     plan = plan_of(scope)
     assert [(a.phase, a.title) for a in plan.actions] == [
         ("contain", "Deactivate an access key the attacker used"), ("contain", "Deactivate an access key the attacker used"),
-        ("investigate", "Look for object-level access elsewhere"), ("eradicate", "Delete a user the attacker created"),
+        ("investigate", "Look for object-level access elsewhere"), ("eradicate", "Undo a permission change"),
+        ("eradicate", "Delete a user the attacker created"),
         ("recover", "Give the key's owner a new key, then delete the old one")]
-    delete = plan.actions[3]
+    undo = plan.actions[3]
+    assert [(o.op, o.args["user"]) for o in undo.operations] == [("detach_user_policy", "backdoor-svc")] and not undo.disruptive
+    delete = plan.actions[4]
     assert [(o.op, o.args) for o in delete.operations] == [("delete_user", {"user": "backdoor-svc"})] and delete.disruptive
     assert delete.commands[-1] == "aws iam delete-user --user-name backdoor-svc"
-    assert [a.operations == [] for a in plan.actions] == [False, False, True, False, True]  # investigate and the new key are manual
+    assert [a.operations == [] for a in plan.actions] == [False, False, True, False, False, True]  # investigate and the new key are manual
 
 
 def test_scenario_02_plan_reaches_into_the_unlogged_account(fixtures):
