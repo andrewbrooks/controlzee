@@ -5,9 +5,12 @@ did, in a form other tools and people can rely on.
 
 Named for CTRL+Z, but most of the time the right answer is rebuild, not undo.
 
+> **Proof of concept (alpha).** Read the [status](#status) before pointing it at an account that matters. `respond`
+> changes IAM and other AWS resources; only part of it has been run against a real account.
+
 ## Purpose
 
-AI is changing everything, including attacker behavior and incident response. The new attacker patterns are programmatic and precise, which means incident response must also be programmatic and precise. With AI-enabled attacks, we’re seeing attackers having higher success rates because LLMs give them speed and precision. Attacks can be customized in short order, and building new tooling for reconnaissance, exfiltration, and persistence is faster and cheaper than it’s ever been.
+Attackers are becoming programmatic and precise, and AI-enabled tooling makes reconnaissance, exfiltration and persistence faster and cheaper to build and to customize. Incident response has to become programmatic and precise too.
 
 controlzee is a proof of concept intended to demonstrate what programmatic incident response looks like in a world of agentic and AI-enabled attackers. You give it your CloudTrail logs and what you know about the attacker, like a leaked access key or a suspicious IP. It traces everything that key did, every role it assumed, and every resource it created, then follows what those resources did on their own. For example, if the attacker launched an EC2 instance with a privileged role and that instance changed a bucket policy twenty minutes later, controlzee connects those dots, which is something an analyst pivoting through queries may overlook.
 
@@ -15,10 +18,25 @@ What you get back is a timeline of the attack, a list of the secrets and data th
 
 controlzee won’t fix every incident automagically. The point is to show what incident response looks like when it moves at the same speed as the attacker.
 
-**Status:** early, and the output formats may still change (schema 0.x). `controlzee scope` matches indicators, follows
+## Status
+
+Early, and the output formats may still change (schema 0.x). `controlzee scope` matches indicators, follows
 the attacker to what they created or obtained, and says what the logs cannot show. `timeline`, `plan` and `report` turn
 that into a story, an exposure list, a response plan and a readable report. `respond` reverts what the attacker did,
 after a dry run that a person has reviewed and approved.
+
+### What has been tested
+
+- **Everything** runs in the test suite (333 tests, no network): generated CloudTrail for six scenarios, and an
+  in-memory AWS account whose calls are checked against botocore's service models.
+- **Against a real sandbox account**, as of the last field test ([docs/field-testing.md](docs/field-testing.md)): event
+  history as a source; taint through an assumed role; the plan; the dry run and the permission check (including a
+  denied permission, an MFA-conditioned permission and a refused self-cutoff); and `execute` for deactivating a key,
+  revoking and lifting a role's sessions. Nothing else in the operations list has run against a real account:
+  that includes logging and detection restoration, cutting an instance off its role, stopping or terminating
+  instances, and the Lambda and instance-profile taint rules. Treat those as untested.
+- **Not tested**: macOS or Windows, Python other than 3.12, and the minimum dependency versions in `pyproject.toml`
+  (the suite runs against `uv.lock`).
 
 ```
 controlzee scope --logs ./logs --iocs iocs.yaml -o scope.json   # what happened (the evidence)
@@ -117,6 +135,8 @@ uv run controlzee scope --logs ./logs --access-key AKIA... --ip 198.51.100.77 --
 - `--guardduty finding.json` imports the key, IP and time window from a GuardDuty finding.
 - Writes `scope.json` and `scope.inputs.json` (every input file with its SHA-256). Same inputs give the same bytes.
 - Never modifies the logs. Existing outputs are not overwritten without `--force`.
+- Exit status 3 if none of the input files could be read (the scope would be empty because of that), or with `--strict`
+  if any file or record could not be.
 
 Events that matched a weak indicator but fell outside the expression or window are listed as near misses, so you can
 see what the scope left out.

@@ -16,7 +16,7 @@ Scoping has to be fast on millions of events, and almost all of them are irrelev
 2. **Materialize pass.** Only the files that hold in-scope events are read again, and full `Event` models are built for
    those events alone. An event-id check catches a file that changed between the passes.
 
-Measured on a synthetic 1M-record dataset (200 gzipped files, 1.33 GB uncompressed) on a 28-thread WSL2 machine:
+Measured once, with a generator that is not committed to this repository, so treat these as indicative and not reproducible. The dataset was synthetic, 1M records (200 gzipped files, 1.33 GB uncompressed) on a 28-thread WSL2 machine:
 
 | choice | finding |
 |---|---|

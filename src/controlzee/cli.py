@@ -93,7 +93,7 @@ def scope(
     workers: Annotated[int | None, typer.Option("--workers", min=1, help="Worker processes (default: up to 16, by CPU count).")] = None,
     near_miss_limit: Annotated[int, typer.Option("--near-miss-limit", min=0, help="Most near misses to list; all are counted.")] = 500,
     embed_raw: Annotated[bool, typer.Option("--embed-raw", help="Embed each in-scope event's raw record in scope.json (much larger).")] = False,
-    strict: Annotated[bool, typer.Option("--strict", help="Exit with status 3 if any input file or record could not be read.")] = False,
+    strict: Annotated[bool, typer.Option("--strict", help="Exit with status 3 if any input file or record could not be read (always, if none could).")] = False,
     no_propagate: Annotated[bool, typer.Option("--no-propagate", help="Do not follow credentials and principals the attacker created or obtained.")] = False,
     gap_minutes: Annotated[int, typer.Option("--gap-minutes", min=1, help="Shortest silence in the logs to report as a coverage gap.")] = 60,
 ) -> None:
@@ -137,6 +137,10 @@ def scope(
     write_atomic(inputs_path, result.inputs_bytes)
     _print_summary(result, out_path, inputs_path)
     i = result.scope.inputs
+    if i.ingested_files == 0:  # an empty scope that means "nothing was read" must not look like "nothing happened"
+        err.print(Text(f"none of the {i.file_count} input file(s) could be read: this scope is empty because of that, "
+                       "not because the attacker did nothing", style="bold red"))
+        raise typer.Exit(3)
     if strict and (i.error_files or i.malformed_records):
         raise typer.Exit(3)
 

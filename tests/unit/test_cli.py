@@ -113,7 +113,7 @@ def test_terminal_output_cannot_be_hijacked_by_log_content(tmp_path):
     logs.mkdir()
     (logs / "x\x1b[2Jevil[bold red]‮.json").write_bytes(b"{")
     r = run("scope", "--logs", logs, "--access-key", "A", "-o", tmp_path / "s.json")
-    assert r.exit_code == 0 and "\x1b" not in r.output and "‮" not in r.output
+    assert r.exit_code == 3 and "\x1b" not in r.output and "‮" not in r.output
 
 
 def test_guardduty_import_prints_what_it_took(s01, tmp_path):
@@ -157,3 +157,11 @@ def test_a_changed_scope_is_refused(s01, tmp_path):
     edited.write_text(json.dumps(doc))
     r = run("report", edited, "-o", tmp_path / "r.md")
     assert r.exit_code == 2 and "was changed after it was written" in r.output and not (tmp_path / "r.md").exists()
+
+
+def test_a_scope_from_inputs_that_could_not_be_read_exits_3(tmp_path):
+    bad = tmp_path / "bad"
+    bad.mkdir()
+    (bad / "bad.json").write_bytes(b"{")
+    r = run("scope", "--logs", bad, "--access-key", "AKIAIOSFODNN7LEAKED", "-o", tmp_path / "s.json")
+    assert r.exit_code == 3 and "none of the 1 input file(s) could be read" in r.output and (tmp_path / "s.json").exists()
