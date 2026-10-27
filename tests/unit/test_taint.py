@@ -33,6 +33,11 @@ def marks_by_id(idx, prop):
     ("sts.amazonaws.com", "GetSessionToken", {}, {"credentials": {"accessKeyId": "ASIANEW"}}, (("access_key_id", "ASIANEW"),)),
     ("sts.amazonaws.com", "AssumeRole", {}, {"credentials": {"accessKeyId": "ASIANEW"}, "assumedRoleUser": {"assumedRoleId": "AROAR:s"}},
      (("access_key_id", "ASIANEW"), ("assumes_role", "AROAR"))),
+    ("lambda.amazonaws.com", "CreateFunction20150331", {"functionName": "f1"}, None, (("function_name", "f1"),)),
+    ("lambda.amazonaws.com", "UpdateFunctionCode20150331v2",
+     {"functionName": "arn:aws:lambda:us-east-1:111122223333:function:f2:$LATEST"}, None, (("function_name", "f2"),)),
+    ("lambda.amazonaws.com", "UpdateFunctionConfiguration20150331v2", {"functionName": "111122223333:function:f3"}, None, (("function_name", "f3"),)),
+    ("lambda.amazonaws.com", "CreateFunction20150331", None, {"functionName": "from-response"}, (("function_name", "from-response"),)),
     ("ec2.amazonaws.com", "RunInstances", {"iamInstanceProfile": {"name": "p"}},
      {"instancesSet": {"items": [{"instanceId": "i-2"}, {"instanceId": "i-1"}, {"nope": 1}]}}, (("instance_id", "i-1"), ("instance_id", "i-2"))),
 ])
@@ -54,6 +59,22 @@ def test_failed_unrelated_or_odd_calls_hand_over_nothing(rec, source, name):
 
 def test_rule_name():
     assert rule_name("iam.amazonaws.com", "CreateAccessKey") == "iam:CreateAccessKey"
+    assert rule_name("lambda.amazonaws.com", "UpdateFunctionCode20150331v2") == "lambda:UpdateFunctionCode"
+
+
+@pytest.mark.parametrize("name", ["", "has space", "x" * 65, "a;b", "$(id)"])
+def test_odd_lambda_function_names_are_not_followed(name):
+    assert issued_by({"requestParameters": {"functionName": name}}, "lambda.amazonaws.com", "CreateFunction20150331") is None
+    assert issued_by({"requestParameters": {"functionName": "f"}, "errorCode": "AccessDenied"}, "lambda.amazonaws.com", "CreateFunction20150331") is None
+
+
+def test_a_function_is_followed_by_its_role_sessions_only_after_the_change():
+    idx = index(make_row(id="before", ts=T0 - 1, pid="AROAX:f1", uitype="AssumedRole", ak="ASIA0"),
+                make_row(id="seed", ts=T0, issued=(("function_name", "f1"),)),
+                make_row(id="after", ts=T0 + 1, pid="AROAX:f1", uitype="AssumedRole", ak="ASIA1"),
+                make_row(id="other-function", ts=T0 + 2, pid="AROAX:f2", uitype="AssumedRole", ak="ASIA2"),
+                make_row(id="a-user-with-that-name", ts=T0 + 3, pid="AIDAX:f1", uitype="IAMUser", ak="AKIA3"))
+    assert sorted(marks_by_id(idx, propagate(idx, [seed(idx, "seed")]))) == ["after", "seed"]
 
 
 # ---- propagation

@@ -1,0 +1,4 @@
+# Scenario 6: a leaked CI key used to create and change Lambda functions.
+version: 1
+indicators:
+  leaked_key: {type: access_key_id, value: AKIAIOSFODNN7LEAKED}

@@ -132,7 +132,8 @@ def _plan(plan: Plan) -> list[str]:
         out += [f"### {_PHASE_TITLES[phase]}", ""]
         for a in actions:
             weak = " *(weak evidence: confirm first)*" if a.confidence.value == "weak" else ""
-            runs = ("`controlzee respond` can do this, with --allow-disruptive" if a.disruptive else
+            runs = ("`controlzee respond` can do this, when named with --steps" if a.on_request else
+                    "`controlzee respond` can do this, with --allow-disruptive" if a.disruptive else
                     "`controlzee respond` can do this") if a.operations else "manual"
             out += [f"**{a.id}. {md(a.title)}**: {md(a.target, 300)}{weak}", "", f"{md(a.why, 600)}. *({runs})*"]
             if a.caution:

@@ -13,6 +13,7 @@
         "1e53ffdd-8f58-549b-a23f-5584b5fdb45b"
       ],
       "id": "A01",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -48,6 +49,7 @@
         "9c765f05-4203-5522-a74d-58c985b1a06a"
       ],
       "id": "A02",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -71,6 +73,7 @@
       "disruptive": false,
       "evidence": [],
       "id": "A03",
+      "on_request": false,
       "operations": [],
       "phase": "investigate",
       "target": "S3 and other data-plane activity",
@@ -98,6 +101,7 @@
         "ba5efc04-26a3-539d-90ad-b357e29515e5"
       ],
       "id": "A04",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -133,6 +137,7 @@
         "9c765f05-4203-5522-a74d-58c985b1a06a"
       ],
       "id": "A05",
+      "on_request": false,
       "operations": [],
       "phase": "recover",
       "target": "user ci-deploy, replacing AKIAIOSFODNN7LEAKED",
@@ -144,7 +149,7 @@
     "steps with operations can be carried out by `controlzee respond` after a dry run and your approval; the others are for a person. Either way, review each one first",
     "work through the phases in order; within contain, act quickly, since the attacker may notice"
   ],
-  "plan_sha256": "4bf0a97c1e5745a2c72f2fb6964eb1cece293acda7ce91b59eb14e2593d71755",
+  "plan_sha256": "c3ee607047e7ccca01cb86149acb1813562bbc75b8f87f4c6b6333a289aba992",
   "schema_version": "0.2",
   "scope_sha256": "167306f72aff700fd0a7f87390d2271ac900ec0e7aeb20745d0d4788e45f0fb3",
   "tool": {

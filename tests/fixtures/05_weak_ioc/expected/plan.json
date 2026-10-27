@@ -14,6 +14,7 @@
         "2ffe710f-fbb1-5679-86f8-d41da46a5f2c"
       ],
       "id": "A01",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -41,6 +42,7 @@
         "b2177994-d66c-53bd-8801-5261f0f910a8"
       ],
       "id": "A02",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -64,6 +66,7 @@
       "disruptive": false,
       "evidence": [],
       "id": "A03",
+      "on_request": false,
       "operations": [],
       "phase": "investigate",
       "target": "S3 and other data-plane activity",
@@ -85,6 +88,7 @@
         "2ffe710f-fbb1-5679-86f8-d41da46a5f2c"
       ],
       "id": "A04",
+      "on_request": false,
       "operations": [],
       "phase": "recover",
       "target": "user mallory-temp, replacing AKIAIOSFODNN7MALLORY",
@@ -97,7 +101,7 @@
     "work through the phases in order; within contain, act quickly, since the attacker may notice",
     "steps marked weak rest on weak evidence (IP, user agent or ARN matches): confirm them before acting"
   ],
-  "plan_sha256": "ca8fd436668e9ab215a1f615490303aabb87d5d7c9af5c9d2b1774f58d4bb5d6",
+  "plan_sha256": "40506feaaed22735dc89fe7a83f47597ffea351ba934d6ada4ed51c508a4f325",
   "schema_version": "0.2",
   "scope_sha256": "657837bd47db8dd7733bd1c5f6b02448fe47a4cebc3623d968152dad8eb72325",
   "tool": {
