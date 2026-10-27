@@ -9,13 +9,13 @@ tables know are read, so a parameter an attacker controls cannot pose as a resou
 """
 from __future__ import annotations
 
-import re
 from collections.abc import Iterator
 from typing import Any, Final, Literal
 
 from controlzee.coverage import TAMPERING
 from controlzee.model.event import Event
 from controlzee.model.timeline import Tactic
+from controlzee.taint.rules import API_VERSION
 
 TACTIC_ORDER: Final[tuple[Tactic, ...]] = ("initial-access", "execution", "persistence", "privilege-escalation", "defense-evasion",
                                            "credential-access", "discovery", "lateral-movement", "collection", "exfiltration",
@@ -28,11 +28,16 @@ _BY_TACTIC: Final[dict[Tactic, dict[str, tuple[str, ...]]]] = {
     "persistence": {
         "iam": ("CreateUser", "CreateAccessKey", "CreateLoginProfile", "UpdateLoginProfile", "CreateRole", "UpdateAssumeRolePolicy",
                 "CreateServiceSpecificCredential", "UploadSSHPublicKey", "CreateVirtualMFADevice", "EnableMFADevice"),
-        "ec2": ("ImportKeyPair", "CreateKeyPair"), "lambda": ("CreateFunction", "UpdateFunctionCode", "AddPermission")},
+        "ec2": ("ImportKeyPair", "CreateKeyPair"),
+        "lambda": ("CreateFunction", "UpdateFunctionCode", "UpdateFunctionConfiguration", "AddPermission"),
+        # IAM Identity Center: a new person or an assignment is a way back in
+        "identitystore": ("CreateUser", "CreateGroupMembership"), "sso": ("CreateAccountAssignment", "CreateInstanceAccessControlAttributeConfiguration")},
     "privilege-escalation": {
         "iam": ("AttachUserPolicy", "AttachRolePolicy", "AttachGroupPolicy", "PutUserPolicy", "PutRolePolicy", "PutGroupPolicy",
                 "AddUserToGroup", "CreatePolicyVersion", "SetDefaultPolicyVersion"),
-        "ec2": ("AssociateIamInstanceProfile", "ReplaceIamInstanceProfileAssociation")},
+        "ec2": ("AssociateIamInstanceProfile", "ReplaceIamInstanceProfileAssociation"),
+        "sso": ("AttachManagedPolicyToPermissionSet", "AttachCustomerManagedPolicyReferenceToPermissionSet",
+                "PutInlinePolicyToPermissionSet", "PutPermissionsBoundaryToPermissionSet")},
     "defense-evasion": {"ec2": ("DeleteFlowLogs",), "logs": ("DeleteLogGroup", "DeleteLogStream")},
     "credential-access": {"secretsmanager": ("GetSecretValue", "BatchGetSecretValue"),
                           "ssm": ("GetParameter", "GetParameters", "GetParametersByPath"), "ec2": ("GetPasswordData",),
@@ -52,7 +57,7 @@ _TABLE: Final[dict[tuple[str, str], Tactic]] = {
     (svc, name): tactic for tactic, by_svc in _BY_TACTIC.items() for svc, names in by_svc.items() for name in names}
 _TABLE.update({(src.split(".", 1)[0], name): "defense-evasion" for src, name in TAMPERING})
 _READ_PREFIXES: Final = ("Get", "List", "Describe", "Lookup", "Head", "Search", "BatchGet", "Scan", "Query")
-_API_VERSION = re.compile(r"\d{8}(v\d+)?$")  # Lambda logs names like CreateFunction20150331
+_API_VERSION = API_VERSION
 
 
 def service(event_source: str) -> str:

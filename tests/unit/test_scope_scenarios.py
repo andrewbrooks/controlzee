@@ -110,6 +110,16 @@ def test_coverage_notes_missing_data_events(fixtures):
     assert any(n.startswith("no data events") for n in notes)
 
 
+def test_scenario_06_follows_lambda_functions_the_attacker_created_or_changed(fixtures):
+    out = scope_for(fixtures, "06_lambda")
+    followed = [(s.event.event_time[11:16], s.event.user_identity.session_name, s.via) for s in out.scope.events if s.origin == "propagated"]
+    assert followed == [("11:05", "exfil-fn", "function_name:exfil-fn"), ("11:10", "billing-report", "function_name:billing-report")]
+    assert [(i.rule, i.value) for i in out.scope.taint.identities] == [
+        ("lambda:CreateFunction", "exfil-fn"), ("lambda:UpdateFunctionCode", "billing-report")]  # the version suffix is dropped
+    # billing-report ran before the change and other-fn shares the role: neither is the attacker's
+    assert all(s.event.event_time > "2026-10-20T10:59" and s.event.user_identity.session_name != "other-fn" for s in out.scope.events)
+
+
 def test_scenario_05_weak_indicators_need_the_window_and_report_near_misses(fixtures):
     out = scope_for(fixtures, "05_weak_ioc")
     assert names(out) == ["ListUsers", "CreateAccessKey", "DescribeSecurityGroups"]

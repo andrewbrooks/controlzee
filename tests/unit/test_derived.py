@@ -115,6 +115,19 @@ def test_scenario_04_gap_sits_in_the_timeline_and_logging_is_restored(fixtures):
     assert "Re-enable GuardDuty" not in titles  # the attempt was refused
 
 
+def test_scenario_06_plan_has_manual_steps_for_the_functions_and_classifies_identity_center(fixtures):
+    plan = plan_of(scope_of(fixtures, "06_lambda"))
+    steps = {a.title: a for a in plan.actions if "Lambda function" in a.title}
+    created = steps["Delete a Lambda function the attacker created"]
+    assert created.target == "function exfil-fn (us-east-1)" and not created.operations
+    assert created.commands[-1] == "aws lambda delete-function --region us-east-1 --function-name exfil-fn"
+    changed = steps["Review a Lambda function the attacker changed"]
+    assert changed.target == "function billing-report (us-east-1)" and "redeploy" in (changed.caution or "")
+    for service, name, expected in (("sso", "CreateAccountAssignment", "persistence"), ("identitystore", "CreateUser", "persistence"),
+                                    ("sso", "PutInlinePolicyToPermissionSet", "privilege-escalation")):
+        assert tactic(ev(f"{service}.amazonaws.com", name, read_only=False)) == expected
+
+
 @pytest.mark.parametrize("scenario", SCENARIOS)
 def test_derived_goldens(fixtures, golden, scenario):
     scope = scope_of(fixtures, scenario)

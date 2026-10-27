@@ -223,6 +223,41 @@ def scenario_04_log_tampering() -> LogSet:
     return logs
 
 
+def scenario_06_lambda() -> LogSet:
+    """A leaked key creates a Lambda function with an existing execution role, and replaces the code of another.
+
+    Followed by taint: the sessions of the function it created (session name = function name) once it exists, and the
+    sessions of `billing-report` after its code was replaced. Not followed: `billing-report` running before the change,
+    and an unrelated function using the same role. Lambda logs its event names with an API version suffix.
+    """
+    logs = LogSet()
+    _noise(logs)
+    attacker = iam_user("ci-deploy", LEAKED_KEY)
+    t = at("2026-10-20T11:00:00Z")
+    kw = {"ip": ATTACKER_IP, "ua": ATTACKER_UA}
+    role_arn = f"arn:aws:iam::{ACCOUNT}:role/lambda-exec"
+
+    def runs(function: str, key: str, when) -> None:  # an invocation, as the function's role session logs its calls
+        session = assumed_role("lambda-exec", function, key)
+        session["invokedBy"] = "lambda.amazonaws.com"
+        logs.add(when, "secretsmanager.amazonaws.com", "GetSecretValue", session, ip="198.51.100.150", ua="Boto3/1.34 exec-env/AWS_Lambda_python3.12",
+                 request={"secretId": "prod/db"})
+
+    runs("billing-report", "ASIAIOSFODNN7BILLR1", t - timedelta(hours=2))  # the function as it was
+    logs.add(t, "sts.amazonaws.com", "GetCallerIdentity", attacker, **kw)
+    logs.add(t + timedelta(minutes=1), "lambda.amazonaws.com", "CreateFunction20150331", attacker,
+             request={"functionName": "exfil-fn", "runtime": "python3.12", "role": role_arn, "handler": "app.handler"},
+             response={"functionName": "exfil-fn", "functionArn": f"arn:aws:lambda:us-east-1:{ACCOUNT}:function:exfil-fn", "role": role_arn},
+             read_only=False, **kw)
+    logs.add(t + timedelta(minutes=3), "lambda.amazonaws.com", "UpdateFunctionCode20150331v2", attacker,
+             request={"functionName": f"arn:aws:lambda:us-east-1:{ACCOUNT}:function:billing-report:$LATEST"},
+             response={"functionName": "billing-report", "role": role_arn}, read_only=False, **kw)
+    runs("exfil-fn", "ASIAIOSFODNN7EXFIL01", t + timedelta(minutes=5))
+    runs("billing-report", "ASIAIOSFODNN7BILLR2", t + timedelta(minutes=10))  # now running the attacker's code
+    runs("other-fn", "ASIAIOSFODNN7OTHER01", t + timedelta(minutes=11))  # same role, unrelated function
+    return logs
+
+
 def scenario_05_weak_ioc() -> LogSet:
     """Only a shared NAT address is known. Attackers and legitimate staff both appear behind it.
 
