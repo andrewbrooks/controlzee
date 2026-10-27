@@ -18,9 +18,14 @@ T0 = datetime(2026, 10, 27, 12, 0, tzinfo=UTC)
 runner = CliRunner(env={"COLUMNS": "400"})
 
 
+_SCOPES = {}  # scope_sha256 -> the scope, so run() can hand execute the scope a dry run was made from
+
+
 def scope_of(fixtures, scenario):
     root = fixtures / scenario
-    return build_scope([root / "logs"], assemble([load_iocs_file(root / "iocs.yaml")]), ScopeOptions(workers=1)).scope
+    scope = build_scope([root / "logs"], assemble([load_iocs_file(root / "iocs.yaml")]), ScopeOptions(workers=1)).scope
+    _SCOPES[scope.scope_sha256] = scope
+    return scope
 
 
 def account_01():
@@ -34,7 +39,7 @@ def check(scope, acct, monkeypatch, **kw):
 
 
 def run(doc, approve=None, at=T0 + timedelta(minutes=5)):
-    return ResponseRecord.model_validate(execute(doc, approve=approve or doc["dryrun_sha256"][:16], profile=None,
+    return ResponseRecord.model_validate(execute(doc, _SCOPES[doc["scope_sha256"]], approve=approve or doc["dryrun_sha256"][:16], profile=None,
                                                  max_age=timedelta(hours=1), clock=lambda: at))
 
 
@@ -183,9 +188,10 @@ def test_cli_dry_run_then_execute(fixtures, monkeypatch, tmp_path):
     assert "allowed iam:UpdateAccessKey on arn:aws:iam::111122223333:user/backdoor-svc" in r.stdout
     doc = json.loads((tmp_path / "dryrun.json").read_text())
     assert f"--approve {doc['dryrun_sha256'][:16]}" in r.stdout
-    r = cli("respond", "execute", tmp_path / "dryrun.json", "-o", tmp_path / "response.json")
+    assert f"--scope {scope} --approve" in r.stdout
+    r = cli("respond", "execute", tmp_path / "dryrun.json", "--scope", scope, "-o", tmp_path / "response.json")
     assert r.exit_code == 2 and "--approve is required" in r.output
-    r = cli("respond", "execute", tmp_path / "dryrun.json", "--approve", doc["dryrun_sha256"][:16], "-o", tmp_path / "response.json")
+    r = cli("respond", "execute", tmp_path / "dryrun.json", "--scope", scope, "--approve", doc["dryrun_sha256"][:16], "-o", tmp_path / "response.json")
     assert r.exit_code == 0, r.output
     assert "Done: 3 change(s) made, 0 already in place" in r.stdout
     assert canonical.is_sealed(json.loads((tmp_path / "response.json").read_text()), "response_sha256")
@@ -383,7 +389,7 @@ def test_a_revocation_cutoff_is_awss_time_not_this_machines(fixtures, monkeypatc
     before = datetime.now(UTC) + acct.skew
     assert run(dr.model_dump(mode="json")).completed
     cutoff = datetime.strptime(_cutoff(acct), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
-    assert before - timedelta(seconds=2) <= cutoff <= datetime.now(UTC) + acct.skew + timedelta(seconds=2)
+    assert before + timedelta(seconds=1) <= cutoff <= datetime.now(UTC) + acct.skew + timedelta(seconds=4)  # AWS time, rounded up 2s
 
 
 def test_small_skew_is_quiet_and_a_large_one_stops_revocations_only(fixtures, monkeypatch):
@@ -423,3 +429,71 @@ def test_missing_context_is_reported_not_guessed(fixtures, monkeypatch):
     dr = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch)
     assert not dr.passed  # still a failure
     assert "the simulator had no value for the condition keys aws:MultiFactorAuthPresent" in dr.problems[0]
+
+
+# ---- execute rebuilds the plan from the scope
+
+def test_execute_refuses_steps_the_scopes_plan_does_not_give_even_with_the_filters_edited(fixtures, monkeypatch):
+    acct = account_01()
+    doc = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch).model_dump(mode="json")
+    extra = {**doc["steps"][0], "action_id": "A99", "op": "delete_user", "args": {"user": "ci-deploy"}, "region": None, "checks": []}
+    edited = _resealed({**doc, "steps": [*doc["steps"], extra], "allow_disruptive": True, "chosen_steps": None})
+    with pytest.raises(RespondError, match="not the ones this scope's plan gives"):
+        run(edited)
+    assert "ci-deploy" in acct.users and acct.calls == []
+
+
+def test_execute_refuses_a_different_scope(fixtures, monkeypatch):
+    doc = check(scope_of(fixtures, "01_leaked_key"), account_01(), monkeypatch).model_dump(mode="json")
+    other = scope_of(fixtures, "02_role_chain")
+    with pytest.raises(RespondError, match="not the one the dry run was made from"):
+        execute(doc, other, approve=doc["dryrun_sha256"][:16], profile=None, max_age=timedelta(hours=1), clock=lambda: T0 + timedelta(minutes=5))
+
+
+def test_a_dry_run_from_an_older_version_says_to_run_it_again(fixtures, monkeypatch):
+    doc = check(scope_of(fixtures, "01_leaked_key"), account_01(), monkeypatch).model_dump(mode="json")
+    del doc["chosen_steps"]
+    with pytest.raises(RespondError, match="older version"):
+        run(doc)
+
+
+def test_a_failed_recheck_says_nothing_was_changed(fixtures, monkeypatch):
+    from controlzee.respond import run as run_mod
+    acct = account_01()
+    doc = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch).model_dump(mode="json")
+
+    def fail(*a, **k):
+        raise RespondError("cannot check permissions with the IAM policy simulator: Throttling")
+    monkeypatch.setattr(run_mod, "simulate", fail)
+    rec = run(doc)
+    assert not rec.completed and rec.steps[0].detail.endswith("nothing was changed by this step") and acct.calls == []
+
+
+def test_the_callers_groups_are_read_once_and_a_failure_fails_the_group_steps(fixtures, monkeypatch):
+    from controlzee.respond import run as run_mod
+    from tests import fake_aws
+    calls = []
+
+    def boom(ctx, caller):
+        calls.append(1)
+        raise fake_aws._err("AccessDenied", "ListGroupsForUser")
+    monkeypatch.setattr(run_mod, "caller_groups", boom)
+    scope = scope_of(fixtures, "01_leaked_key")
+    acct = Account(caller_arn="arn:aws:iam::111122223333:user/alice", users={"alice": User(), "backdoor-svc": User(attached={ADMIN})})
+    from controlzee.model.plan import Operation, Plan
+    # two group operations in one plan: build them directly
+    ops = [Operation(op="detach_group_policy", args={"group": g, "policy_arn": ADMIN}, region=None) for g in ("g1", "g2")]
+    base = Plan.model_validate(run_mod.build_plan(scope))
+    action = base.actions[0].model_copy(update={"operations": ops, "disruptive": False, "on_request": False})
+    monkeypatch.setattr(run_mod, "build_plan", lambda s: base.model_copy(update={"actions": [action]}).model_dump(mode="json"))
+    dr = check(scope, acct, monkeypatch)
+    assert len(calls) == 1 and not dr.passed and all("ListGroupsForUser" in (s.problem or "") for s in dr.steps)
+
+
+def test_the_cli_prints_dry_run_warnings(fixtures, monkeypatch, tmp_path):
+    from datetime import timedelta as td
+    acct = account_01()
+    acct.skew = td(minutes=2)
+    acct.install(monkeypatch)
+    r = cli("respond", "dry-run", fixtures / "01_leaked_key/expected/scope.json", "-o", tmp_path / "d.json")
+    assert r.exit_code == 0 and "Warning: this machine's clock is" in r.output

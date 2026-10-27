@@ -5,9 +5,12 @@ did, in a form other tools and people can rely on.
 
 Named for CTRL+Z, but most of the time the right answer is rebuild, not undo.
 
+> **Proof of concept (alpha).** Read the [status](#status) before pointing it at an account that matters. `respond`
+> changes IAM and other AWS resources; only part of it has been run against a real account.
+
 ## Purpose
 
-AI is changing everything, including attacker behavior and incident response. The new attacker patterns are programmatic and precise, which means incident response must also be programmatic and precise. With AI-enabled attacks, we’re seeing attackers having higher success rates because LLMs give them speed and precision. Attacks can be customized in short order, and building new tooling for reconnaissance, exfiltration, and persistence is faster and cheaper than it’s ever been.
+Attackers are becoming programmatic and precise, and AI-enabled tooling makes reconnaissance, exfiltration and persistence faster and cheaper to build and to customize. Incident response has to become programmatic and precise too.
 
 controlzee is a proof of concept intended to demonstrate what programmatic incident response looks like in a world of agentic and AI-enabled attackers. You give it your CloudTrail logs and what you know about the attacker, like a leaked access key or a suspicious IP. It traces everything that key did, every role it assumed, and every resource it created, then follows what those resources did on their own. For example, if the attacker launched an EC2 instance with a privileged role and that instance changed a bucket policy twenty minutes later, controlzee connects those dots, which is something an analyst pivoting through queries may overlook.
 
@@ -15,10 +18,25 @@ What you get back is a timeline of the attack, a list of the secrets and data th
 
 controlzee won’t fix every incident automagically. The point is to show what incident response looks like when it moves at the same speed as the attacker.
 
-**Status:** early, and the output formats may still change (schema 0.x). `controlzee scope` matches indicators, follows
+## Status
+
+Early, and the output formats may still change (schema 0.x). `controlzee scope` matches indicators, follows
 the attacker to what they created or obtained, and says what the logs cannot show. `timeline`, `plan` and `report` turn
 that into a story, an exposure list, a response plan and a readable report. `respond` reverts what the attacker did,
 after a dry run that a person has reviewed and approved.
+
+### What has been tested
+
+- **Everything** runs in the test suite (333 tests, no network): generated CloudTrail for six scenarios, and an
+  in-memory AWS account whose calls are checked against botocore's service models.
+- **Against a real sandbox account**, as of the last field test ([docs/field-testing.md](docs/field-testing.md)): event
+  history as a source; taint through an assumed role; the plan; the dry run and the permission check (including a
+  denied permission, an MFA-conditioned permission and a refused self-cutoff); and `execute` for deactivating a key,
+  revoking and lifting a role's sessions. Nothing else in the operations list has run against a real account:
+  that includes logging and detection restoration, cutting an instance off its role, stopping or terminating
+  instances, and the Lambda and instance-profile taint rules. Treat those as untested.
+- **Not tested**: macOS or Windows, Python other than 3.12, and the minimum dependency versions in `pyproject.toml`
+  (the suite runs against `uv.lock`).
 
 ```
 controlzee scope --logs ./logs --iocs iocs.yaml -o scope.json   # what happened (the evidence)
@@ -26,7 +44,7 @@ controlzee timeline scope.json                                  # timeline.json:
 controlzee plan scope.json                                      # plan.json: contain, investigate, eradicate, recover
 controlzee report scope.json                                    # report.md: all of it, for people
 controlzee respond dry-run scope.json                           # dryrun.json: what would change, and may we? (changes nothing)
-controlzee respond execute dryrun.json --approve <sha256>       # response.json: make the approved changes
+controlzee respond execute dryrun.json --scope scope.json --approve <sha256>       # response.json: make the approved changes
 ```
 
 ## Revert the attacker's changes: `controlzee respond`
@@ -54,7 +72,7 @@ another account, and disruptive steps (delete, stop, terminate), which need `--a
 **2. Review, approve, execute.**
 
 ```
-controlzee respond execute dryrun.json --approve 3f9a1c0be2d47a65
+controlzee respond execute dryrun.json --scope scope.json --approve 3f9a1c0be2d47a65
 ```
 
 `--approve` takes the dry run's sha256, as the dry run prints it: it is your approval of exactly that dry run. Execute
@@ -67,9 +85,11 @@ order, reads each target again first (anything already put right is skipped), st
 
 - No shell, ever: every change is a boto3 call with typed parameters. The AWS CLI text in the plan is for people.
 - The dry run builds the plan from the sealed `scope.json` itself, so only operations the plan builder produced (from a
-  fixed list) are put in it. `execute` does not rebuild the plan, but it refuses a dry run file that was edited to add a
-  step: every step must be a known operation, chosen by `--steps` (or in the default set), disruptive only if the dry
-  run allowed it, and must not cut off the responder's own access. Each step is simulated again just before it runs.
+  fixed list) are put in it. `execute` takes the same `--scope`, rebuilds the plan, and refuses any dry run whose steps
+  are not exactly what that plan gives for the dry run's `--steps` and `--allow-disruptive`, so an edited file cannot add
+  an operation. It also refuses a step that would cut off the responder's own access, and simulates each step again just
+  before it runs. The seal on `dryrun.json` is a plain hash that catches accidents, not a signature: what ties execution
+  to what a person reviewed is the `--approve` hash they pass.
 - Every value that came from the logs (user, role, key, instance, trail, region...) must have the documented form for
   its kind before it is used, and is checked again before each call. Anything else makes the step manual.
 - Command-line values are checked too: `--aws-profile`, `--region`, `--steps`, `--approve`, `--lookup-events` regions and
@@ -115,6 +135,8 @@ uv run controlzee scope --logs ./logs --access-key AKIA... --ip 198.51.100.77 --
 - `--guardduty finding.json` imports the key, IP and time window from a GuardDuty finding.
 - Writes `scope.json` and `scope.inputs.json` (every input file with its SHA-256). Same inputs give the same bytes.
 - Never modifies the logs. Existing outputs are not overwritten without `--force`.
+- Exit status 3 if none of the input files could be read (the scope would be empty because of that), or with `--strict`
+  if any file or record could not be.
 
 Events that matched a weak indicator but fell outside the expression or window are listed as near misses, so you can
 see what the scope left out.
@@ -174,8 +196,21 @@ Each output cites the scope it came from; the same scope always gives the same b
 - **`report`**: Markdown with the summary, coverage, timeline, exposure, plan and indicators. Everything from the logs
   is escaped, so log content cannot add links, HTML or table cells.
 
-Try them on a committed scenario: `controlzee report tests/fixtures/02_role_chain/expected/scope.json -o report.md`, or
-read `tests/fixtures/*/expected/report.md`.
+### Example reports
+
+These reports are generated from synthetic CloudTrail by the test suite (and kept current by it), so you can read real
+output without running anything:
+
+| scenario | what it shows | report | plan |
+|---|---|---|---|
+| leaked key | a leaked key creates a backdoor user with admin access | [report](tests/fixtures/01_leaked_key/expected/report.md) | [plan](tests/fixtures/01_leaked_key/expected/plan.json) |
+| role chain | a key assumes roles, including into a second account (444455556666) whose logs are missing | [report](tests/fixtures/02_role_chain/expected/report.md) | [plan](tests/fixtures/02_role_chain/expected/plan.json) |
+| instance role | seeded by a weak indicator; the instance the attacker launched acts through its role and a secret is read | [report](tests/fixtures/03_instance_role/expected/report.md) | [plan](tests/fixtures/03_instance_role/expected/plan.json) |
+| log tampering | `StopLogging` and a 127-minute gap the report ties to it | [report](tests/fixtures/04_log_tampering/expected/report.md) | [plan](tests/fixtures/04_log_tampering/expected/plan.json) |
+| weak indicators | a shared NAT address and `curl`, bounded by a time window; events outside it are listed as near misses | [report](tests/fixtures/05_weak_ioc/expected/report.md) | [plan](tests/fixtures/05_weak_ioc/expected/plan.json) |
+| Lambda | functions the attacker created or changed run with their execution role, and read a secret | [report](tests/fixtures/06_lambda/expected/report.md) | [plan](tests/fixtures/06_lambda/expected/plan.json) |
+
+To make one yourself: `controlzee report tests/fixtures/02_role_chain/expected/scope.json -o report.md`.
 
 ## What it will not tell you
 
