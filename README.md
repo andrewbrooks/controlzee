@@ -78,7 +78,8 @@ order, reads each target again first (anything already put right is skipped), st
   difference over 30 seconds is a warning in the dry run; over 5 minutes, or no `Date` header, fails any dry run that
   contains a revocation.
 - When the simulator denies something because of a condition it has no value for (MFA, source IP, tags), the dry run
-  still fails but names the condition instead of reporting a missing permission.
+  still fails but adds the condition keys the simulator had no value for. It lists every such key in any policy it read, so
+  it is a lead (a role that needs MFA, for example), not a diagnosis.
 - Root credentials are refused, since their permissions cannot be checked. Use an IAM role or user.
 - The simulator covers identity policies, permission boundaries and SCPs, not session or resource-based policies, so
   AWS can still refuse a call: execute then stops at that step and records it.

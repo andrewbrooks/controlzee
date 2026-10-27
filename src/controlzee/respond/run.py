@@ -118,9 +118,9 @@ def simulate(ctx: Ctx, principal_arn: str, checks: list[tuple[str, str]]) -> dic
                 for r in page.get("EvaluationResults", []):
                     decision = str(r["EvalDecision"])
                     if decision != "allowed" and r.get("MissingContextValues"):
-                        # not a missing permission: a condition the simulator was given no value for (MFA, source IP, tags)
+                        # the simulator lists every condition key it had no value for in any policy it read (MFA, source IP, tags), not only the one that denied
                         keys = ", ".join(clean(str(k), 60) for k in sorted(r["MissingContextValues"])[:5])
-                        decision += f"; the policy has conditions on {keys} that the simulator cannot evaluate, so this may be allowed in practice"
+                        decision += f"; the simulator had no value for the condition keys {keys}, which matters only if a policy conditions this permission on them"
                     decisions[(r["EvalActionName"], resource)] = decision
     except aws_errors() as e:
         raise RespondError(f"cannot check permissions with the IAM policy simulator (needs iam:SimulatePrincipalPolicy): "
