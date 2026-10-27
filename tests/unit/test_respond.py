@@ -422,4 +422,4 @@ def test_missing_context_is_reported_not_guessed(fixtures, monkeypatch):
     acct.missing_context = {"iam:UpdateAccessKey": ["aws:MultiFactorAuthPresent"]}
     dr = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch)
     assert not dr.passed  # still a failure
-    assert "aws:MultiFactorAuthPresent that the simulator cannot evaluate" in dr.problems[0]
+    assert "the simulator had no value for the condition keys aws:MultiFactorAuthPresent" in dr.problems[0]
