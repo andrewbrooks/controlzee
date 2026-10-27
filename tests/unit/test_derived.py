@@ -193,3 +193,22 @@ def test_load_scope_refuses_edited_foreign_and_broken_files(fixtures, tmp_path):
         load_scope(_write(tmp_path / "other.json", {"x": 1}))
     with pytest.raises(ArtifactError, match="cannot read"):
         load_scope(tmp_path / "absent.json")
+
+
+
+@pytest.mark.parametrize("attach_first", [True, False])
+def test_calls_in_the_same_second_list_what_they_create_first(tmp_path, attach_first):
+    # seen on a real account: CreateUser and AttachUserPolicy in one second, the attach listed first. Both insertion
+    # orders are tried, so one of them gives the attach the smaller event id.
+    logs = LogSet()
+    key = iam_user("ci", "AKIAIOSFODNN7SAMESC")
+    t = at("2026-10-20T12:00:00Z")
+    calls = [("AttachUserPolicy", {"userName": "u", "policyArn": "arn:aws:iam::aws:policy/ReadOnlyAccess"}, None),
+             ("CreateUser", {"userName": "u"}, {"user": {"userName": "u", "userId": "AIDASAMESECOND00001"}})]
+    for name, req, resp in calls if attach_first else calls[::-1]:
+        logs.add(t, "iam.amazonaws.com", name, key, request=req, response=resp)
+    (tmp_path / "logs").mkdir()
+    (tmp_path / "logs" / "x.json").write_bytes(orjson.dumps({"Records": logs.records}))
+    scope = build_scope([tmp_path / "logs"], assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7SAMESC"]))]),
+                        ScopeOptions(workers=1)).scope
+    assert [e.action for e in timeline_of(scope).entries] == ["iam:CreateUser", "iam:AttachUserPolicy"]

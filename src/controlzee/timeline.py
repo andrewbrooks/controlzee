@@ -81,15 +81,18 @@ def _entry(s: ScopedEvent) -> TimelineEntry:
 
 
 def _entries(scope: Scope) -> list[TimelineEntry]:
+    """Events and gaps in time order. CloudTrail times have one-second precision, so calls in the same second are
+    genuinely unordered; those that create something are listed first, so a thing appears before the calls that use it."""
     keyed: list[tuple[int, int, str, TimelineEntry]] = [
-        (parse_time_us(s.event.event_time), 0, s.event.event_id, _entry(s)) for s in scope.events]
+        (parse_time_us(s.event.event_time), 0 if s.event.event_name.startswith("Create") else 1, s.event.event_id, _entry(s))
+        for s in scope.events]
     names = {s.event.event_id: action(s.event) for s in scope.events}
     names.update({t.event_id: f"{t.event_source.split('.', 1)[0]}:{t.event_name}" for t in scope.coverage.tampering})
     for g in scope.coverage.gaps:
         what = {"silence": "no events", "starts_late": "logs start only at the end of this span",
                 "ends_early": "logs end at the start of this span"}[g.kind]
         cause = f"; possibly caused by {names.get(g.possible_cause, 'a logging change')} ({g.possible_cause})" if g.possible_cause else ""
-        keyed.append((parse_time_us(g.start), 1, f"{g.account}/{g.region}", TimelineEntry(
+        keyed.append((parse_time_us(g.start), 2, f"{g.account}/{g.region}", TimelineEntry(
             kind="gap", time=g.start, end=g.end, account=g.account, region=g.region,
             note=f"{g.region}: {what} for {g.minutes} minutes{cause}")))
     return [e for *_, e in sorted(keyed, key=lambda k: k[:3])]

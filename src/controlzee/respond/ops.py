@@ -252,7 +252,7 @@ def _probe_group_member(ctx: Ctx, a: dict[str, str], region: str | None) -> Prob
 @dataclass(frozen=True)
 class _UserParts:
     keys: list[str]
-    login: bool
+    login: bool | None  # None: the password check itself was refused (an SCP, say), so it is not known
     attached: list[str]
     inline: list[str]
     groups: list[tuple[str, str]]  # (name, arn)
@@ -262,11 +262,20 @@ class _UserParts:
     service_creds: list[str]
 
 
+def _has_login(iam: Any, user: str) -> bool | None:
+    try:
+        return _absent(lambda: iam.get_login_profile(UserName=user)) is not None
+    except Exception as e:
+        if _code(e) in ("AccessDenied", "AccessDeniedException"):
+            return None
+        raise
+
+
 def _user_parts(ctx: Ctx, user: str) -> _UserParts:
     iam = ctx.c("iam")
     return _UserParts(
         keys=[k["AccessKeyId"] for k in _pages(iam, "list_access_keys", "AccessKeyMetadata", UserName=user)],
-        login=_absent(lambda: iam.get_login_profile(UserName=user)) is not None,
+        login=_has_login(iam, user),
         attached=[p["PolicyArn"] for p in _pages(iam, "list_attached_user_policies", "AttachedPolicies", UserName=user)],
         inline=list(_pages(iam, "list_user_policies", "PolicyNames", UserName=user)),
         groups=[(g["GroupName"], g["Arn"]) for g in _pages(iam, "list_groups_for_user", "Groups", UserName=user)],
@@ -294,7 +303,10 @@ def _probe_delete_user(ctx: Ctx, a: dict[str, str], region: str | None) -> Probe
     checks += [("iam:DeleteSSHPublicKey", arn)] if p.ssh else []
     checks += [("iam:DeleteSigningCertificate", arn)] if p.certs else []
     checks += [("iam:DeleteServiceSpecificCredential", arn)] if p.service_creds else []
-    state = (f"user {a['user']} exists with {len(p.keys)} key(s), {'a' if p.login else 'no'} console password, "
+    password = {True: "a console password", False: "no console password",
+                None: "a console password or not (iam:GetLoginProfile is refused; if it has one, deleting the user will "
+                      "stop with a conflict)"}[p.login]
+    state = (f"user {a['user']} exists with {len(p.keys)} key(s), {password}, "
              f"{len(p.attached)} attached and {len(p.inline)} inline policy(ies), {len(p.groups)} group(s), {len(p.mfa)} MFA device(s)")
     return Probe(state, False, tuple(checks))
 
@@ -306,6 +318,12 @@ def _apply_delete_user(ctx: Ctx, a: dict[str, str], region: str | None) -> str:
         iam.delete_access_key(UserName=user, AccessKeyId=k)
     if p.login:
         iam.delete_login_profile(UserName=user)
+    elif p.login is None:  # not known: try, and let delete_user report a conflict if a password is left
+        try:
+            iam.delete_login_profile(UserName=user)
+        except Exception as e:
+            if _code(e) not in ("NoSuchEntity", "AccessDenied", "AccessDeniedException"):
+                raise
     for arn in p.attached:
         iam.detach_user_policy(UserName=user, PolicyArn=arn)
     for name in p.inline:
