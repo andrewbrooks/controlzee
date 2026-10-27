@@ -15,6 +15,7 @@
         "b2177994-d66c-53bd-8801-5261f0f910a8"
       ],
       "id": "A01",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -42,9 +43,11 @@
         "9c765f05-4203-5522-a74d-58c985b1a06a"
       ],
       "id": "A02",
+      "on_request": false,
       "operations": [
         {
           "args": {
+            "after": "2026-10-20T18:06:00Z",
             "user": "svc-metrics"
           },
           "op": "revoke_user_sessions",
@@ -70,9 +73,11 @@
         "94d6ce92-a4b5-5017-b554-c200a68a9aa4"
       ],
       "id": "A03",
+      "on_request": false,
       "operations": [
         {
           "args": {
+            "after": "2026-10-20T17:05:00Z",
             "role": "app-role"
           },
           "op": "revoke_role_sessions",
@@ -96,6 +101,7 @@
         "d554bd6b-07d7-5564-b3ed-5c98efd37228"
       ],
       "id": "A04",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -123,6 +129,7 @@
         "8bb4cd19-45aa-5db0-ae36-93addf041786"
       ],
       "id": "A05",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -149,6 +156,7 @@
         "8bb4cd19-45aa-5db0-ae36-93addf041786"
       ],
       "id": "A06",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -171,6 +179,7 @@
       "disruptive": false,
       "evidence": [],
       "id": "A07",
+      "on_request": false,
       "operations": [],
       "phase": "investigate",
       "target": "S3 and other data-plane activity",
@@ -190,6 +199,7 @@
         "8bb4cd19-45aa-5db0-ae36-93addf041786"
       ],
       "id": "A08",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -225,6 +235,7 @@
         "d554bd6b-07d7-5564-b3ed-5c98efd37228"
       ],
       "id": "A09",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -251,6 +262,7 @@
         "8bb4cd19-45aa-5db0-ae36-93addf041786"
       ],
       "id": "A10",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -277,11 +289,68 @@
         "94d6ce92-a4b5-5017-b554-c200a68a9aa4"
       ],
       "id": "A11",
+      "on_request": false,
       "operations": [],
       "phase": "recover",
       "target": "secret prod/db",
       "title": "Rotate a secret the attacker read",
       "why": "read by an in-scope call"
+    },
+    {
+      "account": "111122223333",
+      "caution": "only once the attacker's access is gone; respond runs this step only when it is named with --steps",
+      "commands": [
+        "aws iam delete-user-policy --user-name svc-metrics --policy-name controlzee-revoke-older-sessions"
+      ],
+      "confidence": "weak",
+      "disruptive": false,
+      "evidence": [
+        "9c765f05-4203-5522-a74d-58c985b1a06a"
+      ],
+      "id": "A12",
+      "on_request": true,
+      "operations": [
+        {
+          "args": {
+            "user": "svc-metrics"
+          },
+          "op": "lift_user_revocation",
+          "region": null
+        }
+      ],
+      "phase": "recover",
+      "target": "user svc-metrics",
+      "title": "Lift the session revocation once the incident is over",
+      "why": "the deny on older credentials stays until it is removed; legitimate users of this user may need it gone"
+    },
+    {
+      "account": "111122223333",
+      "caution": "only once the attacker's access is gone; respond runs this step only when it is named with --steps",
+      "commands": [
+        "aws iam delete-role-policy --role-name app-role --policy-name controlzee-revoke-older-sessions"
+      ],
+      "confidence": "weak",
+      "disruptive": false,
+      "evidence": [
+        "50ee173c-5c13-5689-97cd-ef168207f84c",
+        "cb96022f-25c2-56a3-ab3f-bf725e6fd694",
+        "94d6ce92-a4b5-5017-b554-c200a68a9aa4"
+      ],
+      "id": "A13",
+      "on_request": true,
+      "operations": [
+        {
+          "args": {
+            "role": "app-role"
+          },
+          "op": "lift_role_revocation",
+          "region": null
+        }
+      ],
+      "phase": "recover",
+      "target": "role app-role",
+      "title": "Lift the session revocation once the incident is over",
+      "why": "the deny on older credentials stays until it is removed; legitimate users of this role may need it gone"
     },
     {
       "account": "111122223333",
@@ -298,7 +367,8 @@
         "d554bd6b-07d7-5564-b3ed-5c98efd37228",
         "b2177994-d66c-53bd-8801-5261f0f910a8"
       ],
-      "id": "A12",
+      "id": "A14",
+      "on_request": false,
       "operations": [],
       "phase": "recover",
       "target": "user dev-sam, replacing AKIAIOSFODNN7DEVSAM",
@@ -311,7 +381,7 @@
     "work through the phases in order; within contain, act quickly, since the attacker may notice",
     "steps marked weak rest on weak evidence (IP, user agent or ARN matches): confirm them before acting"
   ],
-  "plan_sha256": "ec300d666ca1a6eb424dccedb038ca547362f52c9460ee7213995b95409bd36e",
+  "plan_sha256": "36369e7859785c5598d8f21e8bfef7cb858303bb3f2416535f19de31a7a8ceba",
   "schema_version": "0.2",
   "scope_sha256": "a0db0c5426321e76c51f845aebb12eda02a90fbd27fa14c31d564151410d72c5",
   "tool": {

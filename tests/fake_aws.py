@@ -2,6 +2,7 @@
 wrong operation or parameter name fails here as it would against AWS; the behaviour is a small model of each API."""
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -44,6 +45,7 @@ class Account:
     hub: bool = True
     instances: dict[str, dict[str, Any]] = field(default_factory=dict)
     denied: set[str] = field(default_factory=set)  # IAM actions the simulator denies
+    documents: dict[tuple[str, str, str], dict[str, Any]] = field(default_factory=dict)  # (user|role, name, policy) -> inline document
     calls: list[tuple[str, str, dict[str, Any]]] = field(default_factory=list)  # (service, operation, params), writes only
 
     def install(self, monkeypatch: Any, profile: str | None = None, regions: tuple[str, ...] = ("us-east-1",)) -> None:
@@ -122,11 +124,25 @@ class FakeClient:
 
     def _iam_put_user_policy(self, op: str, UserName: str, PolicyName: str, PolicyDocument: str) -> Any:  # noqa: N803
         self._user(op, UserName).inline.add(PolicyName)
+        self.acct.documents[("user", UserName, PolicyName)] = json.loads(PolicyDocument)
         return {}
 
     def _iam_put_role_policy(self, op: str, RoleName: str, PolicyName: str, PolicyDocument: str) -> Any:  # noqa: N803
         self._role(op, RoleName).inline.add(PolicyName)
+        self.acct.documents[("role", RoleName, PolicyName)] = json.loads(PolicyDocument)
         return {}
+
+    def _inline_document(self, op: str, kind: str, name: str, policy: str, inline: set[str]) -> Any:
+        if policy not in inline:
+            raise _err("NoSuchEntity", op)
+        doc = self.acct.documents.get((kind, name, policy), {"Statement": []})
+        return {"PolicyName": policy, "PolicyDocument": doc}  # boto3 hands back the decoded document
+
+    def _iam_get_user_policy(self, op: str, UserName: str, PolicyName: str) -> Any:  # noqa: N803
+        return {"UserName": UserName, **self._inline_document(op, "user", UserName, PolicyName, self._user(op, UserName).inline)}
+
+    def _iam_get_role_policy(self, op: str, RoleName: str, PolicyName: str) -> Any:  # noqa: N803
+        return {"RoleName": RoleName, **self._inline_document(op, "role", RoleName, PolicyName, self._role(op, RoleName).inline)}
 
     def _iam_get_login_profile(self, op: str, UserName: str) -> Any:  # noqa: N803
         if not self._user(op, UserName).login:

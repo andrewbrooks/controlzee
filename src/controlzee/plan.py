@@ -23,6 +23,7 @@ from controlzee.model.plan import Operation, Phase, Plan, PlanAction
 from controlzee.model.scope import Scope, ScopedEvent
 from controlzee.respond.ops import OPS, Unsafe, q, validate
 from controlzee.timeline import exposure
+from controlzee.timeutil import format_time_us, parse_time_us
 
 LISTED_EVIDENCE = 10
 PHASES: tuple[Phase, ...] = ("contain", "investigate", "eradicate", "recover")
@@ -73,6 +74,11 @@ def _account(ev: Event) -> str:
     return ev.user_identity.account_id or ev.recipient_account_id
 
 
+def _last_use(evs: Iterable[ScopedEvent]) -> str:
+    """The latest event time, to the second: a revocation must cut off at or after it."""
+    return format_time_us(max(parse_time_us(s.event.event_time) for s in evs) // 1_000_000 * 1_000_000)
+
+
 class _Builder:
     def __init__(self, scope: Scope) -> None:
         self.scope = scope
@@ -82,6 +88,7 @@ class _Builder:
         self.created_roles: dict[str, ScopedEvent] = {}
         self.created_keys: dict[str, tuple[str, ScopedEvent]] = {}  # key -> (user name, CreateAccessKey event)
         self.instances: dict[str, ScopedEvent] = {}  # instance id -> RunInstances event
+        self.revoked: list[tuple[str, str, str | None, list[ScopedEvent]]] = []  # (user|role, name, account, evidence)
         for t in scope.taint.identities:
             s = self.by_id.get(t.issued_by)
             if s is None:
@@ -154,21 +161,24 @@ class _Builder:
                             "in-scope calls used temporary credentials of this user (GetSessionToken, federation or a console "
                             "session); deactivating the user's keys does not end them", evs, account,
                             caution="denies everything to credentials issued before now; remove the policy once the incident is over"),
-                     [("revoke_user_sessions", {"user": user}, None)])
+                     [("revoke_user_sessions", {"user": user, "after": _last_use(evs)}, None)])
+            self.revoked.append(("user", user, account, evs))
         for (account, role), evs in sorted(role_sessions.items()):
             created = role in self.created_roles
             self.run(_Draft("contain", "Revoke the role's active sessions", f"role {role} (account {account})",
                             f"{len(evs)} in-scope call(s) were made with sessions of this role"
                             + ("; the attacker created it" if created else ""), evs, account,
                             caution=None if created else "this also ends legitimate sessions of the role; they can assume it again"),
-                     [("revoke_role_sessions", {"role": role}, None)])
+                     [("revoke_role_sessions", {"role": role, "after": _last_use(evs)}, None)])
+            self.revoked.append(("role", role, account, evs))
         for name, s in sorted(self.created_roles.items()):
             if any(r == name for _, r in role_sessions):
                 continue
             self.run(_Draft("contain", "Revoke sessions of a role the attacker created", f"role {name}",
                             "created by an in-scope call; no session of it was seen, which the logs may not show", [s],
                             s.event.recipient_account_id),
-                     [("revoke_role_sessions", {"role": name}, None)])
+                     [("revoke_role_sessions", {"role": name, "after": _last_use([s])}, None)])
+            self.revoked.append(("role", name, s.event.recipient_account_id, [s]))
         for user, s in sorted(self.created_users.items()):
             if any(e.event.event_name in ("CreateLoginProfile", "UpdateLoginProfile") and _req(e.event, "userName") == user
                    for e in self.scope.events):
@@ -305,6 +315,15 @@ class _Builder:
                                    caution="the value is a credential only if it is one; check before changing it"),
                             lambda n=name, r=r: [f"aws ssm put-parameter --region {q('region', r)} --name {q('parameter', n)} "
                                                  "--type SecureString --overwrite --value NEW_VALUE"])
+        for kind, name, account, evs in self.revoked:
+            if kind == "role" and name in self.created_roles:
+                continue  # deleted in the eradicate steps
+            self.run(_Draft("recover", "Lift the session revocation once the incident is over", f"{kind} {name}",
+                            "the deny on older credentials stays until it is removed; legitimate users of this "
+                            f"{kind} may need it gone", evs, account,
+                            caution="only once the attacker's access is gone; respond runs this step only when it is named "
+                                    "with --steps"),
+                     [(f"lift_{kind}_revocation", {kind: name}, None)])
         replaced: set[str] = set()
         for s in self.scope.events:
             ui = s.event.user_identity
@@ -328,7 +347,8 @@ class _Builder:
                 out.append(PlanAction(
                     id=f"A{len(out) + 1:02d}", phase=d.phase, title=d.title, target=d.target, why=d.why, account=d.account,
                     confidence=_confidence(ev) if ev else Confidence.STRONG, commands=d.commands, operations=d.operations,
-                    disruptive=any(OPS[o.op].disruptive for o in d.operations), caution=d.caution,
+                    disruptive=any(OPS[o.op].disruptive for o in d.operations),
+                    on_request=any(OPS[o.op].on_request for o in d.operations), caution=d.caution,
                     evidence=[s.event.event_id for s in ev][:LISTED_EVIDENCE]))
         return out
 

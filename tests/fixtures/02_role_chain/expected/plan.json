@@ -15,6 +15,7 @@
         "94d6ce92-a4b5-5017-b554-c200a68a9aa4"
       ],
       "id": "A01",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -42,9 +43,11 @@
         "ba5efc04-26a3-539d-90ad-b357e29515e5"
       ],
       "id": "A02",
+      "on_request": false,
       "operations": [
         {
           "args": {
+            "after": "2026-10-20T10:20:00Z",
             "user": "jenkins"
           },
           "op": "revoke_user_sessions",
@@ -71,9 +74,11 @@
         "cb96022f-25c2-56a3-ab3f-bf725e6fd694"
       ],
       "id": "A03",
+      "on_request": false,
       "operations": [
         {
           "args": {
+            "after": "2026-10-20T10:04:00Z",
             "role": "ops-admin"
           },
           "op": "revoke_role_sessions",
@@ -98,9 +103,11 @@
         "1e53ffdd-8f58-549b-a23f-5584b5fdb45b"
       ],
       "id": "A04",
+      "on_request": false,
       "operations": [
         {
           "args": {
+            "after": "2026-10-20T13:02:00Z",
             "role": "support-audit"
           },
           "op": "revoke_role_sessions",
@@ -124,6 +131,7 @@
         "cb96022f-25c2-56a3-ab3f-bf725e6fd694"
       ],
       "id": "A05",
+      "on_request": false,
       "operations": [],
       "phase": "investigate",
       "target": "account 444455556666",
@@ -138,6 +146,7 @@
       "disruptive": false,
       "evidence": [],
       "id": "A06",
+      "on_request": false,
       "operations": [],
       "phase": "investigate",
       "target": "S3 and other data-plane activity",
@@ -162,6 +171,7 @@
         "2ffe710f-fbb1-5679-86f8-d41da46a5f2c"
       ],
       "id": "A07",
+      "on_request": false,
       "operations": [
         {
           "args": {
@@ -178,6 +188,63 @@
     },
     {
       "account": "111122223333",
+      "caution": "only once the attacker's access is gone; respond runs this step only when it is named with --steps",
+      "commands": [
+        "aws iam delete-user-policy --user-name jenkins --policy-name controlzee-revoke-older-sessions"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "ba5efc04-26a3-539d-90ad-b357e29515e5"
+      ],
+      "id": "A08",
+      "on_request": true,
+      "operations": [
+        {
+          "args": {
+            "user": "jenkins"
+          },
+          "op": "lift_user_revocation",
+          "region": null
+        }
+      ],
+      "phase": "recover",
+      "target": "user jenkins",
+      "title": "Lift the session revocation once the incident is over",
+      "why": "the deny on older credentials stays until it is removed; legitimate users of this user may need it gone"
+    },
+    {
+      "account": "111122223333",
+      "caution": "only once the attacker's access is gone; respond runs this step only when it is named with --steps",
+      "commands": [
+        "aws iam delete-role-policy --role-name ops-admin --policy-name controlzee-revoke-older-sessions"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "b2177994-d66c-53bd-8801-5261f0f910a8",
+        "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+        "50ee173c-5c13-5689-97cd-ef168207f84c",
+        "cb96022f-25c2-56a3-ab3f-bf725e6fd694"
+      ],
+      "id": "A09",
+      "on_request": true,
+      "operations": [
+        {
+          "args": {
+            "role": "ops-admin"
+          },
+          "op": "lift_role_revocation",
+          "region": null
+        }
+      ],
+      "phase": "recover",
+      "target": "role ops-admin",
+      "title": "Lift the session revocation once the incident is over",
+      "why": "the deny on older credentials stays until it is removed; legitimate users of this role may need it gone"
+    },
+    {
+      "account": "111122223333",
       "caution": "the new secret is shown once: create it where the owner's secret store can take it, and find out how the old one leaked",
       "commands": [
         "aws iam create-access-key --user-name jenkins",
@@ -191,7 +258,8 @@
         "d554bd6b-07d7-5564-b3ed-5c98efd37228",
         "94d6ce92-a4b5-5017-b554-c200a68a9aa4"
       ],
-      "id": "A08",
+      "id": "A10",
+      "on_request": false,
       "operations": [],
       "phase": "recover",
       "target": "user jenkins, replacing AKIAIOSFODNN7LEAKED",
@@ -203,7 +271,7 @@
     "steps with operations can be carried out by `controlzee respond` after a dry run and your approval; the others are for a person. Either way, review each one first",
     "work through the phases in order; within contain, act quickly, since the attacker may notice"
   ],
-  "plan_sha256": "823e8767c59ebc0ce54e81489e581e3393fe3e15920c9fa57a3de511b5f321a3",
+  "plan_sha256": "0ba18eb5eb882526df8cf80729a8f22422bd5f7d4527557a66e3ef0a5bf391d3",
   "schema_version": "0.2",
   "scope_sha256": "4fa1c19c69fe32f1912d9c38ab3917e2aaa5c8c4dcb7384d930a66a9fbbbd6e4",
   "tool": {
