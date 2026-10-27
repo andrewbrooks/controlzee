@@ -35,6 +35,7 @@ SHAPES: Final[dict[str, re.Pattern[str]]] = {
     "time": re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"),
 }
 MAX_SKEW: Final = timedelta(minutes=5)  # beyond this a session revocation is refused
+CUTOFF_MARGIN: Final = timedelta(seconds=2)  # the Date header has whole seconds; round the cutoff up so a session minted just before it is denied
 WARN_SKEW: Final = timedelta(seconds=30)
 REVOKE_POLICY: Final = "controlzee-revoke-older-sessions"
 
@@ -538,7 +539,7 @@ def _revoke(kind: str) -> Apply:
         # aws:TokenIssueTime is stamped by AWS, so the cutoff is AWS's time, not this machine's
         if ctx.skew is None or abs(ctx.skew) >= MAX_SKEW:
             raise RuntimeError("this machine's clock cannot be compared with AWS's closely enough to set the cutoff of a session revocation")
-        now = (datetime.now(UTC) + ctx.skew).strftime("%Y-%m-%dT%H:%M:%SZ")
+        now = (datetime.now(UTC) + ctx.skew + CUTOFF_MARGIN).strftime("%Y-%m-%dT%H:%M:%SZ")
         param = "UserName" if kind == "user" else "RoleName"
         getattr(ctx.c("iam"), f"put_{kind}_policy")(**{param: a[kind], "PolicyName": REVOKE_POLICY, "PolicyDocument": revoke_document(now)})
         return f"credentials of {kind} {a[kind]} issued before {now} are now denied"

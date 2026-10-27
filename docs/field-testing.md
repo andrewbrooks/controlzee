@@ -65,7 +65,7 @@ controlzee respond dry-run scope.json --aws-profile responder
 Then execute it and check the account:
 
 ```
-controlzee respond execute dryrun.json --approve <sha256 from the dry run> --aws-profile responder
+controlzee respond execute dryrun.json --scope scope.json --approve <sha256 from the dry run> --aws-profile responder
 aws iam list-access-keys --user-name ft-created-user     # Inactive
 ```
 
