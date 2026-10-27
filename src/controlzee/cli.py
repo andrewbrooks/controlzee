@@ -9,7 +9,7 @@ import typer
 from rich.console import Console
 from rich.text import Text
 
-from controlzee import __version__, canonical
+from controlzee import __version__, argcheck, canonical
 from controlzee.artifacts import ArtifactError, load_scope, write_atomic
 from controlzee.ingest.load import IngestError, Input
 from controlzee.ingest.remote import LookupInput, S3Input
@@ -119,8 +119,10 @@ def scope(
         win = make_window({"start": window[0], "end": window[1]}) if window else None
         spec = assemble(parts, expression=expression, window=win)
         validate_spec(spec)
-        sources: list[Input] = [S3Input(p, aws_profile) if p.startswith("s3://") else Path(p) for p in logs or []]
+        aws_profile = argcheck.profile(aws_profile)
+        sources: list[Input] = [S3Input(argcheck.s3_url(p), aws_profile) if p.startswith("s3://") else Path(p) for p in logs or []]
         if lookup_events:
+            lookup_events = [argcheck.region(r, "--lookup-events") for r in lookup_events]
             w = spec.window
             if w is None or not (w.start and w.end):
                 raise SpecError("--lookup-events needs --window START END (or a window in the IOC file): event history is "
@@ -129,7 +131,7 @@ def scope(
         result = build_scope(sources, spec,
                              ScopeOptions(workers=workers, near_miss_limit=near_miss_limit, embed_raw=embed_raw,
                                           propagate=not no_propagate, gap_minutes=gap_minutes))
-    except (SpecError, expr.ExpressionError, IngestError, ValueError) as e:
+    except (SpecError, expr.ExpressionError, IngestError, argcheck.ArgError, ValueError) as e:
         raise _fail(clean(e, 600)) from None
     write_atomic(out_path, result.scope_bytes)
     write_atomic(inputs_path, result.inputs_bytes)
@@ -217,3 +219,101 @@ def report(
 
     _derive(scope_path, out_path, force, build_report)
     out.print(f"Wrote {out_path}")
+
+
+respond_app = typer.Typer(no_args_is_help=True, add_completion=False, rich_markup_mode=None,
+                          help="Carry out the plan's operations in AWS: first a dry run for a person to review, then, with "
+                               "their approval, the changes.")
+app.add_typer(respond_app, name="respond")
+Profile = Annotated[str | None, typer.Option("--aws-profile", help="AWS profile to act with (default: the usual credential chain).")]
+
+
+@respond_app.command("dry-run")
+def respond_dry_run(
+    scope_path: ScopeArg = Path("scope.json"),
+    out_path: Annotated[Path, typer.Option("--out", "-o", help="Where to write the dry run.")] = Path("dryrun.json"),
+    steps: Annotated[str | None, typer.Option("--steps", help="Only these plan steps, e.g. A01,A03 (default: every step that can run).")] = None,
+    allow_disruptive: Annotated[bool, typer.Option("--allow-disruptive", help="Include steps that delete, stop or terminate things.")] = False,
+    aws_profile: Profile = None,
+    region: Annotated[str, typer.Option("--region", help="Region for IAM and STS calls.")] = "us-east-1",
+    force: Force = False,
+) -> None:
+    """Check, without changing anything, what the plan would do and that these credentials may do it."""
+    from controlzee.model.respond import DryRun
+    from controlzee.respond.run import RespondError, dry_run
+
+    if out_path.exists() and not force:
+        raise _fail(f"{out_path} already exists; use --force to overwrite it, or choose another --out")
+    try:
+        chosen, profile = argcheck.steps(steps), argcheck.profile(aws_profile)
+        argcheck.region(region, "--region")
+        doc = dry_run(load_scope(scope_path), profile=profile, home_region=region, chosen=chosen, allow_disruptive=allow_disruptive)
+    except (ArtifactError, RespondError, argcheck.ArgError) as e:
+        raise _fail(clean(e, 600)) from None
+    write_atomic(out_path, canonical.dumps(doc))
+    dr = DryRun.model_validate(doc)
+    out.print(f"Credentials: {clean(dr.caller.arn)} (account {dr.caller.account})")
+    for st in dr.steps:
+        mark = "already done" if st.already_done else ("ok" if st.ok else "CANNOT RUN")
+        out.print(f"  {st.action_id} [{mark}] {clean(st.description, 300)}")
+        out.print(f"      now: {clean(st.state, 300)}")
+        for c in st.checks:
+            out.print(f"      {'allowed' if c.decision == 'allowed' else 'DENIED '} {clean(c.action)} on {clean(c.resource, 300)}")
+        if st.problem:
+            err.print(Text(f"      {clean(st.problem, 400)}", style="red"))
+    for n in dr.not_selected:
+        out.print(f"  {n.action_id} not included: {clean(n.reason, 300)}")
+    out.print(f"Wrote {out_path}")
+    if not dr.passed:
+        err.print(Text(f"Dry run FAILED: {len(dr.problems)} problem(s); nothing can be executed from it", style="bold red"))
+        raise typer.Exit(4)
+    todo = sum(1 for st in dr.steps if not st.already_done)
+    if not todo:
+        out.print("Nothing to do: every selected step is already in place")
+        return
+    out.print(f"Dry run passed: {todo} change(s) to make. Review the steps above (and {out_path}); to make them, run:")
+    out.print(f"  controlzee respond execute {out_path} --approve {dr.dryrun_sha256[:16]}")
+
+
+@respond_app.command("execute")
+def respond_execute(
+    dryrun_path: Annotated[Path, typer.Argument(help="A dry run written by controlzee respond dry-run.")] = Path("dryrun.json"),
+    approve: Annotated[str, typer.Option("--approve", help="The dry run's sha256 (or its first 12+ characters): your approval of exactly that dry run.")] = "",
+    out_path: Annotated[Path, typer.Option("--out", "-o", help="Where to write the record of what was done.")] = Path("response.json"),
+    aws_profile: Profile = None,
+    max_age_minutes: Annotated[int, typer.Option("--max-age-minutes", min=1, max=1440, help="Refuse a dry run older than this.")] = 60,
+    force: Force = False,
+) -> None:
+    """Make the changes of an approved dry run, in order, stopping at the first failure."""
+    from datetime import timedelta
+
+    import orjson
+
+    from controlzee.model.respond import ResponseRecord
+    from controlzee.respond.run import MAX_DRY_RUN_BYTES, RespondError, execute
+
+    if out_path.exists() and not force:
+        raise _fail(f"{out_path} already exists; use --force to overwrite it, or choose another --out")
+    try:
+        if not approve:
+            raise argcheck.ArgError("--approve is required: pass the dry run's sha256, as printed by the dry run, once you have reviewed it")
+        approval, profile = argcheck.approval(approve), argcheck.profile(aws_profile)
+        if dryrun_path.stat().st_size > MAX_DRY_RUN_BYTES:
+            raise argcheck.ArgError(f"{dryrun_path.name} is too large to be a dry run")
+        doc = orjson.loads(dryrun_path.read_bytes())
+        result = execute(doc, approve=approval, profile=profile, max_age=timedelta(minutes=max_age_minutes),
+                         progress=lambda st: out.print(f"  {st.action_id} {st.result}: {clean(st.detail, 300)}"))
+    except OSError as e:
+        raise _fail(f"cannot read {dryrun_path.name}: {e.strerror}") from None
+    except orjson.JSONDecodeError:
+        raise _fail(f"{dryrun_path.name} is not valid JSON") from None
+    except (RespondError, argcheck.ArgError) as e:
+        raise _fail(clean(e, 600)) from None
+    write_atomic(out_path, canonical.dumps(result))
+    rec = ResponseRecord.model_validate(result)
+    out.print(f"Wrote {out_path}")
+    if not rec.completed:
+        err.print(Text("Stopped: a step failed; later steps were not run. See the record above.", style="bold red"))
+        raise typer.Exit(5)
+    out.print(f"Done: {sum(1 for st in rec.steps if st.result == 'done')} change(s) made, "
+              f"{sum(1 for st in rec.steps if st.result == 'already done')} already in place")

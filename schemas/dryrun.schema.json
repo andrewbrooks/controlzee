@@ -1,0 +1,249 @@
+{
+  "$defs": {
+    "Caller": {
+      "additionalProperties": false,
+      "description": "Who the supplied credentials are.",
+      "properties": {
+        "account": {
+          "title": "Account",
+          "type": "string"
+        },
+        "arn": {
+          "title": "Arn",
+          "type": "string"
+        },
+        "principal_arn": {
+          "title": "Principal Arn",
+          "type": "string"
+        }
+      },
+      "required": [
+        "account",
+        "arn",
+        "principal_arn"
+      ],
+      "title": "Caller",
+      "type": "object"
+    },
+    "DryRunStep": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "title": "Action Id",
+          "type": "string"
+        },
+        "already_done": {
+          "title": "Already Done",
+          "type": "boolean"
+        },
+        "args": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Args",
+          "type": "object"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/PermissionCheck"
+          },
+          "title": "Checks",
+          "type": "array"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "op": {
+          "title": "Op",
+          "type": "string"
+        },
+        "phase": {
+          "title": "Phase",
+          "type": "string"
+        },
+        "problem": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Problem"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Region"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "phase",
+        "title",
+        "op",
+        "args",
+        "region",
+        "description",
+        "state",
+        "already_done",
+        "checks",
+        "ok",
+        "problem"
+      ],
+      "title": "DryRunStep",
+      "type": "object"
+    },
+    "NotSelected": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "title": "Action Id",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "title",
+        "reason"
+      ],
+      "title": "NotSelected",
+      "type": "object"
+    },
+    "PermissionCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "decision": {
+          "title": "Decision",
+          "type": "string"
+        },
+        "resource": {
+          "title": "Resource",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "resource",
+        "decision"
+      ],
+      "title": "PermissionCheck",
+      "type": "object"
+    }
+  },
+  "$id": "https://controlzee.invalid/schemas/dryrun-0.2.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "allow_disruptive": {
+      "title": "Allow Disruptive",
+      "type": "boolean"
+    },
+    "caller": {
+      "$ref": "#/$defs/Caller"
+    },
+    "checked_at": {
+      "title": "Checked At",
+      "type": "string"
+    },
+    "dryrun_sha256": {
+      "default": "",
+      "title": "Dryrun Sha256",
+      "type": "string"
+    },
+    "home_region": {
+      "title": "Home Region",
+      "type": "string"
+    },
+    "not_selected": {
+      "items": {
+        "$ref": "#/$defs/NotSelected"
+      },
+      "title": "Not Selected",
+      "type": "array"
+    },
+    "passed": {
+      "title": "Passed",
+      "type": "boolean"
+    },
+    "plan_sha256": {
+      "title": "Plan Sha256",
+      "type": "string"
+    },
+    "problems": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Problems",
+      "type": "array"
+    },
+    "schema_version": {
+      "default": "0.2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope_sha256": {
+      "title": "Scope Sha256",
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/DryRunStep"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "tool": {
+      "additionalProperties": true,
+      "title": "Tool",
+      "type": "object"
+    }
+  },
+  "required": [
+    "tool",
+    "scope_sha256",
+    "plan_sha256",
+    "caller",
+    "home_region",
+    "checked_at",
+    "allow_disruptive",
+    "steps",
+    "not_selected",
+    "problems",
+    "passed"
+  ],
+  "title": "DryRun",
+  "type": "object"
+}

@@ -1,27 +1,41 @@
 {
   "actions": [
     {
+      "account": "111122223333",
       "caution": null,
       "commands": [
         "aws iam update-access-key --user-name backdoor-svc --access-key-id AKIAIOSFODNN7BKDOOR --status Inactive"
       ],
       "confidence": "strong",
+      "disruptive": false,
       "evidence": [
         "ea972266-d206-5a49-9154-6b3c92801147",
         "1e53ffdd-8f58-549b-a23f-5584b5fdb45b"
       ],
       "id": "A01",
+      "operations": [
+        {
+          "args": {
+            "key": "AKIAIOSFODNN7BKDOOR",
+            "user": "backdoor-svc"
+          },
+          "op": "deactivate_access_key",
+          "region": null
+        }
+      ],
       "phase": "contain",
       "target": "access key AKIAIOSFODNN7BKDOOR of user backdoor-svc (account 111122223333)",
       "title": "Deactivate an access key the attacker used",
       "why": "2 in-scope call(s) were made with it"
     },
     {
+      "account": "111122223333",
       "caution": "the key's legitimate owner will stop working until it has a replacement (see the recover steps)",
       "commands": [
         "aws iam update-access-key --user-name ci-deploy --access-key-id AKIAIOSFODNN7LEAKED --status Inactive"
       ],
       "confidence": "strong",
+      "disruptive": false,
       "evidence": [
         "d554bd6b-07d7-5564-b3ed-5c98efd37228",
         "b2177994-d66c-53bd-8801-5261f0f910a8",
@@ -34,50 +48,79 @@
         "9c765f05-4203-5522-a74d-58c985b1a06a"
       ],
       "id": "A02",
+      "operations": [
+        {
+          "args": {
+            "key": "AKIAIOSFODNN7LEAKED",
+            "user": "ci-deploy"
+          },
+          "op": "deactivate_access_key",
+          "region": null
+        }
+      ],
       "phase": "contain",
       "target": "access key AKIAIOSFODNN7LEAKED of user ci-deploy (account 111122223333)",
       "title": "Deactivate an access key the attacker used",
       "why": "9 in-scope call(s) were made with it"
     },
     {
+      "account": null,
       "caution": "sources: S3 server access logs, CloudTrail data events on another trail, VPC flow logs",
       "commands": [],
       "confidence": "strong",
+      "disruptive": false,
       "evidence": [],
       "id": "A03",
+      "operations": [],
       "phase": "investigate",
       "target": "S3 and other data-plane activity",
       "title": "Look for object-level access elsewhere",
       "why": "the inputs have no data events, so reads of objects, secrets in Lambda and the like are invisible here"
     },
     {
-      "caution": "delete-user fails while policies, keys, groups or MFA devices remain; the list commands show what is left, and delete-login-profile fails harmlessly if it has no password",
+      "account": "111122223333",
+      "caution": "removes its keys, password, policies, groups and MFA devices first; respond does this, by hand repeat each list-then-delete pair until the lists are empty",
       "commands": [
-        "aws iam detach-user-policy --user-name backdoor-svc --policy-arn arn:aws:iam::aws:policy/AdministratorAccess",
-        "aws iam delete-access-key --user-name backdoor-svc --access-key-id AKIAIOSFODNN7BKDOOR",
+        "aws iam list-access-keys --user-name backdoor-svc",
+        "aws iam delete-access-key --user-name backdoor-svc --access-key-id EACH_KEY_FROM_ABOVE",
         "aws iam delete-login-profile --user-name backdoor-svc",
         "aws iam list-attached-user-policies --user-name backdoor-svc",
+        "aws iam detach-user-policy --user-name backdoor-svc --policy-arn EACH_POLICY_FROM_ABOVE",
         "aws iam list-user-policies --user-name backdoor-svc",
+        "aws iam delete-user-policy --user-name backdoor-svc --policy-name EACH_POLICY_FROM_ABOVE",
         "aws iam list-groups-for-user --user-name backdoor-svc",
+        "aws iam remove-user-from-group --user-name backdoor-svc --group-name EACH_GROUP_FROM_ABOVE",
         "aws iam delete-user --user-name backdoor-svc"
       ],
       "confidence": "strong",
+      "disruptive": true,
       "evidence": [
         "ba5efc04-26a3-539d-90ad-b357e29515e5"
       ],
       "id": "A04",
+      "operations": [
+        {
+          "args": {
+            "user": "backdoor-svc"
+          },
+          "op": "delete_user",
+          "region": null
+        }
+      ],
       "phase": "eradicate",
       "target": "user backdoor-svc",
       "title": "Delete a user the attacker created",
       "why": "created by an in-scope call"
     },
     {
-      "caution": "store the new secret where the owner reads it from, and find out how the old one leaked",
+      "account": "111122223333",
+      "caution": "the new secret is shown once: create it where the owner's secret store can take it, and find out how the old one leaked",
       "commands": [
         "aws iam create-access-key --user-name ci-deploy",
         "aws iam delete-access-key --user-name ci-deploy --access-key-id AKIAIOSFODNN7LEAKED"
       ],
       "confidence": "strong",
+      "disruptive": false,
       "evidence": [
         "d554bd6b-07d7-5564-b3ed-5c98efd37228",
         "b2177994-d66c-53bd-8801-5261f0f910a8",
@@ -90,6 +133,7 @@
         "9c765f05-4203-5522-a74d-58c985b1a06a"
       ],
       "id": "A05",
+      "operations": [],
       "phase": "recover",
       "target": "user ci-deploy, replacing AKIAIOSFODNN7LEAKED",
       "title": "Give the key's owner a new key, then delete the old one",
@@ -97,10 +141,10 @@
     }
   ],
   "notes": [
-    "controlzee does not run these commands: review each one, then run it with credentials for the account named in its target",
+    "steps with operations can be carried out by `controlzee respond` after a dry run and your approval; the others are for a person. Either way, review each one first",
     "work through the phases in order; within contain, act quickly, since the attacker may notice"
   ],
-  "plan_sha256": "bcf89ca95dafd2eda235d5eba340aaa723317b697c3ed4732dc6b1f69bd9c6df",
+  "plan_sha256": "4bf0a97c1e5745a2c72f2fb6964eb1cece293acda7ce91b59eb14e2593d71755",
   "schema_version": "0.2",
   "scope_sha256": "167306f72aff700fd0a7f87390d2271ac900ec0e7aeb20745d0d4788e45f0fb3",
   "tool": {

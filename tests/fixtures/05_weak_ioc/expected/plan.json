@@ -1,61 +1,91 @@
 {
   "actions": [
     {
+      "account": "111122223333",
       "caution": "the key's legitimate owner will stop working until it has a replacement (see the recover steps)",
       "commands": [
         "aws iam update-access-key --user-name mallory-temp --access-key-id AKIAIOSFODNN7MALLORY --status Inactive"
       ],
       "confidence": "weak",
+      "disruptive": false,
       "evidence": [
         "d554bd6b-07d7-5564-b3ed-5c98efd37228",
         "b2177994-d66c-53bd-8801-5261f0f910a8",
         "2ffe710f-fbb1-5679-86f8-d41da46a5f2c"
       ],
       "id": "A01",
+      "operations": [
+        {
+          "args": {
+            "key": "AKIAIOSFODNN7MALLORY",
+            "user": "mallory-temp"
+          },
+          "op": "deactivate_access_key",
+          "region": null
+        }
+      ],
       "phase": "contain",
       "target": "access key AKIAIOSFODNN7MALLORY of user mallory-temp (account 111122223333)",
       "title": "Deactivate an access key the attacker used",
       "why": "3 in-scope call(s) were made with it"
     },
     {
+      "account": "111122223333",
       "caution": null,
       "commands": [
         "aws iam update-access-key --user-name mallory-temp --access-key-id AKIAIOSFODNN7MALKEY2 --status Inactive"
       ],
       "confidence": "weak",
+      "disruptive": false,
       "evidence": [
         "b2177994-d66c-53bd-8801-5261f0f910a8"
       ],
       "id": "A02",
+      "operations": [
+        {
+          "args": {
+            "key": "AKIAIOSFODNN7MALKEY2",
+            "user": "mallory-temp"
+          },
+          "op": "deactivate_access_key",
+          "region": null
+        }
+      ],
       "phase": "contain",
       "target": "access key AKIAIOSFODNN7MALKEY2 of user mallory-temp",
       "title": "Deactivate an access key the attacker created",
       "why": "created by an in-scope call; it was not seen in use, which the logs may simply not show"
     },
     {
+      "account": null,
       "caution": "sources: S3 server access logs, CloudTrail data events on another trail, VPC flow logs",
       "commands": [],
       "confidence": "strong",
+      "disruptive": false,
       "evidence": [],
       "id": "A03",
+      "operations": [],
       "phase": "investigate",
       "target": "S3 and other data-plane activity",
       "title": "Look for object-level access elsewhere",
       "why": "the inputs have no data events, so reads of objects, secrets in Lambda and the like are invisible here"
     },
     {
-      "caution": "store the new secret where the owner reads it from, and find out how the old one leaked",
+      "account": "111122223333",
+      "caution": "the new secret is shown once: create it where the owner's secret store can take it, and find out how the old one leaked",
       "commands": [
         "aws iam create-access-key --user-name mallory-temp",
         "aws iam delete-access-key --user-name mallory-temp --access-key-id AKIAIOSFODNN7MALLORY"
       ],
       "confidence": "weak",
+      "disruptive": false,
       "evidence": [
         "d554bd6b-07d7-5564-b3ed-5c98efd37228",
         "b2177994-d66c-53bd-8801-5261f0f910a8",
         "2ffe710f-fbb1-5679-86f8-d41da46a5f2c"
       ],
       "id": "A04",
+      "operations": [],
       "phase": "recover",
       "target": "user mallory-temp, replacing AKIAIOSFODNN7MALLORY",
       "title": "Give the key's owner a new key, then delete the old one",
@@ -63,11 +93,11 @@
     }
   ],
   "notes": [
-    "controlzee does not run these commands: review each one, then run it with credentials for the account named in its target",
+    "steps with operations can be carried out by `controlzee respond` after a dry run and your approval; the others are for a person. Either way, review each one first",
     "work through the phases in order; within contain, act quickly, since the attacker may notice",
     "steps marked weak rest on weak evidence (IP, user agent or ARN matches): confirm them before acting"
   ],
-  "plan_sha256": "957fab99fd017f7cbc57fe969754effea55ff797802ec2eaa2876ef44dcca842",
+  "plan_sha256": "ca8fd436668e9ab215a1f615490303aabb87d5d7c9af5c9d2b1774f58d4bb5d6",
   "schema_version": "0.2",
   "scope_sha256": "657837bd47db8dd7733bd1c5f6b02448fe47a4cebc3623d968152dad8eb72325",
   "tool": {
