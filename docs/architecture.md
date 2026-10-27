@@ -16,7 +16,7 @@ Scoping has to be fast on millions of events, and almost all of them are irrelev
 2. **Materialize pass.** Only the files that hold in-scope events are read again, and full `Event` models are built for
    those events alone. An event-id check catches a file that changed between the passes.
 
-Measured on a synthetic 1M-record dataset (200 gzipped files, 1.33 GB uncompressed) on a 28-thread WSL2 machine:
+Measured once, with a generator that is not committed to this repository, so treat these as indicative and not reproducible. The dataset was synthetic, 1M records (200 gzipped files, 1.33 GB uncompressed) on a 28-thread WSL2 machine:
 
 | choice | finding |
 |---|---|
@@ -119,7 +119,7 @@ what is attached so every needed action is checked. `respond/run.py`:
   ones only with `--allow-disruptive`; only the caller's account), identifies the caller (`sts:GetCallerIdentity`, then
   `iam:GetRole` to turn a role session into its role ARN), probes, and asks `iam:SimulatePrincipalPolicy` about every
   pair, grouped by resource. Anything not "allowed", and any probe that cannot read, fails it.
-- `execute` checks the dry run's seal, that it is not dated in the future, that its steps are known, chosen and allowed (an edited, re-sealed file cannot add one), version, pass, age and approval prefix, and that the caller is the same principal
+- `execute` checks the dry run's seal, that it is not dated in the future, that it was made from the `--scope` given and that its steps are exactly what the plan rebuilt from that scope gives (an edited, re-sealed file cannot add an operation; the `--approve` hash is what ties execution to what was reviewed), version, pass, age and approval prefix, and that the caller is the same principal
   and account; then per step: validate again, probe again, apply, record, stop at the first failure.
 
 Nothing is executed through a shell. `argcheck.py` holds the patterns for command-line values that reach AWS.

@@ -22,7 +22,7 @@ class Caller(Model):
 class PermissionCheck(Model):
     action: str  # "iam:UpdateAccessKey"
     resource: str
-    decision: str  # "allowed", "implicitDeny", "explicitDeny"
+    decision: str  # "allowed", or the simulator's refusal ("implicitDeny", "explicitDeny"), possibly with a note on condition keys
 
 
 class DryRunStep(Model):
