@@ -178,6 +178,20 @@
       "title": "Checked At",
       "type": "string"
     },
+    "chosen_steps": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Chosen Steps"
+    },
     "dryrun_sha256": {
       "default": "",
       "title": "Dryrun Sha256",
@@ -229,6 +243,14 @@
       "additionalProperties": true,
       "title": "Tool",
       "type": "object"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
     }
   },
   "required": [
@@ -239,6 +261,7 @@
     "home_region",
     "checked_at",
     "allow_disruptive",
+    "chosen_steps",
     "steps",
     "not_selected",
     "problems",

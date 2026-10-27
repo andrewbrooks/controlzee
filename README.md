@@ -67,11 +67,19 @@ order, reads each target again first (anything already put right is skipped), st
 
 - No shell, ever: every change is a boto3 call with typed parameters. The AWS CLI text in the plan is for people.
 - The dry run builds the plan from the sealed `scope.json` itself, so only operations the plan builder produced (from a
-  fixed list) can run; a hand-edited plan cannot add any.
+  fixed list) are put in it. `execute` does not rebuild the plan, but it refuses a dry run file that was edited to add a
+  step: every step must be a known operation, chosen by `--steps` (or in the default set), disruptive only if the dry
+  run allowed it, and must not cut off the responder's own access. Each step is simulated again just before it runs.
 - Every value that came from the logs (user, role, key, instance, trail, region...) must have the documented form for
   its kind before it is used, and is checked again before each call. Anything else makes the step manual.
 - Command-line values are checked too: `--aws-profile`, `--region`, `--steps`, `--approve`, `--lookup-events` regions and
   `s3://` URLs must match strict patterns, or the command stops before contacting AWS.
+- A session revocation takes its cutoff from AWS's clock (the `Date` header of the identity call), not the machine's. A
+  difference over 30 seconds is a warning in the dry run; over 5 minutes, or no `Date` header, fails any dry run that
+  contains a revocation.
+- When the simulator denies something because of a condition it has no value for (MFA, source IP, tags), the dry run
+  still fails but adds the condition keys the simulator had no value for. It lists every such key in any policy it read, so
+  it is a lead (a role that needs MFA, for example), not a diagnosis.
 - Root credentials are refused, since their permissions cannot be checked. Use an IAM role or user.
 - The simulator covers identity policies, permission boundaries and SCPs, not session or resource-based policies, so
   AWS can still refuse a call: execute then stops at that step and records it.
