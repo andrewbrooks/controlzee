@@ -1,7 +1,7 @@
 # controlzee
 
 Incident response as code for AWS. Give it CloudTrail logs and what you know about the attacker; it tells you what they
-did, in a form other tools and people can rely on.
+did, and provides output that can be parsed by other tools and humans.
 
 Named for CTRL+Z, but most of the time the right answer is rebuild, not undo.
 
