@@ -27,7 +27,7 @@ after a dry run that a person has reviewed and approved.
 
 ### What has been tested
 
-- **Everything** runs in the test suite (370 tests, no network): generated CloudTrail for six scenarios, real CloudTrail
+- **Everything** runs in the test suite (369 tests, no network): generated CloudTrail for six scenarios, real CloudTrail
   captured from Stratus runs (identifiers replaced), and an in-memory AWS account whose calls are checked against
   botocore's service models.
 - **Against a real sandbox account** ([docs/field-testing.md](docs/field-testing.md), [docs/validation.md](docs/validation.md)):
