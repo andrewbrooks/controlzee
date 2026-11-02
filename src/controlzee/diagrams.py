@@ -68,7 +68,7 @@ def attack_svg(g: Graph, anchors: dict[str, str]) -> str:
         for r, item in enumerate(items):
             pos[item] = (PAD + col * (NODE_W + COL_GAP), top + r * (NODE_H + ROW_GAP))
     label = f"How the attacker moved: {_plural(n, 'identity', 'identities')}"
-    out = [f'<svg class="graph" viewBox="0 0 {int(width)} {int(height)}" role="img" aria-label="{h(label)}">',
+    out = [f'<svg class="graph" width="{int(width)}" viewBox="0 0 {int(width)} {int(height)}" role="img" aria-label="{h(label)}">',
            '<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
            '<path class="arrowhead" d="M0 0 L10 5 L0 10 z"/></marker></defs>']
 
