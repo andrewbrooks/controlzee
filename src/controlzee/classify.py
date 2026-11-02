@@ -57,7 +57,7 @@ _BY_TACTIC: Final[dict[Tactic, dict[str, tuple[str, ...]]]] = {
                        "RemoveUserFromGroup", "DeleteGroup"),
                "secretsmanager": ("PutSecretValue", "UpdateSecret", "DeleteSecret"),
                "ssm": ("PutParameter", "DeleteParameter", "DeleteParameters"), "lambda": ("DeleteFunction",),
-               "ec2": ("TerminateInstances", "DeleteVolume", "DeleteSnapshot"), "rds": ("DeleteDBInstance", "DeleteDBCluster"),
+               "ec2": ("TerminateInstances", "StopInstances", "DeleteVolume", "DeleteSnapshot"), "rds": ("DeleteDBInstance", "DeleteDBCluster"),
                "kms": ("ScheduleKeyDeletion", "DisableKey")},
 }
 _TABLE: Final[dict[tuple[str, str], Tactic]] = {
@@ -82,6 +82,8 @@ def tactic(ev: Event) -> Tactic:
         return "execution"  # a service running code as the role (Lambda, EC2...), not someone moving between identities
     if (t := _TABLE.get((svc, name))) is not None:
         return t
+    if (svc, name) == ("ec2", "ModifyInstanceAttribute") and "userData" in (ev.request_parameters or {}):
+        return "execution"  # new user data runs as root the next time the instance starts
     reads = ev.read_only if ev.read_only is not None else name.startswith(_READ_PREFIXES)
     return "discovery" if reads else "other"
 

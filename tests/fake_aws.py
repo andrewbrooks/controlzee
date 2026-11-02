@@ -49,12 +49,14 @@ class Account:
     functions: set[str] = field(default_factory=set)  # Lambda function names
     buckets: dict[str, list[str]] = field(default_factory=dict)  # bucket name -> object keys
     denied: set[str] = field(default_factory=set)  # IAM actions the simulator denies
+    allowed_regions: set[str] | None = None  # an organization policy that allows only these regions, as the real simulator evaluates it
     missing_context: dict[str, list[str]] = field(default_factory=dict)  # denied action -> condition keys the simulator lacked
     skew: timedelta | None = timedelta(0)  # AWS's clock minus the local one; None = no Date header
     documents: dict[tuple[str, str, str], dict[str, Any]] = field(default_factory=dict)  # (user|role, name, policy) -> inline document
     calls: list[tuple[str, str, dict[str, Any]]] = field(default_factory=list)  # (service, operation, params), writes only
+    simulated_regions: list[str | None] = field(default_factory=list)  # aws:RequestedRegion of each simulator call
 
-    def install(self, monkeypatch: Any, profile: str | None = None, regions: tuple[str, ...] = ("us-east-1",)) -> None:
+    def install(self, monkeypatch: Any, profile: str | None = None, regions: tuple[str, ...] = ("us-east-1", "us-east-2")) -> None:
         from controlzee.ingest import remote
         for service in ("sts", "iam", "ec2", "cloudtrail", "config", "guardduty", "securityhub", "lambda", "s3"):
             for region in regions:
@@ -225,11 +227,15 @@ class FakeClient:
         del self.acct.roles[RoleName]
         return {}
 
-    def _iam_simulate_principal_policy(self, op: str, PolicySourceArn: str, ActionNames: list[str], ResourceArns: list[str]) -> Any:  # noqa: N803
+    def _iam_simulate_principal_policy(self, op: str, PolicySourceArn: str, ActionNames: list[str], ResourceArns: list[str],  # noqa: N803
+                                       ContextEntries: list[Any] | None = None) -> Any:  # noqa: N803
         if "iam:SimulatePrincipalPolicy" in self.acct.denied:
             raise _err("AccessDenied", op)
+        region = next((e["ContextKeyValues"][0] for e in ContextEntries or [] if e["ContextKeyName"] == "aws:RequestedRegion"), None)
+        locked = self.acct.allowed_regions is not None and region not in self.acct.allowed_regions  # a missing region is denied too
+        self.acct.simulated_regions.append(region)
         return {"EvaluationResults": [{"EvalActionName": a, "EvalResourceName": r,
-                                       "EvalDecision": "implicitDeny" if a in self.acct.denied else "allowed",
+                                       "EvalDecision": "explicitDeny" if locked else "implicitDeny" if a in self.acct.denied else "allowed",
                                        **({"MissingContextValues": self.acct.missing_context[a]} if a in self.acct.missing_context else {})}
                                       for a in ActionNames for r in ResourceArns], "IsTruncated": False}
 

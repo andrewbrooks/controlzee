@@ -19,7 +19,7 @@ result with what the technique is documented to do:
 
 ## Results
 
-Stratus v2.37.2; the sandbox is in the organization's `us-east-2` (EC2 calls elsewhere are denied by an SCP), with
+Stratus v2.37.2; round one ran eight techniques and round two three more. The sandbox is in the organization's `us-east-2` (EC2 calls elsewhere are denied by an SCP), with
 event history read from `us-east-1` and `us-east-2`.
 
 | technique | ran | detonation in scope | tactic | plan | notes |
@@ -32,6 +32,9 @@ event history read from `us-east-1` and `us-east-2`.
 | `persistence.sts-federation-token` | yes | yes | persistence | deactivate keys, undo policy, delete user | the federation token's key was followed (`sts:GetFederationToken` rule) |
 | `credential-access.secretsmanager-retrieve-secrets` | yes | yes | credential-access | one rotate step per secret | all 20 secrets listed as read; see 3 |
 | `credential-access.ssm-retrieve-securestring-parameters` | yes | yes | credential-access | one "change a parameter" step per parameter (26) | see 3 |
+| `credential-access.ec2-steal-instance-credentials` | yes | yes | execution, credential-access | cut the instance off its role, stop, snapshot, terminate; revoke the role's sessions | the instance-profile rule fired (`instance_id` identity, 4 events acting as it); the stolen credentials' `DescribeInstances` call is followed; round 2 |
+| `discovery.ec2-enumerate-from-instance` | yes | yes | execution, discovery | as above | the instance's own role calls (`GetCallerIdentity`, `ListBuckets`, `ListUsers`, `GetAccountAuthorizationDetails`...) are followed; round 2 |
+| `execution.ec2-user-data` | yes | yes | execution (new user data), impact (stop) | as above | round 2; see 6 |
 | `persistence.iam-create-user-login-profile` | blocked | the denied call is in scope | n/a | n/a | an SCP denies `iam:CreateLoginProfile` in this account |
 
 Every technique that could run was found, tagged with a fitting tactic, and given the plan operations expected of it.
@@ -48,7 +51,23 @@ The first run found five things. The first four are fixed, with regression tests
 | 2 | a call made by an AWS service was called lateral movement: Lambda assuming the attacker's role | `lateral-movement` | `execution` |
 | 3 | a mass read became a wall of steps | 20 secrets: 20 steps; 42 parameters: 42 steps | one step each, naming the first three and carrying every command ("Rotate the 20 secrets the attacker read") |
 | 4 | repeated changes to one target gave repeated steps | two identical "Undo a permission change" for one trust policy | one step citing both calls |
-| 5 | some attacker-created things have no plan step: a bucket has none, and a created Lambda function has a step but no operation, so `respond` cannot carry it out | | open: needs new `respond` operations |
+| 5 | some attacker-created things have no plan step: a bucket has none, and a created Lambda function has a step but no operation, so `respond` cannot carry it out | no step for a bucket; a manual step for a function | fixed: `delete_bucket` (only if the bucket is empty) and `delete_lambda_function`, both disruptive. Run on a real function and bucket, see below |
+| 6 | changing an instance's user data (`ModifyInstanceAttribute` with `userData`) and stopping an instance had no tactic | `other` | `execution` and `impact` |
+
+**Round two (EC2, and the new operations on a real account).** Three EC2 techniques showed the instance-profile rule
+working on a real instance, which the first round could not (in these runs the attacker also created the role, so the role
+rule overlaps; the `instance_id` identity still had its own events). The new operations were tried on the Lambda
+technique's real function and bucket:
+
+- The first dry run **failed on a bucket that was not empty** (it held `lambda.zip`), as designed: "controlzee only
+  deletes empty buckets". A person emptied it and ran the dry run again.
+- It also **failed on a permission it had**, and that was a bug in controlzee. The organization's policy allows only one
+  region, and the IAM policy simulator, which evaluates organization policies, denies every regional action unless it is
+  told the region (`aws:RequestedRegion`). Fixed: the simulator is now given each step's region (the step's own, else the
+  one in the ARN, else the home region for global services). Before, the dry run could not pass for any regional step in
+  an account with a region-restricting policy, a very common setup.
+- With that fixed, the dry run passed, `execute` deleted the function and the bucket, and a second dry run showed both
+  "already done".
 
 The tactic for removals is a judgement call: an attacker cleaning up its own traces looks the same as one locking
 defenders out, so both are `impact`. The tactics are per call and deliberately simple (see `classify.py`).
@@ -57,6 +76,9 @@ How it was measured, and its limits:
 
 - The attacker's key also ran Stratus's own set-up and clean-up, so a lot of in-scope events are that noise. The
   precision of the scope was not measured.
+- A report does not yet say when a role session is used from an address other than the instance's. In the
+  steal-credentials run the stolen credentials were used from elsewhere, which is the clearest sign of theft; that would be a
+  useful addition.
 - A scope built too early misses late events: the harness stopped waiting once the technique's own call appeared, and
   the first SSM scope saw 26 parameter reads where the full history has 42. Counts in the table are from the captured,
   complete logs.
@@ -67,5 +89,7 @@ How it was measured, and its limits:
 
 ## Not covered
 
-EC2 techniques (instance credentials, user data), anything needing a CloudTrail trail or an S3 bucket policy, and
-techniques that are only visible as data events. The `respond` operations were not exercised by these runs.
+Anything needing a CloudTrail trail or an S3 bucket policy, and techniques that are only visible as data events. Of the
+`respond` operations, only deactivating a key, revoking and lifting a role's sessions, deleting a function and deleting a
+bucket have run on a real account; logging and detection restoration and the instance operations (stop, snapshot,
+terminate, remove the instance profile) have not, though their steps appear in the plans above.

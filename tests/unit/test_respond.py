@@ -523,12 +523,12 @@ def test_a_function_the_attacker_created_is_deleted_only_with_the_flag(fixtures,
     assert [s.result for s in again.steps] == ["already done"]
 
 
-def _bucket_scope(fixtures, monkeypatch):
+def _bucket_scope(fixtures, monkeypatch, region="us-east-1"):
     """Scenario 01 with one more plan step: delete the bucket `attacker-staging` (no scenario creates a bucket)."""
     scope = scope_of(fixtures, "01_leaked_key")
     real = build_plan(scope)
     action = dict(real["actions"][0], id="A99", title="Delete a bucket the attacker created", operations=[
-        {"op": "delete_bucket", "args": {"bucket": "attacker-staging"}, "region": "us-east-1"}], disruptive=True, on_request=False)
+        {"op": "delete_bucket", "args": {"bucket": "attacker-staging"}, "region": region}], disruptive=True, on_request=False)
     monkeypatch.setattr("controlzee.respond.run.build_plan", lambda s: {**real, "actions": [*real["actions"], action]})
     return scope
 
@@ -568,3 +568,37 @@ def test_bucket_and_function_names_must_have_their_documented_form(op, args):
     from controlzee.respond.ops import Unsafe, validate
     with pytest.raises(Unsafe):
         validate(op, args, "us-east-1")
+
+
+# ---- an organization policy that allows only some regions (seen on a real account)
+
+def test_the_simulator_is_told_each_steps_region_so_a_region_locked_account_does_not_fail_every_regional_step(fixtures, monkeypatch):
+    scope = _bucket_scope(fixtures, monkeypatch, region="us-east-2")
+    acct = account_01()
+    acct.buckets = {"attacker-staging": []}
+    acct.allowed_regions = {"us-east-1", "us-east-2"}
+    dr = check(scope, acct, monkeypatch, chosen={"A01", "A99"}, allow_disruptive=True)
+    assert dr.passed and set(acct.simulated_regions) == {"us-east-1", "us-east-2"}  # IAM: the home region; the bucket: its own
+    only_home = account_01()
+    only_home.buckets = {"attacker-staging": []}
+    only_home.allowed_regions = {"us-east-1"}  # the bucket's region is not allowed: that step fails, the IAM step does not
+    dr = check(scope, only_home, monkeypatch, chosen={"A01", "A99"}, allow_disruptive=True)
+    assert not dr.passed and [s.ok for s in dr.steps] == [True, False] and "explicitDeny" in dr.problems[0]
+    only_bucket_region = account_01()
+    only_bucket_region.buckets = {"attacker-staging": []}
+    only_bucket_region.allowed_regions = {"us-east-2"}
+    dr = check(scope, only_bucket_region, monkeypatch, chosen={"A01", "A99"}, allow_disruptive=True)
+    assert not dr.passed and dr.steps[0].ok is False and dr.steps[1].ok is True
+
+
+def test_the_region_comes_from_the_step_then_the_arn_then_the_home_region(monkeypatch):
+    from controlzee.respond.ops import Ctx
+    from controlzee.respond.run import simulate
+    acct = Account(allowed_regions={"us-east-2"})
+    acct.install(monkeypatch)
+    ctx = Ctx(account="111122223333", partition="aws", profile=None, home_region="us-east-1")
+    who, bucket, fn = "arn:aws:iam::111122223333:role/IncidentResponder", ("s3:DeleteBucket", "arn:aws:s3:::b"), \
+        ("lambda:DeleteFunction", "arn:aws:lambda:us-east-2:111122223333:function:f")
+    assert simulate(ctx, who, [bucket], {bucket: "us-east-2"}) == {bucket: "allowed"}  # the step's region
+    assert simulate(ctx, who, [fn]) == {fn: "allowed"}  # the region in the ARN
+    assert simulate(ctx, who, [bucket]) == {bucket: "explicitDeny"}  # neither: the home region, which the policy does not allow
