@@ -101,13 +101,21 @@
         "aws lambda delete-function --region us-east-1 --function-name exfil-fn"
       ],
       "confidence": "strong",
-      "disruptive": false,
+      "disruptive": true,
       "evidence": [
         "d554bd6b-07d7-5564-b3ed-5c98efd37228"
       ],
       "id": "A05",
       "on_request": false,
-      "operations": [],
+      "operations": [
+        {
+          "args": {
+            "function": "exfil-fn"
+          },
+          "op": "delete_lambda_function",
+          "region": "us-east-1"
+        }
+      ],
       "phase": "eradicate",
       "target": "function exfil-fn (us-east-1)",
       "title": "Delete a Lambda function the attacker created",
@@ -188,7 +196,7 @@
     "steps with operations can be carried out by `controlzee respond` after a dry run and your approval; the others are for a person. Either way, review each one first",
     "work through the phases in order; within contain, act quickly, since the attacker may notice"
   ],
-  "plan_sha256": "378866ed5896d22fdfd7f88094cb3ce506d15659c9448fbd7c09efab30cffd2e",
+  "plan_sha256": "91010faa90c7cd888f7eea54a3d81713b244260e19b7ce7b7e26e34b07d51b8e",
   "schema_version": "0.2",
   "scope_sha256": "2c81b81eafc44bcc7607c23b6d505ea383828db1e34cc30ab7dd5c06dd860b90",
   "tool": {

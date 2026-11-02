@@ -32,6 +32,7 @@ SHAPES: Final[dict[str, re.Pattern[str]]] = {
     "secret": re.compile(r"^[\w/+=.@:-]{1,2048}$"),
     "parameter": re.compile(r"^[\w/.-]{1,2048}$"),
     "function": re.compile(r"^[\w-]{1,64}$"),
+    "bucket": re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"),
     "time": re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"),
 }
 MAX_SKEW: Final = timedelta(minutes=5)  # beyond this a session revocation is refused
@@ -86,6 +87,7 @@ class Probe:
     state: str  # the target as it is now, for the person reviewing the dry run
     done: bool  # nothing to do: the change is already in place
     checks: tuple[tuple[str, str], ...]  # (IAM action, resource ARN) the change needs
+    problem: str | None = None  # why controlzee cannot do it at all (not a missing permission): fails the dry run
 
 
 def _code(e: Exception) -> str:
@@ -496,6 +498,42 @@ def _probe_security_hub(ctx: Ctx, a: dict[str, str], region: str | None) -> Prob
     return Probe(f"Security Hub is {'enabled' if on else 'not enabled'} in {region}", on, (("securityhub:EnableSecurityHub", "*"),))
 
 
+# ---- Lambda and S3
+
+def _probe_delete_function(ctx: Ctx, a: dict[str, str], region: str | None) -> Probe:
+    assert region
+    found = _absent(lambda: ctx.c("lambda", region).get_function(FunctionName=a["function"]), "ResourceNotFoundException")
+    if found is None:
+        return Probe(f"function {a['function']} does not exist", True, ())
+    return Probe(f"function {a['function']} exists", False, (("lambda:DeleteFunction", ctx.arn("lambda", region, f"function:{a['function']}")),))
+
+
+def _apply_delete_function(ctx: Ctx, a: dict[str, str], region: str | None) -> str:
+    assert region
+    ctx.c("lambda", region).delete_function(FunctionName=a["function"])
+    return f"deleted function {a['function']}"
+
+
+def _probe_delete_bucket(ctx: Ctx, a: dict[str, str], region: str | None) -> Probe:
+    assert region
+    s3 = ctx.c("s3", region)
+    if _absent(lambda: s3.head_bucket(Bucket=a["bucket"]), "404", "NoSuchBucket", "NotFound") is None:
+        return Probe(f"bucket {a['bucket']} does not exist", True, ())
+    checks = (("s3:DeleteBucket", f"arn:{ctx.partition}:s3:::{a['bucket']}"),)
+    if s3.list_objects_v2(Bucket=a["bucket"], MaxKeys=1).get("KeyCount", 0):
+        # emptying a bucket destroys what may be evidence, so controlzee never does it: a person looks first
+        return Probe(f"bucket {a['bucket']} is not empty", False, checks,
+                     "the bucket is not empty, and controlzee only deletes empty buckets: look at what is in it (it may be what "
+                     "the attacker staged or took), keep what you need, empty it by hand and run the dry run again")
+    return Probe(f"bucket {a['bucket']} exists and is empty", False, checks)
+
+
+def _apply_delete_bucket(ctx: Ctx, a: dict[str, str], region: str | None) -> str:
+    assert region
+    ctx.c("s3", region).delete_bucket(Bucket=a["bucket"])
+    return f"deleted bucket {a['bucket']}"
+
+
 # ---- the registry
 
 Probe_ = Callable[[Ctx, dict[str, str], str | None], Probe]
@@ -653,6 +691,16 @@ OPS: Final[dict[str, OpSpec]] = {
                       f"aws ec2 create-snapshot {_r(r)} --volume-id VOLUME_ID_FROM_ABOVE "
                       f"--description {shlex.quote('controlzee: evidence from ' + check('instance', a['instance']))}"],
         _probe_snapshot, _apply_snapshot),
+    "delete_lambda_function": OpSpec(
+        {"function": "function"}, True, True, lambda a, r: f"delete Lambda function {a['function']} (its code is lost; its role stays)",
+        lambda a, r: [f"aws lambda get-function {_r(r)} --function-name {q('function', a['function'])}",
+                      f"aws lambda delete-function {_r(r)} --function-name {q('function', a['function'])}"],
+        _probe_delete_function, _apply_delete_function),
+    "delete_bucket": OpSpec(
+        {"bucket": "bucket"}, True, True, lambda a, r: f"delete S3 bucket {a['bucket']}, only if it is empty",
+        lambda a, r: [f"aws s3api list-objects-v2 {_r(r)} --bucket {q('bucket', a['bucket'])} --max-items 1",
+                      f"aws s3api delete-bucket {_r(r)} --bucket {q('bucket', a['bucket'])}"],
+        _probe_delete_bucket, _apply_delete_bucket),
     "terminate_instance": OpSpec(
         {"instance": "instance"}, True, True, lambda a, r: f"terminate instance {a['instance']}",
         lambda a, r: [f"aws ec2 terminate-instances {_r(r)} --instance-ids {q('instance', a['instance'])}"],

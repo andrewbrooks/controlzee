@@ -7,7 +7,9 @@ from typer.testing import CliRunner
 
 from controlzee import canonical
 from controlzee.cli import app
+from controlzee.model.plan import Plan
 from controlzee.model.respond import DryRun, ResponseRecord
+from controlzee.plan import build_plan
 from controlzee.respond.run import RespondError, dry_run, execute
 from controlzee.scope import ScopeOptions, build_scope
 from controlzee.seed.spec import assemble, load_iocs_file
@@ -497,3 +499,72 @@ def test_the_cli_prints_dry_run_warnings(fixtures, monkeypatch, tmp_path):
     acct.install(monkeypatch)
     r = cli("respond", "dry-run", fixtures / "01_leaked_key/expected/scope.json", "-o", tmp_path / "d.json")
     assert r.exit_code == 0 and "Warning: this machine's clock is" in r.output
+
+
+# ---- Lambda functions and S3 buckets the attacker created
+
+def _account_06():
+    return Account(users={"ci-deploy": User(keys={"AKIAIOSFODNN7LEAKED": "Active"})}, functions={"exfil-fn", "other-fn"})
+
+
+def test_a_function_the_attacker_created_is_deleted_only_with_the_flag(fixtures, monkeypatch):
+    scope = scope_of(fixtures, "06_lambda")
+    dr = check(scope, _account_06(), monkeypatch)
+    assert "delete_lambda_function" not in {s.op for s in dr.steps}
+    assert any(n.reason.startswith("disruptive") and n.title == "Delete a Lambda function the attacker created" for n in dr.not_selected)
+    acct = _account_06()
+    step = next(a.id for a in Plan.model_validate(build_plan(scope)).actions if a.title == "Delete a Lambda function the attacker created")
+    dr = check(scope, acct, monkeypatch, chosen={step}, allow_disruptive=True)
+    assert dr.passed and [(s.op, s.args) for s in dr.steps] == [("delete_lambda_function", {"function": "exfil-fn"})]
+    assert [c.action for c in dr.steps[0].checks] == ["lambda:DeleteFunction"] and dr.steps[0].checks[0].resource.endswith(":function:exfil-fn")
+    assert run(dr.model_dump(mode="json")).completed
+    assert acct.functions == {"other-fn"}  # only the one the attacker created
+    again = run(check(scope, acct, monkeypatch, chosen={step}, allow_disruptive=True).model_dump(mode="json"))
+    assert [s.result for s in again.steps] == ["already done"]
+
+
+def _bucket_scope(fixtures, monkeypatch):
+    """Scenario 01 with one more plan step: delete the bucket `attacker-staging` (no scenario creates a bucket)."""
+    scope = scope_of(fixtures, "01_leaked_key")
+    real = build_plan(scope)
+    action = dict(real["actions"][0], id="A99", title="Delete a bucket the attacker created", operations=[
+        {"op": "delete_bucket", "args": {"bucket": "attacker-staging"}, "region": "us-east-1"}], disruptive=True, on_request=False)
+    monkeypatch.setattr("controlzee.respond.run.build_plan", lambda s: {**real, "actions": [*real["actions"], action]})
+    return scope
+
+
+def test_an_empty_bucket_is_deleted_and_a_full_one_fails_the_dry_run(fixtures, monkeypatch):
+    scope = _bucket_scope(fixtures, monkeypatch)
+    acct = account_01()
+    acct.buckets = {"attacker-staging": []}
+    dr = check(scope, acct, monkeypatch, chosen={"A99"}, allow_disruptive=True)
+    assert dr.passed and dr.steps[0].state == "bucket attacker-staging exists and is empty"
+    assert [c.action for c in dr.steps[0].checks] == ["s3:DeleteBucket"]
+    assert run(dr.model_dump(mode="json")).completed and acct.buckets == {}
+    full = account_01()
+    full.buckets = {"attacker-staging": ["stolen/db.sql"]}
+    dr = check(scope, full, monkeypatch, chosen={"A99"}, allow_disruptive=True)
+    assert not dr.passed and "only deletes empty buckets" in dr.problems[0] and dr.steps[0].state == "bucket attacker-staging is not empty"
+    assert full.buckets == {"attacker-staging": ["stolen/db.sql"]} and full.calls == []
+    with pytest.raises(RespondError, match="did not pass"):
+        run(dr.model_dump(mode="json"))
+
+
+def test_a_bucket_filled_after_the_dry_run_stops_execute_without_deleting_anything(fixtures, monkeypatch):
+    scope = _bucket_scope(fixtures, monkeypatch)
+    acct = account_01()
+    acct.buckets = {"attacker-staging": []}
+    doc = check(scope, acct, monkeypatch, chosen={"A99"}, allow_disruptive=True).model_dump(mode="json")
+    acct.buckets["attacker-staging"].append("evidence.bin")
+    rec = run(doc)
+    assert not rec.completed and "only deletes empty buckets" in rec.steps[0].detail
+    assert acct.buckets == {"attacker-staging": ["evidence.bin"]}
+
+
+@pytest.mark.parametrize("op,args", [("delete_bucket", {"bucket": "UPPER_case"}), ("delete_bucket", {"bucket": "a"}),
+                                     ("delete_bucket", {"bucket": "x;rm -rf /"}), ("delete_lambda_function", {"function": "a b"}),
+                                     ("delete_lambda_function", {"function": "arn:aws:lambda:us-east-1:1:function:f"})])
+def test_bucket_and_function_names_must_have_their_documented_form(op, args):
+    from controlzee.respond.ops import Unsafe, validate
+    with pytest.raises(Unsafe):
+        validate(op, args, "us-east-1")

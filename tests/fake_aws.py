@@ -46,6 +46,8 @@ class Account:
     detectors: dict[str, str] = field(default_factory=dict)
     hub: bool = True
     instances: dict[str, dict[str, Any]] = field(default_factory=dict)
+    functions: set[str] = field(default_factory=set)  # Lambda function names
+    buckets: dict[str, list[str]] = field(default_factory=dict)  # bucket name -> object keys
     denied: set[str] = field(default_factory=set)  # IAM actions the simulator denies
     missing_context: dict[str, list[str]] = field(default_factory=dict)  # denied action -> condition keys the simulator lacked
     skew: timedelta | None = timedelta(0)  # AWS's clock minus the local one; None = no Date header
@@ -54,12 +56,12 @@ class Account:
 
     def install(self, monkeypatch: Any, profile: str | None = None, regions: tuple[str, ...] = ("us-east-1",)) -> None:
         from controlzee.ingest import remote
-        for service in ("sts", "iam", "ec2", "cloudtrail", "config", "guardduty", "securityhub"):
+        for service in ("sts", "iam", "ec2", "cloudtrail", "config", "guardduty", "securityhub", "lambda", "s3"):
             for region in regions:
                 monkeypatch.setitem(remote._clients, (service, profile, region), FakeClient(self, service, region))
 
 
-_READS = ("get_", "list_", "describe_", "simulate_")
+_READS = ("get_", "list_", "describe_", "simulate_", "head_")
 
 
 class FakeClient:
@@ -230,6 +232,34 @@ class FakeClient:
                                        "EvalDecision": "implicitDeny" if a in self.acct.denied else "allowed",
                                        **({"MissingContextValues": self.acct.missing_context[a]} if a in self.acct.missing_context else {})}
                                       for a in ActionNames for r in ResourceArns], "IsTruncated": False}
+
+    # ---- lambda and s3
+
+    def _lambda_get_function(self, op: str, FunctionName: str) -> Any:  # noqa: N803
+        if FunctionName not in self.acct.functions:
+            raise _err("ResourceNotFoundException", op)
+        return {"Configuration": {"FunctionName": FunctionName}}
+
+    def _lambda_delete_function(self, op: str, FunctionName: str) -> Any:  # noqa: N803
+        if FunctionName not in self.acct.functions:
+            raise _err("ResourceNotFoundException", op)
+        self.acct.functions.discard(FunctionName)
+        return {}
+
+    def _s3_head_bucket(self, op: str, Bucket: str) -> Any:  # noqa: N803
+        if Bucket not in self.acct.buckets:
+            raise _err("404", op)
+        return {}
+
+    def _s3_list_objects_v2(self, op: str, Bucket: str, MaxKeys: int) -> Any:  # noqa: N803
+        keys = self.acct.buckets[Bucket][:MaxKeys]
+        return {"KeyCount": len(keys), "Contents": [{"Key": k} for k in keys]}
+
+    def _s3_delete_bucket(self, op: str, Bucket: str) -> Any:  # noqa: N803
+        if self.acct.buckets[Bucket]:
+            raise _err("BucketNotEmpty", op)
+        del self.acct.buckets[Bucket]
+        return {}
 
     # ---- logging and detection
 

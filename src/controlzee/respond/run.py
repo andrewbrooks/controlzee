@@ -212,7 +212,8 @@ def dry_run(scope: Scope, *, profile: str | None, home_region: str, chosen: set[
                 if (harm := cuts_off_caller(o.op, o.args, caller, groups)) is not None:
                     probed.append((a, o, None, harm))
                     continue
-                probed.append((a, o, OPS[o.op].probe(ctx, o.args, o.region), None))
+                probe = OPS[o.op].probe(ctx, o.args, o.region)
+                probed.append((a, o, probe, probe.problem))
             except (Unsafe, KeyError):
                 probed.append((a, o, None, "the operation's arguments are not valid"))
             except aws_errors() as e:
@@ -328,7 +329,9 @@ def execute(doc: Any, scope: Scope, *, approve: str, profile: str | None, max_ag
             continue
         try:
             probe = OPS[s.op].probe(ctx, s.args, s.region)
-            if probe.done:
+            if probe.problem:
+                step = record(s, "failed", clean(probe.problem, 400))
+            elif probe.done:
                 step = record(s, "already done", "the target was already in the intended state")
             else:
                 # permissions can change between the dry run and now, and earlier steps may have changed them: ask again

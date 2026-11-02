@@ -82,4 +82,14 @@ def test_federation_token_credentials_are_followed():
 def test_the_lambda_function_the_attacker_created_is_followed_and_planned():
     scope, plan, _ = load("lambda-overwrite-code")
     assert any(i.kind == "function_name" for i in scope.taint.identities)
-    assert any(a.title == "Delete a Lambda function the attacker created" for a in plan.actions)
+    step = next(a for a in plan.actions if a.title == "Delete a Lambda function the attacker created")
+    assert [o.op for o in step.operations] == ["delete_lambda_function"] and step.disruptive
+
+
+def test_a_bucket_the_attacker_created_is_planned_for_deletion_once():
+    scope, plan, _ = load("lambda-overwrite-code")
+    created = {s.event.request_parameters["bucketName"] for s in scope.events if s.event.event_name == "CreateBucket" and s.event.error_code is None}
+    steps = [a for a in plan.actions if a.title == "Delete a bucket the attacker created"]
+    assert len(created) == 1 and len(steps) == 1
+    assert [(o.op, o.args["bucket"]) for o in steps[0].operations] == [("delete_bucket", next(iter(created)))] and steps[0].disruptive
+    assert "look inside first" in (steps[0].caution or "")
