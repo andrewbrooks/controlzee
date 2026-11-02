@@ -203,8 +203,9 @@ Each output cites the scope it came from; the same scope always gives the same b
   Steps with operations can be carried out by `controlzee respond` (see above); the rest are for a person. A value from
   the logs reaches a command only if it has the documented form for its kind, and is shell-quoted; otherwise the step is
   manual and says why.
-- **`report`**: Markdown with the summary, coverage, timeline, exposure, plan and indicators. Everything from the logs
-  is escaped, so log content cannot add links, HTML or table cells.
+- **`report`**: Markdown with an at-a-glance block, the summary, a diagram of how the attacker moved (Mermaid, which
+  GitHub draws), the coverage, timeline, exposure, the plan as a task list, and the indicators. Everything from the logs
+  is escaped, so log content cannot add links, HTML or table cells, and diagram labels are cut to a safe character set.
 
 ### Example reports
 

@@ -269,3 +269,51 @@ def test_one_address_service_names_and_other_sessions_are_not_flagged():
     assert _use(_session_event(1, "alice", "203.0.113.5"), _session_event(2, "alice", "198.51.100.9")) == []  # a person moves around
     assert _use(_session_event(1, "i-0123456789abcdef0", "203.0.113.5", type_="IAMUser"),
                 _session_event(2, "i-0123456789abcdef0", "198.51.100.9", type_="IAMUser")) == []
+
+
+# ---- the report's pictures and quick-read block
+
+def _attack_path_report(tmp_path, actor_name):
+    logs = LogSet()
+    attacker = iam_user("ci", "AKIAIOSFODNN7HOSTIL")
+    t = at("2026-10-20T12:00:00Z")
+    logs.add(t, "iam.amazonaws.com", "CreateAccessKey", attacker, request={"userName": "ci"},
+             response={"accessKey": {"userName": "ci", "accessKeyId": "AKIAIOSFODNN7HOSTL2", "secretAccessKey": HIDDEN}})
+    logs.add(at("2026-10-20T12:05:00Z"), "s3.amazonaws.com", "ListBuckets", iam_user(actor_name, "AKIAIOSFODNN7HOSTL2"))
+    (tmp_path / "logs").mkdir()
+    (tmp_path / "logs" / "x.json").write_bytes(orjson.dumps({"Records": logs.records}))
+    scope = build_scope([tmp_path / "logs"], assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7HOSTIL"]))]),
+                        ScopeOptions(workers=1)).scope
+    return build_report(scope).decode()
+
+
+def test_the_attack_path_shows_who_handed_a_credential_to_whom(tmp_path):
+    report = _attack_path_report(tmp_path, "backdoor")
+    block = report.split("```mermaid\n")[1].split("```")[0]
+    assert 'n0["user/ci · 1 call"]:::seed' in block and 'n1["user/backdoor · 1 call"]:::followed' in block
+    assert 'n0 -->|"CreateAccessKey"| n1' in block
+
+
+def test_a_hostile_identity_name_cannot_break_out_of_the_diagram(tmp_path):
+    block = _attack_path_report(tmp_path, EVIL).split("```mermaid\n")[1].split("```")[0]
+    shapes = (r'    n\d+\["[A-Za-z0-9 _/.@:+=,()·-]* · \d+ calls?"\]:::(seed|followed)', r'    n\d+ -->\|"[A-Za-z0-9 _/.@:+=,()·-]*"\| n\d+',
+              r'    u\d+\["[A-Za-z0-9 _/.@:+=,()·-]*"\]:::unused', r'    n\d+ -\.->\|"[A-Za-z0-9 _/.@:+=,()·-]*"\| u\d+',
+              r"    classDef (seed|followed|unused) [a-z]+:[#\w:,. -]+", "flowchart LR")
+    lines = [ln for ln in block.splitlines() if ln]
+    assert lines and all(any(re.fullmatch(p, ln) for p in shapes) for ln in lines), [ln for ln in lines if not any(re.fullmatch(p, ln) for p in shapes)]
+    assert "<img" not in block and "`" not in block and "](" not in block
+
+
+def test_a_single_identity_has_no_diagram_and_the_plan_is_a_checklist(fixtures):
+    report = build_report(scope_of(fixtures, "04_log_tampering")).decode()
+    assert "## How the attacker moved" not in report and "```mermaid" not in report
+    steps = [ln for ln in report.split("## Response plan")[1].splitlines() if ln.startswith("- [ ] **A")]
+    assert steps and all(re.match(r"- \[ \] \*\*A\d\d\. ", ln) for ln in steps)
+    assert report.count("> **At a glance.**") == 1 and "**Do first**" in report
+
+
+def test_at_a_glance_says_what_stands_out(fixtures):
+    report = build_report(scope_of(fixtures, "01_leaked_key")).decode()
+    glance = report.split("## Summary")[0].split("> **At a glance.**")[1]
+    assert "**Full administrative access was granted**" in glance and "in account 111122223333" in glance
+    assert "A01 deactivate an access key the attacker used" in glance

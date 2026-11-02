@@ -4,6 +4,10 @@ Versions are `0.x`: output formats (schemas) may change between releases.
 
 ## Unreleased
 
+- `report.md` has an "At a glance" block (how big, what stands out, what to do first), a diagram of how the attacker moved
+  (Mermaid, drawn by GitHub; one arrow per credential an identity created or obtained for another), and the plan as a task
+  list, so a ticket that holds the report shows tick boxes.
+
 - The exposure, report and plan flag an instance's role credentials used from more than one address: an instance calls
   from its own address, so another address holds a copy. The plan has an investigate step (and checks IMDSv2).
 
