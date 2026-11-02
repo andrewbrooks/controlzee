@@ -203,6 +203,19 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 15:07:00Z | user/dev-sam | iam:CreateUser | user svc-metrics | ok | `d554bd6b` |
   | 2026-10-20 15:07:30Z | user/dev-sam | iam:CreateLoginProfile | user svc-metrics | ok | `b2177994` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  79b57279-7f3c-5b8a-b198-3b0b181b9d46
+  8bb4cd19-45aa-5db0-ae36-93addf041786
+  d554bd6b-07d7-5564-b3ed-5c98efd37228
+  b2177994-d66c-53bd-8801-5261f0f910a8
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -224,6 +237,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | When (UTC) | Who | Call | Target | Result | Event |
   |---|---|---|---|---|---|
   | 2026-10-20 18:06:00Z | user/svc-metrics | iam:ListUsers |  | ok | `9c765f05` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  9c765f05-4203-5522-a74d-58c985b1a06a
+  ```
+
+  </details>
+
 
   </details>
 
@@ -249,6 +272,18 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 15:17:00Z | assumed-role/app-role/i-0a1b2c3d4e5f60718 | secretsmanager:ListSecrets |  | ok | `cb96022f` |
   | 2026-10-20 17:05:00Z | assumed-role/app-role/i-0a1b2c3d4e5f60718 | secretsmanager:GetSecretValue | secret prod/db | ok | `94d6ce92` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  50ee173c-5c13-5689-97cd-ef168207f84c
+  cb96022f-25c2-56a3-ab3f-bf725e6fd694
+  94d6ce92-a4b5-5017-b554-c200a68a9aa4
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -268,6 +303,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | When (UTC) | Who | Call | Target | Result | Event |
   |---|---|---|---|---|---|
   | 2026-10-20 15:07:00Z | user/dev-sam | iam:CreateUser | user svc-metrics | ok | `d554bd6b` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  d554bd6b-07d7-5564-b3ed-5c98efd37228
+  ```
+
+  </details>
+
 
   </details>
 
@@ -290,6 +335,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   |---|---|---|---|---|---|
   | 2026-10-20 15:06:00Z | user/dev-sam | ec2:RunInstances | instance i-0a1b2c3d4e5f60718 | ok | `8bb4cd19` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  8bb4cd19-45aa-5db0-ae36-93addf041786
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -311,6 +366,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | When (UTC) | Who | Call | Target | Result | Event |
   |---|---|---|---|---|---|
   | 2026-10-20 15:06:00Z | user/dev-sam | ec2:RunInstances | instance i-0a1b2c3d4e5f60718 | ok | `8bb4cd19` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  8bb4cd19-45aa-5db0-ae36-93addf041786
+  ```
+
+  </details>
+
 
   </details>
 
@@ -340,6 +405,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | When (UTC) | Who | Call | Target | Result | Event |
   |---|---|---|---|---|---|
   | 2026-10-20 15:06:00Z | user/dev-sam | ec2:RunInstances | instance i-0a1b2c3d4e5f60718 | ok | `8bb4cd19` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  8bb4cd19-45aa-5db0-ae36-93addf041786
+  ```
+
+  </details>
+
 
   </details>
 
@@ -374,6 +449,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   |---|---|---|---|---|---|
   | 2026-10-20 15:07:00Z | user/dev-sam | iam:CreateUser | user svc-metrics | ok | `d554bd6b` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  d554bd6b-07d7-5564-b3ed-5c98efd37228
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -395,6 +480,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | When (UTC) | Who | Call | Target | Result | Event |
   |---|---|---|---|---|---|
   | 2026-10-20 15:06:00Z | user/dev-sam | ec2:RunInstances | instance i-0a1b2c3d4e5f60718 | ok | `8bb4cd19` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  8bb4cd19-45aa-5db0-ae36-93addf041786
+  ```
+
+  </details>
+
 
   </details>
 
@@ -420,6 +515,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   |---|---|---|---|---|---|
   | 2026-10-20 17:05:00Z | assumed-role/app-role/i-0a1b2c3d4e5f60718 | secretsmanager:GetSecretValue | secret prod/db | ok | `94d6ce92` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  94d6ce92-a4b5-5017-b554-c200a68a9aa4
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -441,6 +546,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | When (UTC) | Who | Call | Target | Result | Event |
   |---|---|---|---|---|---|
   | 2026-10-20 18:06:00Z | user/svc-metrics | iam:ListUsers |  | ok | `9c765f05` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  9c765f05-4203-5522-a74d-58c985b1a06a
+  ```
+
+  </details>
+
 
   </details>
 
@@ -465,6 +580,18 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 15:15:00Z | assumed-role/app-role/i-0a1b2c3d4e5f60718 | s3:ListBuckets |  | ok | `50ee173c` |
   | 2026-10-20 15:17:00Z | assumed-role/app-role/i-0a1b2c3d4e5f60718 | secretsmanager:ListSecrets |  | ok | `cb96022f` |
   | 2026-10-20 17:05:00Z | assumed-role/app-role/i-0a1b2c3d4e5f60718 | secretsmanager:GetSecretValue | secret prod/db | ok | `94d6ce92` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  50ee173c-5c13-5689-97cd-ef168207f84c
+  cb96022f-25c2-56a3-ab3f-bf725e6fd694
+  94d6ce92-a4b5-5017-b554-c200a68a9aa4
+  ```
+
+  </details>
+
 
   </details>
 
@@ -491,6 +618,19 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 15:06:00Z | user/dev-sam | ec2:RunInstances | instance i-0a1b2c3d4e5f60718 | ok | `8bb4cd19` |
   | 2026-10-20 15:07:00Z | user/dev-sam | iam:CreateUser | user svc-metrics | ok | `d554bd6b` |
   | 2026-10-20 15:07:30Z | user/dev-sam | iam:CreateLoginProfile | user svc-metrics | ok | `b2177994` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  79b57279-7f3c-5b8a-b198-3b0b181b9d46
+  8bb4cd19-45aa-5db0-ae36-93addf041786
+  d554bd6b-07d7-5564-b3ed-5c98efd37228
+  b2177994-d66c-53bd-8801-5261f0f910a8
+  ```
+
+  </details>
+
 
   </details>
 

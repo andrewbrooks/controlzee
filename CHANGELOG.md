@@ -4,6 +4,8 @@ Versions are `0.x`: output formats (schemas) may change between releases.
 
 ## Unreleased
 
+- Each evidence table has a folded "Full event IDs" block (one id per line, so GitHub's copy button or a triple click gets
+  exactly one) next to the shortened codes.
 - A plan step's evidence is a table (when, who, call, target, result, short event id), with repeated calls as one row
   ("x3"), not a row of event ids.
 - `report.md` folds its long parts (the timeline, big tables, each plan step's commands and evidence, the appendix) in

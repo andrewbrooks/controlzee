@@ -29,11 +29,11 @@ def md(value: object, limit: int = 200) -> str:
     return text.replace("://", r":\/\/").replace("www.", r"www\.")  # no autolinks
 
 
-def _fence(lines: Iterable[str]) -> list[str]:
+def _fence(lines: Iterable[str], lang: str = "sh") -> list[str]:
     body = [clean(line, 4000) for line in lines]
     longest = max((len(m) for line in body for m in re.findall(r"`+", line)), default=0)
     fence = "`" * max(3, longest + 1)
-    return [fence + "sh", *body, fence]
+    return [fence + lang, *body, fence]
 
 
 def _n(count: int, one: str, many: str) -> str:
@@ -154,7 +154,12 @@ def _evidence(ids: list[str], scope: Scope) -> list[str]:
         first.setdefault(key, ev.event_time)
     rows = [[md(first[k].replace("T", " ")), md(k[0], 80), md(k[1]) + (f" ×{len(v)}" if len(v) > 1 else ""), md(k[2], 160), md(k[3]),
              f"`{md(v[0][:8])}`" if len(v) == 1 else f"`{md(v[0][:8])}` +{len(v) - 1}"] for k, v in groups.items()]
-    return _table(["When (UTC)", "Who", "Call", "Target", "Result", "Event"], rows) if rows else []
+    if not rows:
+        return []
+    shown = [i for i in ids if i in by_id]
+    # one full id per line: GitHub puts a copy button on a code block, and a triple click selects exactly one id
+    copy = details("Full event IDs, in the order of the calls above (to copy)", _fence(shown, ""))
+    return [*_table(["When (UTC)", "Who", "Call", "Target", "Result", "Event"], rows), "", *copy]
 
 
 def _plan(plan: Plan, scope: Scope) -> list[str]:

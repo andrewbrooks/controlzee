@@ -281,6 +281,19 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 10:01:00Z | user/jenkins | sts:AssumeRole | role arn:aws:iam::111122223333:role/ops-admin | ok | `d554bd6b` |
   | 2026-10-20 10:05:00Z | user/jenkins | sts:GetSessionToken |  | ok | `94d6ce92` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  79b57279-7f3c-5b8a-b198-3b0b181b9d46
+  8bb4cd19-45aa-5db0-ae36-93addf041786
+  d554bd6b-07d7-5564-b3ed-5c98efd37228
+  94d6ce92-a4b5-5017-b554-c200a68a9aa4
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -302,6 +315,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | When (UTC) | Who | Call | Target | Result | Event |
   |---|---|---|---|---|---|
   | 2026-10-20 10:20:00Z | user/jenkins | ec2:DescribeInstances |  | ok | `ba5efc04` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  ba5efc04-26a3-539d-90ad-b357e29515e5
+  ```
+
+  </details>
+
 
   </details>
 
@@ -328,6 +351,19 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 10:03:10Z | assumed-role/ops-admin/maint | iam:AttachRolePolicy | policy arn:aws:iam::aws:policy/ReadOnlyAccess; role support-audit | ok | `50ee173c` |
   | 2026-10-20 10:04:00Z | assumed-role/ops-admin/maint | sts:AssumeRole | role arn:aws:iam::444455556666:role/prod-deploy | ok | `cb96022f` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  b2177994-d66c-53bd-8801-5261f0f910a8
+  2ffe710f-fbb1-5679-86f8-d41da46a5f2c
+  50ee173c-5c13-5689-97cd-ef168207f84c
+  cb96022f-25c2-56a3-ab3f-bf725e6fd694
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -348,6 +384,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   |---|---|---|---|---|---|
   | 2026-10-20 13:01:00Z | assumed-role/support-audit/audit | s3:ListBuckets |  | ok | `ea972266` |
   | 2026-10-20 13:02:00Z | assumed-role/support-audit/audit | secretsmanager:ListSecrets |  | ok | `1e53ffdd` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  ea972266-d206-5a49-9154-6b3c92801147
+  1e53ffdd-8f58-549b-a23f-5584b5fdb45b
+  ```
+
+  </details>
+
 
   </details>
 
@@ -372,6 +419,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | When (UTC) | Who | Call | Target | Result | Event |
   |---|---|---|---|---|---|
   | 2026-10-20 10:04:00Z | assumed-role/ops-admin/maint | sts:AssumeRole | role arn:aws:iam::444455556666:role/prod-deploy | ok | `cb96022f` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  cb96022f-25c2-56a3-ab3f-bf725e6fd694
+  ```
+
+  </details>
+
 
   </details>
 
@@ -401,6 +458,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   |---|---|---|---|---|---|
   | 2026-10-20 10:03:10Z | assumed-role/ops-admin/maint | iam:AttachRolePolicy | policy arn:aws:iam::aws:policy/ReadOnlyAccess; role support-audit | ok | `50ee173c` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  50ee173c-5c13-5689-97cd-ef168207f84c
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -427,6 +494,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   |---|---|---|---|---|---|
   | 2026-10-20 10:03:00Z | assumed-role/ops-admin/maint | iam:CreateRole | role support-audit | ok | `2ffe710f` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  2ffe710f-fbb1-5679-86f8-d41da46a5f2c
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -450,6 +527,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | When (UTC) | Who | Call | Target | Result | Event |
   |---|---|---|---|---|---|
   | 2026-10-20 10:20:00Z | user/jenkins | ec2:DescribeInstances |  | ok | `ba5efc04` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  ba5efc04-26a3-539d-90ad-b357e29515e5
+  ```
+
+  </details>
+
 
   </details>
 
@@ -476,6 +563,19 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 10:03:10Z | assumed-role/ops-admin/maint | iam:AttachRolePolicy | policy arn:aws:iam::aws:policy/ReadOnlyAccess; role support-audit | ok | `50ee173c` |
   | 2026-10-20 10:04:00Z | assumed-role/ops-admin/maint | sts:AssumeRole | role arn:aws:iam::444455556666:role/prod-deploy | ok | `cb96022f` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  b2177994-d66c-53bd-8801-5261f0f910a8
+  2ffe710f-fbb1-5679-86f8-d41da46a5f2c
+  50ee173c-5c13-5689-97cd-ef168207f84c
+  cb96022f-25c2-56a3-ab3f-bf725e6fd694
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -501,6 +601,19 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 10:00:20Z | user/jenkins | iam:ListRoles |  | ok | `8bb4cd19` |
   | 2026-10-20 10:01:00Z | user/jenkins | sts:AssumeRole | role arn:aws:iam::111122223333:role/ops-admin | ok | `d554bd6b` |
   | 2026-10-20 10:05:00Z | user/jenkins | sts:GetSessionToken |  | ok | `94d6ce92` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  79b57279-7f3c-5b8a-b198-3b0b181b9d46
+  8bb4cd19-45aa-5db0-ae36-93addf041786
+  d554bd6b-07d7-5564-b3ed-5c98efd37228
+  94d6ce92-a4b5-5017-b554-c200a68a9aa4
+  ```
+
+  </details>
+
 
   </details>
 

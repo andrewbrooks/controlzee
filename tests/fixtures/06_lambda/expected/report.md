@@ -192,6 +192,18 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 11:01:00Z | user/ci-deploy | lambda:CreateFunction | function exfil-fn | ok | `d554bd6b` |
   | 2026-10-20 11:03:00Z | user/ci-deploy | lambda:UpdateFunctionCode | function arn:aws:lambda:us-east-1:111122223333:function:billing-report:\$LATEST | ok | `b2177994` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  8bb4cd19-45aa-5db0-ae36-93addf041786
+  d554bd6b-07d7-5564-b3ed-5c98efd37228
+  b2177994-d66c-53bd-8801-5261f0f910a8
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -214,6 +226,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   |---|---|---|---|---|---|
   | 2026-10-20 11:05:00Z | assumed-role/lambda-exec/exfil-fn | secretsmanager:GetSecretValue | secret prod/db | ok | `2ffe710f` |
   | 2026-10-20 11:10:00Z | assumed-role/lambda-exec/billing-report | secretsmanager:GetSecretValue | secret prod/db | ok | `50ee173c` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  2ffe710f-fbb1-5679-86f8-d41da46a5f2c
+  50ee173c-5c13-5689-97cd-ef168207f84c
+  ```
+
+  </details>
+
 
   </details>
 
@@ -247,6 +270,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   |---|---|---|---|---|---|
   | 2026-10-20 11:03:00Z | user/ci-deploy | lambda:UpdateFunctionCode | function arn:aws:lambda:us-east-1:111122223333:function:billing-report:\$LATEST | ok | `b2177994` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  b2177994-d66c-53bd-8801-5261f0f910a8
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -269,6 +302,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | When (UTC) | Who | Call | Target | Result | Event |
   |---|---|---|---|---|---|
   | 2026-10-20 11:01:00Z | user/ci-deploy | lambda:CreateFunction | function exfil-fn | ok | `d554bd6b` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  d554bd6b-07d7-5564-b3ed-5c98efd37228
+  ```
+
+  </details>
+
 
   </details>
 
@@ -295,6 +338,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 11:05:00Z | assumed-role/lambda-exec/exfil-fn | secretsmanager:GetSecretValue | secret prod/db | ok | `2ffe710f` |
   | 2026-10-20 11:10:00Z | assumed-role/lambda-exec/billing-report | secretsmanager:GetSecretValue | secret prod/db | ok | `50ee173c` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  2ffe710f-fbb1-5679-86f8-d41da46a5f2c
+  50ee173c-5c13-5689-97cd-ef168207f84c
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -317,6 +371,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   |---|---|---|---|---|---|
   | 2026-10-20 11:05:00Z | assumed-role/lambda-exec/exfil-fn | secretsmanager:GetSecretValue | secret prod/db | ok | `2ffe710f` |
   | 2026-10-20 11:10:00Z | assumed-role/lambda-exec/billing-report | secretsmanager:GetSecretValue | secret prod/db | ok | `50ee173c` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  2ffe710f-fbb1-5679-86f8-d41da46a5f2c
+  50ee173c-5c13-5689-97cd-ef168207f84c
+  ```
+
+  </details>
+
 
   </details>
 
@@ -342,6 +407,18 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 11:00:00Z | user/ci-deploy | sts:GetCallerIdentity |  | ok | `8bb4cd19` |
   | 2026-10-20 11:01:00Z | user/ci-deploy | lambda:CreateFunction | function exfil-fn | ok | `d554bd6b` |
   | 2026-10-20 11:03:00Z | user/ci-deploy | lambda:UpdateFunctionCode | function arn:aws:lambda:us-east-1:111122223333:function:billing-report:\$LATEST | ok | `b2177994` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  8bb4cd19-45aa-5db0-ae36-93addf041786
+  d554bd6b-07d7-5564-b3ed-5c98efd37228
+  b2177994-d66c-53bd-8801-5261f0f910a8
+  ```
+
+  </details>
+
 
   </details>
 

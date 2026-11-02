@@ -191,6 +191,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 14:39:00Z | user/backdoor-svc | s3:ListBuckets |  | ok | `ea972266` |
   | 2026-10-20 14:40:00Z | user/backdoor-svc | iam:ListUsers |  | ok | `1e53ffdd` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  ea972266-d206-5a49-9154-6b3c92801147
+  1e53ffdd-8f58-549b-a23f-5584b5fdb45b
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -220,6 +231,24 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 14:32:00Z | user/ci-deploy | iam:CreateUser | user backdoor-svc | ok | `ba5efc04` |
   | 2026-10-20 14:32:10Z | user/ci-deploy | iam:AttachUserPolicy | policy arn:aws:iam::aws:policy/AdministratorAccess; user backdoor-svc | ok | `2d59f198` |
   | 2026-10-20 14:32:20Z | user/ci-deploy | iam:CreateAccessKey | user backdoor-svc | ok | `9c765f05` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  d554bd6b-07d7-5564-b3ed-5c98efd37228
+  b2177994-d66c-53bd-8801-5261f0f910a8
+  2ffe710f-fbb1-5679-86f8-d41da46a5f2c
+  50ee173c-5c13-5689-97cd-ef168207f84c
+  cb96022f-25c2-56a3-ab3f-bf725e6fd694
+  94d6ce92-a4b5-5017-b554-c200a68a9aa4
+  ba5efc04-26a3-539d-90ad-b357e29515e5
+  2d59f198-929c-5fd6-93e2-4b2dbc3e31ac
+  9c765f05-4203-5522-a74d-58c985b1a06a
+  ```
+
+  </details>
+
 
   </details>
 
@@ -251,6 +280,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   |---|---|---|---|---|---|
   | 2026-10-20 14:32:10Z | user/ci-deploy | iam:AttachUserPolicy | policy arn:aws:iam::aws:policy/AdministratorAccess; user backdoor-svc | ok | `2d59f198` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  2d59f198-929c-5fd6-93e2-4b2dbc3e31ac
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -281,6 +320,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | When (UTC) | Who | Call | Target | Result | Event |
   |---|---|---|---|---|---|
   | 2026-10-20 14:32:00Z | user/ci-deploy | iam:CreateUser | user backdoor-svc | ok | `ba5efc04` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  ba5efc04-26a3-539d-90ad-b357e29515e5
+  ```
+
+  </details>
+
 
   </details>
 
@@ -314,6 +363,24 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 14:32:00Z | user/ci-deploy | iam:CreateUser | user backdoor-svc | ok | `ba5efc04` |
   | 2026-10-20 14:32:10Z | user/ci-deploy | iam:AttachUserPolicy | policy arn:aws:iam::aws:policy/AdministratorAccess; user backdoor-svc | ok | `2d59f198` |
   | 2026-10-20 14:32:20Z | user/ci-deploy | iam:CreateAccessKey | user backdoor-svc | ok | `9c765f05` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  d554bd6b-07d7-5564-b3ed-5c98efd37228
+  b2177994-d66c-53bd-8801-5261f0f910a8
+  2ffe710f-fbb1-5679-86f8-d41da46a5f2c
+  50ee173c-5c13-5689-97cd-ef168207f84c
+  cb96022f-25c2-56a3-ab3f-bf725e6fd694
+  94d6ce92-a4b5-5017-b554-c200a68a9aa4
+  ba5efc04-26a3-539d-90ad-b357e29515e5
+  2d59f198-929c-5fd6-93e2-4b2dbc3e31ac
+  9c765f05-4203-5522-a74d-58c985b1a06a
+  ```
+
+  </details>
+
 
   </details>
 

@@ -417,3 +417,20 @@ def test_the_same_call_made_repeatedly_is_one_evidence_row(tmp_path):
     step = build_report(scope).decode().split("- [ ] **A01.")[1].split("- [ ] **A02.")[0]
     rows = [ln for ln in step.splitlines() if re.match(r"\s+\| 2026-", ln)]
     assert len(rows) == 2 and "iam:ListUsers ×3" in rows[0] and "12:00:00Z" in rows[0] and re.search(r"` \+2 \|$", rows[0])
+
+
+def test_each_evidence_table_has_the_full_event_ids_to_copy(fixtures):
+    scope = scope_of(fixtures, "01_leaked_key")
+    report = build_report(scope).decode()
+    step = report.split("- [ ] **A02.")[1].split("- [ ] **A03.")[0]
+    block = step.split("Full event IDs, in the order of the calls above (to copy)</summary>")[1].split("</details>")[0]
+    ids = re.findall(r"^\s+([0-9a-f]{8}-[0-9a-f-]{27})$", block, re.M)
+    plan = next(a for a in plan_of(scope).actions if a.id == "A02")
+    assert ids == plan.evidence and len(ids) == 9  # every id, in order
+    codes = re.findall(r"`([0-9a-f]{8})`", step)
+    assert codes == [i[:8] for i in ids]  # each short code in the table is the start of its full id
+
+
+def test_a_fence_is_longer_than_any_backtick_run_in_what_it_holds():
+    from controlzee.report import _fence
+    assert _fence(["a ```` b"], "")[0] == "`````" and _fence(["plain"], "")[0] == "```" and _fence(["x"])[0] == "```sh"

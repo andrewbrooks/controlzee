@@ -140,6 +140,18 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 16:03:00Z | user/mallory-temp | iam:CreateAccessKey | user mallory-temp | ok | `b2177994` |
   | 2026-10-20 16:04:00Z | user/mallory-temp | ec2:DescribeSecurityGroups |  | UnauthorizedOperation | `2ffe710f` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  d554bd6b-07d7-5564-b3ed-5c98efd37228
+  b2177994-d66c-53bd-8801-5261f0f910a8
+  2ffe710f-fbb1-5679-86f8-d41da46a5f2c
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -159,6 +171,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | When (UTC) | Who | Call | Target | Result | Event |
   |---|---|---|---|---|---|
   | 2026-10-20 16:03:00Z | user/mallory-temp | iam:CreateAccessKey | user mallory-temp | ok | `b2177994` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  b2177994-d66c-53bd-8801-5261f0f910a8
+  ```
+
+  </details>
+
 
   </details>
 
@@ -194,6 +216,18 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 16:02:00Z | user/mallory-temp | iam:ListUsers |  | ok | `d554bd6b` |
   | 2026-10-20 16:03:00Z | user/mallory-temp | iam:CreateAccessKey | user mallory-temp | ok | `b2177994` |
   | 2026-10-20 16:04:00Z | user/mallory-temp | ec2:DescribeSecurityGroups |  | UnauthorizedOperation | `2ffe710f` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  d554bd6b-07d7-5564-b3ed-5c98efd37228
+  b2177994-d66c-53bd-8801-5261f0f910a8
+  2ffe710f-fbb1-5679-86f8-d41da46a5f2c
+  ```
+
+  </details>
+
 
   </details>
 

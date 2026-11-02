@@ -148,6 +148,22 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 14:33:00Z | user/ci-deploy | cloudtrail:StopLogging | trail arn:aws:cloudtrail:us-east-1:111122223333:trail/org-trail | ok | `e510f9f7` |
   | 2026-10-20 17:00:00Z | user/ci-deploy | s3:ListBuckets |  | ok | `0c4724b0` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  5f00f41d-8b86-5299-b525-749bf3cb99cf
+  facf69c4-71e9-57ad-8f76-5ec535b49c6c
+  214625b6-6bcf-58ec-9956-4cc75ff606ce
+  6e2a9f8d-7e60-51ca-84a2-d9f7b0fb63f5
+  f28e8312-d896-50a7-9bf2-20635e39e60a
+  e510f9f7-b40d-594a-b7fd-60345a52ef80
+  0c4724b0-c705-5f43-b734-61f1923edf71
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -172,6 +188,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   |---|---|---|---|---|---|
   | 2026-10-20 14:33:00Z | user/ci-deploy | cloudtrail:StopLogging | trail arn:aws:cloudtrail:us-east-1:111122223333:trail/org-trail | ok | `e510f9f7` |
 
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  e510f9f7-b40d-594a-b7fd-60345a52ef80
+  ```
+
+  </details>
+
+
   </details>
 
 
@@ -193,6 +219,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | When (UTC) | Who | Call | Target | Result | Event |
   |---|---|---|---|---|---|
   | 2026-10-20 14:32:00Z | user/ci-deploy | config:StopConfigurationRecorder | config recorder default | ok | `f28e8312` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  f28e8312-d896-50a7-9bf2-20635e39e60a
+  ```
+
+  </details>
+
 
   </details>
 
@@ -216,6 +252,16 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | When (UTC) | Who | Call | Target | Result | Event |
   |---|---|---|---|---|---|
   | 2026-10-20 14:33:00Z | user/ci-deploy | cloudtrail:StopLogging | trail arn:aws:cloudtrail:us-east-1:111122223333:trail/org-trail | ok | `e510f9f7` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  e510f9f7-b40d-594a-b7fd-60345a52ef80
+  ```
+
+  </details>
+
 
   </details>
 
@@ -245,6 +291,22 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   | 2026-10-20 14:32:00Z | user/ci-deploy | config:StopConfigurationRecorder | config recorder default | ok | `f28e8312` |
   | 2026-10-20 14:33:00Z | user/ci-deploy | cloudtrail:StopLogging | trail arn:aws:cloudtrail:us-east-1:111122223333:trail/org-trail | ok | `e510f9f7` |
   | 2026-10-20 17:00:00Z | user/ci-deploy | s3:ListBuckets |  | ok | `0c4724b0` |
+
+  <details>
+  <summary>Full event IDs, in the order of the calls above (to copy)</summary>
+
+  ```
+  5f00f41d-8b86-5299-b525-749bf3cb99cf
+  facf69c4-71e9-57ad-8f76-5ec535b49c6c
+  214625b6-6bcf-58ec-9956-4cc75ff606ce
+  6e2a9f8d-7e60-51ca-84a2-d9f7b0fb63f5
+  f28e8312-d896-50a7-9bf2-20635e39e60a
+  e510f9f7-b40d-594a-b7fd-60345a52ef80
+  0c4724b0-c705-5f43-b734-61f1923edf71
+  ```
+
+  </details>
+
 
   </details>
 
