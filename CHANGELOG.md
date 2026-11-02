@@ -4,6 +4,19 @@ Versions are `0.x`: output formats (schemas) may change between releases.
 
 ## Unreleased
 
+- Each evidence table has a folded "Full event IDs" block (one id per line, so GitHub's copy button or a triple click gets
+  exactly one) next to the shortened codes.
+- A plan step's evidence is a table (when, who, call, target, result, short event id), with repeated calls as one row
+  ("x3"), not a row of event ids.
+- `report.md` folds its long parts (the timeline, big tables, each plan step's commands and evidence, the appendix) in
+  collapsible `<details>` blocks that GitHub and VS Code draw, and has a "Jump to" line. A new "Identities" section has one
+  collapsible block per identity: who it is, how it came about (the call that created it, with the request parameters that
+  were logged, so "what was `exfil-fn`" is answered: runtime, handler, role) and what it did. Secrets are never shown and
+  environment variables show their names only.
+- `report.md` has an "At a glance" block (how big, what stands out, what to do first), a diagram of how the attacker moved
+  (Mermaid, drawn by GitHub; one arrow per credential an identity created or obtained for another), and the plan as a task
+  list, so a ticket that holds the report shows tick boxes.
+
 - The exposure, report and plan flag an instance's role credentials used from more than one address: an instance calls
   from its own address, so another address holds a copy. The plan has an investigate step (and checks IMDSv2).
 

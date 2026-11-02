@@ -171,7 +171,7 @@ def test_hostile_values_cannot_break_out_of_the_report_or_the_commands(tmp_path)
     (tmp_path / "logs" / "x.json").write_bytes(orjson.dumps({"Records": logs.records}))  # one flat file: the region is not a path
     scope = build_scope([tmp_path / "logs"], assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7HOSTIL"]))]),
                         ScopeOptions(workers=1)).scope
-    report = build_report(scope).decode()
+    report = "\n".join(ln for ln in build_report(scope).decode().splitlines() if not ln.startswith("**Jump to:**"))  # our own links
     # markup only ever appears escaped: no tag, no link, no command substitution, no autolink
     for raw in (r"(?<!\\)<img", r"(?<!\\)\]\(", r"(?<!\\)\$\(", r"http://"):
         assert not re.search(raw, report), raw
@@ -269,3 +269,168 @@ def test_one_address_service_names_and_other_sessions_are_not_flagged():
     assert _use(_session_event(1, "alice", "203.0.113.5"), _session_event(2, "alice", "198.51.100.9")) == []  # a person moves around
     assert _use(_session_event(1, "i-0123456789abcdef0", "203.0.113.5", type_="IAMUser"),
                 _session_event(2, "i-0123456789abcdef0", "198.51.100.9", type_="IAMUser")) == []
+
+
+# ---- the report's pictures and quick-read block
+
+def _attack_path_report(tmp_path, actor_name):
+    logs = LogSet()
+    attacker = iam_user("ci", "AKIAIOSFODNN7HOSTIL")
+    t = at("2026-10-20T12:00:00Z")
+    logs.add(t, "iam.amazonaws.com", "CreateAccessKey", attacker, request={"userName": "ci"},
+             response={"accessKey": {"userName": "ci", "accessKeyId": "AKIAIOSFODNN7HOSTL2", "secretAccessKey": HIDDEN}})
+    logs.add(at("2026-10-20T12:05:00Z"), "s3.amazonaws.com", "ListBuckets", iam_user(actor_name, "AKIAIOSFODNN7HOSTL2"))
+    (tmp_path / "logs").mkdir()
+    (tmp_path / "logs" / "x.json").write_bytes(orjson.dumps({"Records": logs.records}))
+    scope = build_scope([tmp_path / "logs"], assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7HOSTIL"]))]),
+                        ScopeOptions(workers=1)).scope
+    return build_report(scope).decode()
+
+
+def test_the_attack_path_shows_who_handed_a_credential_to_whom(tmp_path):
+    report = _attack_path_report(tmp_path, "backdoor")
+    block = report.split("```mermaid\n")[1].split("```")[0]
+    assert 'n0["user/ci · 1 call"]:::seed' in block and 'n1["user/backdoor · 1 call"]:::followed' in block
+    assert 'n0 -->|"CreateAccessKey"| n1' in block
+
+
+def test_a_hostile_identity_name_cannot_break_out_of_the_diagram(tmp_path):
+    block = _attack_path_report(tmp_path, EVIL).split("```mermaid\n")[1].split("```")[0]
+    shapes = (r'    n\d+\["[A-Za-z0-9 _/.@:+=,()·-]* · \d+ calls?"\]:::(seed|followed)', r'    n\d+ -->\|"[A-Za-z0-9 _/.@:+=,()·-]*"\| n\d+',
+              r'    u\d+\["[A-Za-z0-9 _/.@:+=,()·-]*"\]:::unused', r'    n\d+ -\.->\|"[A-Za-z0-9 _/.@:+=,()·-]*"\| u\d+',
+              r"    classDef (seed|followed|unused) [a-z]+:[#\w:,. -]+", "flowchart LR")
+    lines = [ln for ln in block.splitlines() if ln]
+    assert lines and all(any(re.fullmatch(p, ln) for p in shapes) for ln in lines), [ln for ln in lines if not any(re.fullmatch(p, ln) for p in shapes)]
+    assert "<img" not in block and "`" not in block and "](" not in block
+
+
+def test_a_single_identity_has_no_diagram_and_the_plan_is_a_checklist(fixtures):
+    report = build_report(scope_of(fixtures, "04_log_tampering")).decode()
+    assert "## How the attacker moved" not in report and "```mermaid" not in report
+    steps = [ln for ln in report.split("## Response plan")[1].splitlines() if ln.startswith("- [ ] **A")]
+    assert steps and all(re.match(r"- \[ \] \*\*A\d\d\. ", ln) for ln in steps)
+    assert report.count("> **At a glance.**") == 1 and "**Do first**" in report
+
+
+def test_at_a_glance_says_what_stands_out(fixtures):
+    report = build_report(scope_of(fixtures, "01_leaked_key")).decode()
+    glance = report.split("## Summary")[0].split("> **At a glance.**")[1]
+    assert "**Full administrative access was granted**" in glance and "in account 111122223333" in glance
+    assert "A01 deactivate an access key the attacker used" in glance
+
+
+# ---- folded sections, and a block per identity
+
+def test_every_fold_is_closed_and_there_is_a_jump_line(fixtures):
+    for scenario in SCENARIOS:
+        report = build_report(scope_of(fixtures, scenario)).decode()
+        assert report.count("<details") == report.count("</details>") > 0, scenario
+        assert "**Jump to:** [Summary](#summary)" in report and "[Response plan](#response-plan)" in report
+        for line in report.splitlines():
+            if line.startswith("<summary>"):
+                assert re.fullmatch(r"<summary>[^<>]*(<b>[^<>]*</b>[^<>]*)?</summary>", line), line
+
+
+def test_long_parts_start_folded_and_short_ones_open(fixtures):
+    from tests.unit.test_captured import load
+    long = build_report(load("secretsmanager-retrieve-secrets")[0]).decode()  # hundreds of calls
+    short = build_report(scope_of(fixtures, "04_log_tampering")).decode()
+    assert re.search(r"<details>\n<summary>Every in-scope call, in order \(\d{3,}\)</summary>", long)  # more than 15: folded
+    assert re.search(r"<details open>\n<summary>Every in-scope call, in order \(\d\)</summary>", short)  # a few: open
+    assert "<details>\n<summary>Indicators, followed identities and inputs</summary>" in long  # the appendix is always folded
+
+
+def test_an_identity_block_says_what_the_function_was(fixtures):
+    report = build_report(scope_of(fixtures, "06_lambda")).decode()
+    block = report.split("<summary><b>assumed-role/lambda-exec/exfil-fn</b>")[1].split("</details>")[0]
+    assert "1 call · followed · function exfil-fn</summary>" in block
+    assert "The call `lambda:CreateFunction`, made by **user/ci-deploy**" in block
+    for row in ("| functionName | exfil-fn |", "| handler | app.handler |", "| role | arn:aws:iam::111122223333:role/lambda-exec |",
+                "| runtime | python3.12 |"):
+        assert row in block
+
+
+def test_a_hostile_identity_name_stays_inert_in_the_summary_line_and_the_blocks(tmp_path):
+    report = _attack_path_report(tmp_path, EVIL)
+    summaries = [ln for ln in report.splitlines() if ln.startswith("<summary>") and "img" in ln]
+    assert summaries and all("&lt;img" in ln and "<img" not in ln and "onerror" in ln for ln in summaries)
+    assert not re.search(r"(?<!\\)<img", report.replace("&lt;img", ""))
+
+
+# ---- request parameters shown for an identity
+
+def _call(request):
+    return Event(event_id="e", event_time="2026-10-20T12:00:00Z", event_source="lambda.amazonaws.com", event_name="CreateFunction20150331",
+                 aws_region="us-east-1", recipient_account_id="111122223333", read_only=False, user_identity=UserIdentity(),
+                 request_parameters=request, source=SourceRef(input="x.json", record=0))
+
+
+def test_parameters_never_show_secrets_and_environment_variables_show_names_only():
+    from controlzee.params import describe
+    pairs = dict(describe(_call({
+        "functionName": "f", "runtime": "python3.12", "environment": {"variables": {"DB_URL": "postgres://u:hunter2@h/db", "API_KEY": "k-123"}},
+        "userData": "IyEvYmluL3No", "password": "hunter2", "secretString": "s3cret", "clientToken": "abc",
+        "layers": ["l1", "l2"], "tags": {"team": "x"}})))
+    assert pairs["functionName"] == "f" and pairs["environment variables"] == "API_KEY, DB_URL" and pairs["layers"] == "l1, l2"
+    assert pairs["tags.team"] == "x"
+    shown = " ".join(f"{k} {v}" for k, v in pairs.items())
+    for secret in ("hunter2", "k-123", "IyEvYmluL3No", "s3cret", "postgres://", "clientToken", "password"):
+        assert secret not in shown
+
+
+def test_parameters_keep_cloudtrails_own_hiding_summarise_policies_and_cap_everything():
+    from controlzee.params import MAX_PAIRS, MAX_VALUE, describe
+    trust = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com","AWS":"arn:aws:iam::444455556666:root"},"Action":"sts:AssumeRole"}]}'
+    pairs = dict(describe(_call({"roleName": "r", "assumeRolePolicyDocument": trust, "x": "<sensitiveDataRemoved>"})))
+    assert pairs["assumeRolePolicyDocument"] == "Allow sts:AssumeRole by ec2.amazonaws.com, arn:aws:iam::444455556666:root"
+    assert pairs["x"] == "(hidden by CloudTrail)"
+    many = describe(_call({f"k{i:02d}": "v" * 1000 for i in range(40)}))
+    assert len(many) == MAX_PAIRS and all(len(v) <= MAX_VALUE for _, v in many)
+    deep = describe(_call({"a": {"b": {"c": {"d": {"e": "too deep"}}}}}))
+    assert deep == []
+
+
+# ---- evidence a person can read
+
+def test_evidence_is_a_table_of_what_happened_and_not_a_list_of_ids(fixtures):
+    for scenario in SCENARIOS:
+        report = build_report(scope_of(fixtures, scenario)).decode()
+        assert not re.search(r"Evidence: [0-9a-f]{8}-", report), scenario  # the old row of GUIDs
+    report = build_report(scope_of(fixtures, "01_leaked_key")).decode()
+    step = report.split("- [ ] **A02.")[1].split("- [ ] **A03.")[0]
+    assert "| When (UTC) | Who | Call | Target | Result | Event |" in step and "evidence from 9 calls" in step
+    rows = [ln for ln in step.splitlines() if re.match(r"\s+\| 2026-", ln)]
+    assert len(rows) == 9 and all(re.search(r"`[0-9a-f]{8}`( \+\d+)? \|$", ln) for ln in rows)  # a short id, last
+    assert any("iam:AttachUserPolicy" in r and "AdministratorAccess" in r and "backdoor-svc" in r for r in rows)
+    assert any("iam:GetAccountAuthorizationDetails" in r and "AccessDenied" in r for r in rows)
+
+
+def test_the_same_call_made_repeatedly_is_one_evidence_row(tmp_path):
+    logs = LogSet()
+    key = iam_user("ci", "AKIAIOSFODNN7REPEAT")
+    for minute in range(3):
+        logs.add(at(f"2026-10-20T12:0{minute}:00Z"), "iam.amazonaws.com", "ListUsers", key)
+    logs.add(at("2026-10-20T12:05:00Z"), "s3.amazonaws.com", "ListBuckets", key)
+    (tmp_path / "logs").mkdir()
+    (tmp_path / "logs" / "x.json").write_bytes(orjson.dumps({"Records": logs.records}))
+    scope = build_scope([tmp_path / "logs"], assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7REPEAT"]))]), ScopeOptions(workers=1)).scope
+    step = build_report(scope).decode().split("- [ ] **A01.")[1].split("- [ ] **A02.")[0]
+    rows = [ln for ln in step.splitlines() if re.match(r"\s+\| 2026-", ln)]
+    assert len(rows) == 2 and "iam:ListUsers ×3" in rows[0] and "12:00:00Z" in rows[0] and re.search(r"` \+2 \|$", rows[0])
+
+
+def test_each_evidence_table_has_the_full_event_ids_to_copy(fixtures):
+    scope = scope_of(fixtures, "01_leaked_key")
+    report = build_report(scope).decode()
+    step = report.split("- [ ] **A02.")[1].split("- [ ] **A03.")[0]
+    block = step.split("Full event IDs, in the order of the calls above (to copy)</summary>")[1].split("</details>")[0]
+    ids = re.findall(r"^\s+([0-9a-f]{8}-[0-9a-f-]{27})$", block, re.M)
+    plan = next(a for a in plan_of(scope).actions if a.id == "A02")
+    assert ids == plan.evidence and len(ids) == 9  # every id, in order
+    codes = re.findall(r"`([0-9a-f]{8})`", step)
+    assert codes == [i[:8] for i in ids]  # each short code in the table is the start of its full id
+
+
+def test_a_fence_is_longer_than_any_backtick_run_in_what_it_holds():
+    from controlzee.report import _fence
+    assert _fence(["a ```` b"], "")[0] == "`````" and _fence(["plain"], "")[0] == "```" and _fence(["x"])[0] == "```sh"

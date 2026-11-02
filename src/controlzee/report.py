@@ -10,12 +10,14 @@ import re
 from collections.abc import Iterable
 
 from controlzee import __version__
+from controlzee.classify import action, resources
 from controlzee.model.plan import Plan
 from controlzee.model.scope import Scope
 from controlzee.model.timeline import Timeline
 from controlzee.plan import PHASES, build_plan
 from controlzee.safety import clean
-from controlzee.timeline import build_timeline
+from controlzee.timeline import actor_label, build_timeline
+from controlzee.visual import at_a_glance, attack_path, details, identities_section
 
 _SPECIAL = re.compile(r"([\\`*_{}\[\]<>()#+!|~&$])")
 _PHASE_TITLES = {"contain": "Contain", "investigate": "Investigate", "eradicate": "Eradicate", "recover": "Recover"}
@@ -27,11 +29,11 @@ def md(value: object, limit: int = 200) -> str:
     return text.replace("://", r":\/\/").replace("www.", r"www\.")  # no autolinks
 
 
-def _fence(lines: Iterable[str]) -> list[str]:
+def _fence(lines: Iterable[str], lang: str = "sh") -> list[str]:
     body = [clean(line, 4000) for line in lines]
     longest = max((len(m) for line in body for m in re.findall(r"`+", line)), default=0)
     fence = "`" * max(3, longest + 1)
-    return [fence + "sh", *body, fence]
+    return [fence + lang, *body, fence]
 
 
 def _n(count: int, one: str, many: str) -> str:
@@ -47,6 +49,11 @@ def _gap(out: list[str]) -> list[str]:
 
 def _table(header: list[str], rows: list[list[str]]) -> list[str]:
     return ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)] + ["| " + " | ".join(r) + " |" for r in rows]
+
+
+def _folded(what: str, count: int, body: list[str], *, open_up_to: int) -> list[str]:
+    """A table or list folded away when it is long: its heading line says what is inside and how much."""
+    return details(f"{what} ({count})", body, open_=count <= open_up_to)
 
 
 def _summary(scope: Scope, tl: Timeline) -> list[str]:
@@ -77,16 +84,17 @@ def _coverage(scope: Scope) -> list[str]:
         return [*out, "Nothing found: the logs cover the incident period without unusual silences or logging changes.", ""]
     out += [f"- {md(n, 400)}" for n in cov.notes]
     if cov.gaps:
-        out += ["", "Silences during the incident:", ""]
-        out += _table(["Account", "Region", "From", "To", "Minutes", "Possible cause"],
-                      [[md(g.account), md(g.region), md(g.start), md(g.end), str(g.minutes), md(g.possible_cause or "")] for g in cov.gaps])
+        out += [""] + _folded("Silences during the incident", len(cov.gaps), _table(
+            ["Account", "Region", "From", "To", "Minutes", "Possible cause"],
+            [[md(g.account), md(g.region), md(g.start), md(g.end), str(g.minutes), md(g.possible_cause or "")] for g in cov.gaps]),
+            open_up_to=5)
     if cov.tampering:
-        out += ["", "Logging and detection changes (all actors):", ""]
-        out += _table(["Time", "Call", "Effect", "By", "Result", "Attacker"],
+        body = _table(["Time", "Call", "Effect", "By", "Result", "Attacker"],
                       [[md(t.event_time), md(f"{t.event_source.split('.', 1)[0]}:{t.event_name}"), md(t.effect), md(t.principal or ""),
                         md(t.error_code or "ok"), "yes" if t.in_scope else "no"] for t in cov.tampering])
         if cov.tampering_total > len(cov.tampering):
-            out.append(f"\n{cov.tampering_total - len(cov.tampering)} more are counted in scope.json but not listed.")
+            body += ["", f"{cov.tampering_total - len(cov.tampering)} more are counted in scope.json but not listed."]
+        out += [""] + _folded("Logging and detection changes, all actors", len(cov.tampering), body, open_up_to=5)
     return [*out, ""]
 
 
@@ -101,7 +109,8 @@ def _timeline(tl: Timeline) -> list[str]:
         found = "seed" if e.origin == "seed" and not e.via else ("followed" if e.origin == "propagated" else "seed, followed")
         rows.append([md(e.time), md(e.actor), md(e.action), md("; ".join(e.targets), 300), md(e.outcome),
                      md(e.tactic), f"{found} ({e.confidence.value if e.confidence else ''})"])
-    return [*out, *_table(["Time", "Actor", "Action", "Target", "Result", "Tactic", "Found by"], rows), ""]
+    table = _table(["Time", "Actor", "Action", "Target", "Result", "Tactic", "Found by"], rows)
+    return [*out, *_folded("Every in-scope call, in order", len(rows), table, open_up_to=15)]
 
 
 def _exposure(tl: Timeline) -> list[str]:
@@ -109,26 +118,52 @@ def _exposure(tl: Timeline) -> list[str]:
     out = ["## Exposure", ""]
     out += [f"- {md(n, 400)}" for n in x.notes]
     if x.privilege_changes:
-        out = _gap(out) + ["Permission changes:", ""]
-        out += _table(["Time", "Change", "Principal", "Policy", "Full control", "Result"],
-                      [[md(p.time), md(p.action), md(p.principal), md(p.policy or ""), "**yes**" if p.admin else "no", md(p.outcome)]
-                       for p in x.privilege_changes])
+        out = _gap(out) + _folded("Permission changes", len(x.privilege_changes), _table(
+            ["Time", "Change", "Principal", "Policy", "Full control", "Result"],
+            [[md(p.time), md(p.action), md(p.principal), md(p.policy or ""), "**yes**" if p.admin else "no", md(p.outcome)]
+             for p in x.privilege_changes]), open_up_to=8)
     if x.instance_role_use:
         out = _gap(out) + ["Instance role credentials used from more than one address (an instance calls from its own address):", ""]
         out += _table(["Instance", "Region", "Address", "Calls", "First seen", "Actions"],
                       [[md(u.instance), md(u.region), md(a.address), str(a.events), md(a.first_event_time), md(", ".join(a.actions), 300)]
                        for u in x.instance_role_use for a in u.addresses])
+        out.append("")
     if x.resources:
-        out = _gap(out) + ["Resources touched:", ""]
-        out += _table(["Service", "Type", "Name", "Access", "Calls", "Refused", "Actions"],
-                      [[md(r.service), md(r.type), md(r.name, 300), r.access, str(r.events), str(r.failed), md(", ".join(r.actions), 300)]
-                       for r in x.resources])
+        out = _gap(out) + _folded("Resources touched", len(x.resources), _table(
+            ["Service", "Type", "Name", "Access", "Calls", "Refused", "Actions"],
+            [[md(r.service), md(r.type), md(r.name, 300), r.access, str(r.events), str(r.failed), md(", ".join(r.actions), 300)]
+             for r in x.resources]), open_up_to=8)
     if len(out) == 2:
         out.append("No resources were named in the in-scope calls.")
     return [*out, ""]
 
 
-def _plan(plan: Plan) -> list[str]:
+def _evidence(ids: list[str], scope: Scope) -> list[str]:
+    """The calls behind a step as a table a person can read: when, who, what, on what, and how it went. The same call made
+    several times is one row ("x3", at its first time). The event id is the last column, shortened: the full ids are in
+    plan.json and scope.json."""
+    by_id = {s.event.event_id: s.event for s in scope.events}
+    groups: dict[tuple[str, str, str, str], list[str]] = {}
+    first: dict[tuple[str, str, str, str], str] = {}
+    for i in ids:
+        ev = by_id.get(i)
+        if ev is None:
+            continue
+        key = (actor_label(ev.user_identity), action(ev), "; ".join(f"{k} {v}" for k, v in resources(ev)), ev.error_code or "ok")
+        groups.setdefault(key, []).append(ev.event_id)
+        first.setdefault(key, ev.event_time)
+    rows = [[md(first[k].replace("T", " ")), md(k[0], 80), md(k[1]) + (f" ×{len(v)}" if len(v) > 1 else ""), md(k[2], 160), md(k[3]),
+             f"`{md(v[0][:8])}`" if len(v) == 1 else f"`{md(v[0][:8])}` +{len(v) - 1}"] for k, v in groups.items()]
+    if not rows:
+        return []
+    shown = [i for i in ids if i in by_id]
+    # one full id per line: GitHub puts a copy button on a code block, and a triple click selects exactly one id
+    copy = details("Full event IDs, in the order of the calls above (to copy)", _fence(shown, ""))
+    return [*_table(["When (UTC)", "Who", "Call", "Target", "Result", "Event"], rows), "", *copy]
+
+
+def _plan(plan: Plan, scope: Scope) -> list[str]:
+    """The steps as a task list, so a ticket or pull request that holds this report shows tick boxes to work through."""
     out = ["## Response plan", ""] + [f"- {md(n, 400)}" for n in plan.notes] + [""]
     for phase in PHASES:
         actions = [a for a in plan.actions if a.phase == phase]
@@ -140,19 +175,30 @@ def _plan(plan: Plan) -> list[str]:
             runs = ("`controlzee respond` can do this, when named with --steps" if a.on_request else
                     "`controlzee respond` can do this, with --allow-disruptive" if a.disruptive else
                     "`controlzee respond` can do this") if a.operations else "manual"
-            out += [f"**{a.id}. {md(a.title)}**: {md(a.target, 300)}{weak}", "", f"{md(a.why, 600)}. *({runs})*"]
+            out += [f"- [ ] **{a.id}. {md(a.title)}**: {md(a.target, 300)}{weak}", "", f"  {md(a.why, 600)}. *({runs})*"]
             if a.caution:
-                out += ["", f"Caution: {md(a.caution, 600)}."]
+                out += ["", f"  Caution: {md(a.caution, 600)}."]
+            inner: list[str] = []
             if a.commands:
-                out += ["", *_fence(a.commands)]
-            if a.evidence:
-                out += ["", f"Evidence: {', '.join(md(e) for e in a.evidence)}"]
+                inner += _fence(a.commands)
+            table = _evidence(a.evidence, scope) if a.evidence else []
+            if table:
+                inner += ["", "Evidence, the calls behind this step:", "", *table]
+            if inner:
+                label = " · ".join(x for x in (_n(len(a.commands), "command", "commands") if a.commands else "",
+                                               f"evidence from {_n(len(a.evidence), 'call', 'calls')}" if table else "") if x)
+                folded = details(label, inner)
+                out += [""] + [f"  {line}" if line else "" for line in folded]
             out.append("")
     return out
 
 
 def _appendix(scope: Scope) -> list[str]:
-    out = ["## Appendix", "", "Indicators:", ""]
+    return ["## Appendix", "", *details("Indicators, followed identities and inputs", _appendix_body(scope))]
+
+
+def _appendix_body(scope: Scope) -> list[str]:
+    out = ["Indicators:", ""]
     out += _table(["Name", "Kind", "Value", "Match"],
                   [[md(i.name), i.kind.value, md(i.value, 300), i.match] for i in scope.seeds.indicators])
     out += ["", f"Expression: {md(scope.seeds.expression, 600)}"]
@@ -165,16 +211,24 @@ def _appendix(scope: Scope) -> list[str]:
     i = scope.inputs
     out += ["", f"Inputs: {i.event_count} events from {i.ingested_files} files ({i.error_files} unreadable, {i.skipped_files} skipped), "
             f"{i.first_event_time and md(i.first_event_time)} to {i.last_event_time and md(i.last_event_time)}; "
-            f"accounts {', '.join(md(a) for a in i.accounts)}; manifest sha256 {i.manifest_sha256}.", ""]
+            f"accounts {', '.join(md(a) for a in i.accounts)}; manifest sha256 {i.manifest_sha256}."]
     return out
+
+
+_SECTIONS = (("Summary", "summary"), ("How the attacker moved", "how-the-attacker-moved"), ("Identities", "identities"),
+             ("What the logs cannot show", "what-the-logs-cannot-show"), ("Timeline", "timeline"), ("Exposure", "exposure"),
+             ("Response plan", "response-plan"), ("Appendix", "appendix"))
 
 
 def build_report(scope: Scope) -> bytes:
     tl = Timeline.model_validate(build_timeline(scope))
     plan = Plan.model_validate(build_plan(scope))
+    parts = [at_a_glance(scope, tl, plan, md), _summary(scope, tl), attack_path(scope), identities_section(scope, tl, md),
+             _coverage(scope), _timeline(tl), _exposure(tl), _plan(plan, scope), _appendix(scope)]
+    body = [line for part in parts for line in part]
+    jump = " · ".join(f"[{title}](#{anchor})" for title, anchor in _SECTIONS if f"## {title}" in body)
     lines = ["# Incident report", "",
              f"Generated by controlzee {__version__} from scope {scope.scope_sha256} (timeline {tl.timeline_sha256}, "
-             f"plan {plan.plan_sha256}). Everything here is derived from that scope.json; regenerate it rather than editing it.", ""]
-    for part in (_summary(scope, tl), _coverage(scope), _timeline(tl), _exposure(tl), _plan(plan), _appendix(scope)):
-        lines += part
+             f"plan {plan.plan_sha256}). Everything here is derived from that scope.json; regenerate it rather than editing it.", "",
+             *([f"**Jump to:** {jump}", ""] if jump else []), *body]
     return ("\n".join(lines).rstrip("\n") + "\n").encode("utf-8")
