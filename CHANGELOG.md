@@ -4,6 +4,11 @@ Versions are `0.x`: output formats (schemas) may change between releases.
 
 ## Unreleased
 
+- `report.md` folds its long parts (the timeline, big tables, each plan step's commands and evidence, the appendix) in
+  collapsible `<details>` blocks that GitHub and VS Code draw, and has a "Jump to" line. A new "Identities" section has one
+  collapsible block per identity: who it is, how it came about (the call that created it, with the request parameters that
+  were logged, so "what was `exfil-fn`" is answered: runtime, handler, role) and what it did. Secrets are never shown and
+  environment variables show their names only.
 - `report.md` has an "At a glance" block (how big, what stands out, what to do first), a diagram of how the attacker moved
   (Mermaid, drawn by GitHub; one arrow per credential an identity created or obtained for another), and the plan as a task
   list, so a ticket that holds the report shows tick boxes.

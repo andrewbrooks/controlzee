@@ -7,13 +7,16 @@ characters (`_label`) and node ids are numbered by this module, never taken from
 """
 from __future__ import annotations
 
+import html
 import re
 from collections.abc import Callable
 from typing import Final
 
+from controlzee import params
+from controlzee.classify import action, resources
 from controlzee.model.common import Confidence
 from controlzee.model.plan import Plan
-from controlzee.model.scope import Scope
+from controlzee.model.scope import Scope, ScopedEvent
 from controlzee.model.timeline import Timeline
 from controlzee.safety import clean
 from controlzee.timeline import actor_label
@@ -148,3 +151,91 @@ def at_a_glance(scope: Scope, tl: Timeline, plan: Plan, md: Callable[..., str]) 
         out += [">", f"> {_n(weak, 'event is', 'events are')} in scope on weak evidence only: confirm them before acting on them."]
     return [*out, ""]
 
+
+
+# ---- what each identity was: a collapsible block per identity
+
+MAX_CALLS: Final = 15
+
+
+def h(value: object, limit: int = 120) -> str:
+    """Untrusted text for HTML (the summary line of a <details>, where Markdown is not read): control characters replaced,
+    length capped, every markup character turned into an entity."""
+    return html.escape(clean(value, limit), quote=True)
+
+
+def details(summary_html: str, body: list[str], *, open_: bool = False) -> list[str]:
+    """A collapsible block. `summary_html` must already be safe HTML; `body` is Markdown (GitHub reads it after the blank line)."""
+    return ["<details open>" if open_ else "<details>", f"<summary>{summary_html}</summary>", "", *body, "", "</details>", ""]
+
+
+def _kv_table(pairs: list[tuple[str, str]], md: Callable[..., str], header: tuple[str, str] = ("Parameter", "Value")) -> list[str]:
+    return [f"| {header[0]} | {header[1]} |", "|---|---|", *(f"| {md(k, 80)} | {md(v, 300)} |" for k, v in pairs)]
+
+
+def _idesc(kind: str, value: str) -> str:
+    if kind in ("function_name", "instance_id"):
+        return f"{_KIND_NAMES[kind]} {value}"
+    return f"{_KIND_NAMES.get(kind, 'credential')} ...{value[-4:]}"
+
+
+def _issued(t_rule: str, issuer: ScopedEvent, md: Callable[..., str]) -> list[str]:
+    ev = issuer.event
+    out = [f"**How it came about.** The call `{md(t_rule)}`, made by **{md(actor_label(ev.user_identity))}** at {md(ev.event_time)}"
+           + (f" from {md(ev.source_ip)}" if ev.source_ip else "") + ".", ""]
+    pairs = params.describe(ev)
+    return out + (_kv_table(pairs, md) + [""] if pairs else ["No parameters were logged for it.", ""])
+
+
+def _did(events: list[ScopedEvent], md: Callable[..., str]) -> list[str]:
+    rows = []
+    for s in events[:MAX_CALLS]:
+        ev = s.event
+        pairs = [] if ev.read_only else params.describe(ev)[:3]  # a write's parameters say what it changed; reads are noise
+        rows.append(f"| {md(ev.event_time)} | {md(action(ev))} | {md('; '.join(f'{k} {v}' for k, v in resources(ev)), 200)} | "
+                    f"{md(ev.error_code or 'ok')} | {md('; '.join(f'{k}={v[:60]}' for k, v in pairs), 240)} |")
+    out = ["| Time | Call | Target | Result | Parameters (writes) |", "|---|---|---|---|---|", *rows]
+    if len(events) > MAX_CALLS:
+        out.append("")
+        out.append(f"{len(events) - MAX_CALLS} more calls are in the timeline.")
+    return [*out, ""]
+
+
+def identities_section(scope: Scope, tl: Timeline, md: Callable[..., str]) -> list[str]:
+    """One collapsible block per identity that acted (and per credential handed over and never used): who it is, how it
+    came about (the issuing call and its parameters), and what it did."""
+    if not scope.events:
+        return []
+    by_id = {s.event.event_id: s for s in scope.events}
+    label_of = {s.event.event_id: actor_label(s.event.user_identity) for s in scope.events}
+    tainted = {f"{t.kind}:{t.value}": t for t in scope.taint.identities}
+    out = ["## Identities", "",
+           "Open one to see who it is, how it came about (the call that created or handed it over, with the parameters that were "
+           "logged) and what it did. Secrets are never shown, and environment variables show their names only.", ""]
+    for actor in tl.actors[:MAX_NODES]:
+        evs = [s for s in scope.events if label_of[s.event.event_id] == actor.label]
+        via: list[str] = []
+        for s in evs:
+            if s.via and s.via in tainted and s.via not in via:
+                via.append(s.via)
+        matched = sorted({i for s in evs if s.origin == "seed" for i in s.matched_indicators})
+        what = f" · {h(_idesc(*via[0].split(':', 1)))}" if via else ""
+        body: list[str] = []
+        who = [("ARN", actor.arn or ""), ("Account", actor.account or ""), ("Access keys", ", ".join(actor.access_keys)),
+               ("Source addresses", ", ".join(actor.source_ips)), ("User agents", "; ".join(actor.user_agents[:3])),
+               ("First seen", actor.first_event_time), ("Last seen", actor.last_event_time)]
+        body += _kv_table([(k, v) for k, v in who if v], md, ("Who it is", "Detail")) + [""]
+        if matched:
+            body += [f"**Matched** the indicator{'s' if len(matched) != 1 else ''} {', '.join(f'`{md(m)}`' for m in matched)}.", ""]
+        for v in via[:3]:
+            t = tainted[v]
+            if t.issued_by in by_id:
+                body += _issued(t.rule, by_id[t.issued_by], md)
+        body += [f"**What it did** ({_n(len(evs), 'call', 'calls')})", ""] + _did(evs, md)
+        out += details(f"<b>{h(actor.label)}</b> · {_calls(len(evs))} · {'matched an indicator' if matched else 'followed'}{what}", body)
+    used = {s.via for s in scope.events if s.via}
+    for t in scope.taint.identities:
+        if f"{t.kind}:{t.value}" in used or t.issued_by not in by_id:
+            continue
+        out += details(f"<b>{h(_idesc(t.kind, t.value))}</b> · never used in these logs", _issued(t.rule, by_id[t.issued_by], md))
+    return out

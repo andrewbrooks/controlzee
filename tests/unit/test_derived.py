@@ -171,7 +171,7 @@ def test_hostile_values_cannot_break_out_of_the_report_or_the_commands(tmp_path)
     (tmp_path / "logs" / "x.json").write_bytes(orjson.dumps({"Records": logs.records}))  # one flat file: the region is not a path
     scope = build_scope([tmp_path / "logs"], assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7HOSTIL"]))]),
                         ScopeOptions(workers=1)).scope
-    report = build_report(scope).decode()
+    report = "\n".join(ln for ln in build_report(scope).decode().splitlines() if not ln.startswith("**Jump to:**"))  # our own links
     # markup only ever appears escaped: no tag, no link, no command substitution, no autolink
     for raw in (r"(?<!\\)<img", r"(?<!\\)\]\(", r"(?<!\\)\$\(", r"http://"):
         assert not re.search(raw, report), raw
@@ -317,3 +317,74 @@ def test_at_a_glance_says_what_stands_out(fixtures):
     glance = report.split("## Summary")[0].split("> **At a glance.**")[1]
     assert "**Full administrative access was granted**" in glance and "in account 111122223333" in glance
     assert "A01 deactivate an access key the attacker used" in glance
+
+
+# ---- folded sections, and a block per identity
+
+def test_every_fold_is_closed_and_there_is_a_jump_line(fixtures):
+    for scenario in SCENARIOS:
+        report = build_report(scope_of(fixtures, scenario)).decode()
+        assert report.count("<details") == report.count("</details>") > 0, scenario
+        assert "**Jump to:** [Summary](#summary)" in report and "[Response plan](#response-plan)" in report
+        for line in report.splitlines():
+            if line.startswith("<summary>"):
+                assert re.fullmatch(r"<summary>[^<>]*(<b>[^<>]*</b>[^<>]*)?</summary>", line), line
+
+
+def test_long_parts_start_folded_and_short_ones_open(fixtures):
+    from tests.unit.test_captured import load
+    long = build_report(load("secretsmanager-retrieve-secrets")[0]).decode()  # hundreds of calls
+    short = build_report(scope_of(fixtures, "04_log_tampering")).decode()
+    assert re.search(r"<details>\n<summary>Every in-scope call, in order \(\d{3,}\)</summary>", long)  # more than 15: folded
+    assert re.search(r"<details open>\n<summary>Every in-scope call, in order \(\d\)</summary>", short)  # a few: open
+    assert "<details>\n<summary>Indicators, followed identities and inputs</summary>" in long  # the appendix is always folded
+
+
+def test_an_identity_block_says_what_the_function_was(fixtures):
+    report = build_report(scope_of(fixtures, "06_lambda")).decode()
+    block = report.split("<summary><b>assumed-role/lambda-exec/exfil-fn</b>")[1].split("</details>")[0]
+    assert "1 call · followed · function exfil-fn</summary>" in block
+    assert "The call `lambda:CreateFunction`, made by **user/ci-deploy**" in block
+    for row in ("| functionName | exfil-fn |", "| handler | app.handler |", "| role | arn:aws:iam::111122223333:role/lambda-exec |",
+                "| runtime | python3.12 |"):
+        assert row in block
+
+
+def test_a_hostile_identity_name_stays_inert_in_the_summary_line_and_the_blocks(tmp_path):
+    report = _attack_path_report(tmp_path, EVIL)
+    summaries = [ln for ln in report.splitlines() if ln.startswith("<summary>") and "img" in ln]
+    assert summaries and all("&lt;img" in ln and "<img" not in ln and "onerror" in ln for ln in summaries)
+    assert not re.search(r"(?<!\\)<img", report.replace("&lt;img", ""))
+
+
+# ---- request parameters shown for an identity
+
+def _call(request):
+    return Event(event_id="e", event_time="2026-10-20T12:00:00Z", event_source="lambda.amazonaws.com", event_name="CreateFunction20150331",
+                 aws_region="us-east-1", recipient_account_id="111122223333", read_only=False, user_identity=UserIdentity(),
+                 request_parameters=request, source=SourceRef(input="x.json", record=0))
+
+
+def test_parameters_never_show_secrets_and_environment_variables_show_names_only():
+    from controlzee.params import describe
+    pairs = dict(describe(_call({
+        "functionName": "f", "runtime": "python3.12", "environment": {"variables": {"DB_URL": "postgres://u:hunter2@h/db", "API_KEY": "k-123"}},
+        "userData": "IyEvYmluL3No", "password": "hunter2", "secretString": "s3cret", "clientToken": "abc",
+        "layers": ["l1", "l2"], "tags": {"team": "x"}})))
+    assert pairs["functionName"] == "f" and pairs["environment variables"] == "API_KEY, DB_URL" and pairs["layers"] == "l1, l2"
+    assert pairs["tags.team"] == "x"
+    shown = " ".join(f"{k} {v}" for k, v in pairs.items())
+    for secret in ("hunter2", "k-123", "IyEvYmluL3No", "s3cret", "postgres://", "clientToken", "password"):
+        assert secret not in shown
+
+
+def test_parameters_keep_cloudtrails_own_hiding_summarise_policies_and_cap_everything():
+    from controlzee.params import MAX_PAIRS, MAX_VALUE, describe
+    trust = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com","AWS":"arn:aws:iam::444455556666:root"},"Action":"sts:AssumeRole"}]}'
+    pairs = dict(describe(_call({"roleName": "r", "assumeRolePolicyDocument": trust, "x": "<sensitiveDataRemoved>"})))
+    assert pairs["assumeRolePolicyDocument"] == "Allow sts:AssumeRole by ec2.amazonaws.com, arn:aws:iam::444455556666:root"
+    assert pairs["x"] == "(hidden by CloudTrail)"
+    many = describe(_call({f"k{i:02d}": "v" * 1000 for i in range(40)}))
+    assert len(many) == MAX_PAIRS and all(len(v) <= MAX_VALUE for _, v in many)
+    deep = describe(_call({"a": {"b": {"c": {"d": {"e": "too deep"}}}}}))
+    assert deep == []
