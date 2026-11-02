@@ -104,21 +104,32 @@ def identify(profile: str | None, home_region: str) -> tuple[Ctx, Caller]:
     return ctx, Caller(account=account, arn=arn, principal_arn=principal)
 
 
-def simulate(ctx: Ctx, principal_arn: str, checks: list[tuple[str, str]]) -> dict[tuple[str, str], str]:
-    """(action, resource) -> the simulator's decision, for every check."""
-    by_resource: dict[str, set[str]] = defaultdict(set)
+def _request_region(ctx: Ctx, resource: str, step_region: str | None) -> str:
+    """The region a call is made in, which is what `aws:RequestedRegion` holds: the step's region, else the one in the
+    resource ARN, else the home region (IAM and the other global services answer there)."""
+    parts = resource.split(":")
+    return step_region or (parts[3] if len(parts) > 4 and parts[3] else ctx.home_region)
+
+
+def simulate(ctx: Ctx, principal_arn: str, checks: list[tuple[str, str]],
+             regions: dict[tuple[str, str], str | None] | None = None) -> dict[tuple[str, str], str]:
+    """(action, resource) -> the simulator's decision, for every check. The simulator evaluates organization policies too,
+    and the common ones that allow only some regions deny everything unless `aws:RequestedRegion` is given, so it is."""
+    by_call: dict[tuple[str, str], set[str]] = defaultdict(set)  # (resource, region) -> actions
     for action, resource in checks:
-        by_resource[resource].add(action)
+        by_call[(resource, _request_region(ctx, resource, (regions or {}).get((action, resource))))].add(action)
     decisions: dict[tuple[str, str], str] = {}
     try:
-        for resource in sorted(by_resource):
+        for resource, region in sorted(by_call):
             pages = ctx.c("iam").get_paginator("simulate_principal_policy").paginate(
-                PolicySourceArn=principal_arn, ActionNames=sorted(by_resource[resource]), ResourceArns=[resource])
+                PolicySourceArn=principal_arn, ActionNames=sorted(by_call[(resource, region)]), ResourceArns=[resource],
+                ContextEntries=[{"ContextKeyName": "aws:RequestedRegion", "ContextKeyValues": [region], "ContextKeyType": "string"}])
             for page in pages:
                 for r in page.get("EvaluationResults", []):
                     decision = str(r["EvalDecision"])
                     if decision != "allowed" and r.get("MissingContextValues"):
-                        # the simulator lists every condition key it had no value for in any policy it read (MFA, source IP, tags), not only the one that denied
+                        # the simulator lists every condition key it had no value for in any policy it read (MFA, source IP, tags),
+                        # not only the one that denied
                         keys = ", ".join(clean(str(k), 60) for k in sorted(r["MissingContextValues"])[:5])
                         decision += f"; the simulator had no value for the condition keys {keys}, which matters only if a policy conditions this permission on them"
                     decisions[(r["EvalActionName"], resource)] = decision
@@ -212,7 +223,8 @@ def dry_run(scope: Scope, *, profile: str | None, home_region: str, chosen: set[
                 if (harm := cuts_off_caller(o.op, o.args, caller, groups)) is not None:
                     probed.append((a, o, None, harm))
                     continue
-                probed.append((a, o, OPS[o.op].probe(ctx, o.args, o.region), None))
+                probe = OPS[o.op].probe(ctx, o.args, o.region)
+                probed.append((a, o, probe, probe.problem))
             except (Unsafe, KeyError):
                 probed.append((a, o, None, "the operation's arguments are not valid"))
             except aws_errors() as e:
@@ -220,7 +232,8 @@ def dry_run(scope: Scope, *, profile: str | None, home_region: str, chosen: set[
             except Exception as e:  # anything unexpected fails the dry run closed instead of ending it with a traceback
                 probed.append((a, o, None, f"cannot read the target's current state: {_unexpected(e)}"))
     needed = sorted({c for _, _, p, _ in probed if p and not p.done for c in p.checks})
-    decisions = simulate(ctx, caller.principal_arn, needed) if needed else {}
+    regions = {c: o.region for _, o, p, _ in probed if p and not p.done for c in p.checks}
+    decisions = simulate(ctx, caller.principal_arn, needed, regions) if needed else {}
     steps = []
     for a, o, p, problem in probed:
         checks = [PermissionCheck(action=act, resource=res, decision=decisions.get((act, res), "not evaluated"))
@@ -328,12 +341,15 @@ def execute(doc: Any, scope: Scope, *, approve: str, profile: str | None, max_ag
             continue
         try:
             probe = OPS[s.op].probe(ctx, s.args, s.region)
-            if probe.done:
+            if probe.problem:
+                step = record(s, "failed", clean(probe.problem, 400))
+            elif probe.done:
                 step = record(s, "already done", "the target was already in the intended state")
             else:
                 # permissions can change between the dry run and now, and earlier steps may have changed them: ask again
                 # right before the change, so a compound operation is not started that cannot be finished
-                decisions = simulate(ctx, caller.principal_arn, list(probe.checks)) if probe.checks else {}
+                decisions = (simulate(ctx, caller.principal_arn, list(probe.checks), dict.fromkeys(probe.checks, s.region))
+                             if probe.checks else {})
                 denied = [f"{act} on {res} ({decisions.get((act, res), 'not evaluated')})" for act, res in probe.checks
                           if decisions.get((act, res)) != "allowed"]
                 if denied:

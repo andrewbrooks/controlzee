@@ -82,4 +82,46 @@ def test_federation_token_credentials_are_followed():
 def test_the_lambda_function_the_attacker_created_is_followed_and_planned():
     scope, plan, _ = load("lambda-overwrite-code")
     assert any(i.kind == "function_name" for i in scope.taint.identities)
-    assert any(a.title == "Delete a Lambda function the attacker created" for a in plan.actions)
+    step = next(a for a in plan.actions if a.title == "Delete a Lambda function the attacker created")
+    assert [o.op for o in step.operations] == ["delete_lambda_function"] and step.disruptive
+
+
+def test_a_bucket_the_attacker_created_is_planned_for_deletion_once():
+    scope, plan, _ = load("lambda-overwrite-code")
+    created = {s.event.request_parameters["bucketName"] for s in scope.events if s.event.event_name == "CreateBucket" and s.event.error_code is None}
+    steps = [a for a in plan.actions if a.title == "Delete a bucket the attacker created"]
+    assert len(created) == 1 and len(steps) == 1
+    assert [(o.op, o.args["bucket"]) for o in steps[0].operations] == [("delete_bucket", next(iter(created)))] and steps[0].disruptive
+    assert "look inside first" in (steps[0].caution or "")
+
+
+# ---- EC2 techniques: the instance-profile rule on a real instance
+
+def instance_role_events(scope):
+    return [s for s in scope.events if s.origin == "propagated" and s.event.user_identity.type == "AssumedRole"
+            and (s.event.user_identity.session_name or "").startswith("i-")]
+
+
+def test_the_instance_the_attacker_launched_is_followed_and_its_role_calls_are_in_scope():
+    scope, plan, _ = load("ec2-enumerate-from-instance")
+    instances = [i for i in scope.taint.identities if i.kind == "instance_id" and i.rule == "ec2:RunInstances"]
+    assert instances and instances[0].events > 0
+    calls = {s.event.event_name for s in instance_role_events(scope)}
+    assert {"GetCallerIdentity", "ListBuckets", "ListUsers", "GetAccountAuthorizationDetails"} <= calls  # what the instance did on its own
+    assert {"terminate_instance", "stop_instance", "disassociate_instance_profile", "snapshot_instance"} <= {o.op for a in plan.actions for o in a.operations}
+
+
+def test_credentials_stolen_from_the_instance_are_followed_when_used_elsewhere():
+    scope, _, _ = load("ec2-steal-instance-credentials")
+    used = [s for s in instance_role_events(scope) if s.event.event_name == "DescribeInstances"]
+    assert used  # called with the role's credentials by whoever took them from the instance
+
+
+def test_new_user_data_on_an_instance_is_execution_and_stopping_it_is_impact():
+    scope, plan, tl = load("ec2-user-data")
+    user_data = [s for s in scope.events if s.event.event_name == "ModifyInstanceAttribute" and "userData" in (s.event.request_parameters or {})]
+    assert user_data
+    by_event = {e.event_id: e.tactic for e in tl.entries if getattr(e, "event_id", None)}
+    assert {by_event[s.event.event_id] for s in user_data} == {"execution"}
+    assert tactics(tl)["ec2:StopInstances"] == "impact"
+    assert any(o.op == "terminate_instance" for a in plan.actions for o in a.operations)

@@ -4,6 +4,15 @@ Versions are `0.x`: output formats (schemas) may change between releases.
 
 ## Unreleased
 
+- `respond` can delete a Lambda function the attacker created (`delete_lambda_function`) and a bucket the attacker created
+  (`delete_bucket`), both disruptive. A bucket that is not empty fails the dry run, and a bucket filled after the dry run
+  stops `execute`: controlzee never empties a bucket.
+- The plan has a step for a bucket the attacker created.
+- Fix: the permission check now gives the IAM policy simulator the region of each step (`aws:RequestedRegion`). Before, an
+  organization policy that allows only some regions made every regional step fail the dry run. Found on a real account.
+- `ec2:ModifyInstanceAttribute` with `userData` is `execution`; `ec2:StopInstances` is `impact`.
+- `tests/captured/`: three EC2 captures (instance credentials, enumeration from an instance, user data).
+
 - Tactics for removals and writes (`iam:Delete*`, `Detach*`, secret and parameter changes) are `impact`; a service's
   `AssumeRole` is `execution`, not `lateral-movement`.
 - The plan has one step for a bulk read of secrets or parameters, and one undo step per change however many times it was made.

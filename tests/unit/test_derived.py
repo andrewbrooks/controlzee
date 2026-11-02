@@ -42,6 +42,12 @@ def ev(source, name, *, read_only=None, request=None, response=None, error=None)
 
 # ---- classification
 
+def test_changing_an_instances_user_data_is_execution_but_other_attribute_changes_are_not():
+    assert tactic(ev("ec2.amazonaws.com", "ModifyInstanceAttribute", read_only=False, request={"userData": "<sensitiveDataRemoved>"})) == "execution"
+    assert tactic(ev("ec2.amazonaws.com", "ModifyInstanceAttribute", read_only=False, request={"disableApiTermination": {"value": True}})) == "other"
+    assert tactic(ev("ec2.amazonaws.com", "StopInstances", read_only=False)) == "impact"
+
+
 @pytest.mark.parametrize("source,name,read_only,expected", [
     ("iam.amazonaws.com", "CreateAccessKey", False, "persistence"), ("iam.amazonaws.com", "AttachUserPolicy", False, "privilege-escalation"),
     ("cloudtrail.amazonaws.com", "StopLogging", False, "defense-evasion"), ("sts.amazonaws.com", "AssumeRole", True, "lateral-movement"),
@@ -118,11 +124,12 @@ def test_scenario_04_gap_sits_in_the_timeline_and_logging_is_restored(fixtures):
     assert "Re-enable GuardDuty" not in titles  # the attempt was refused
 
 
-def test_scenario_06_plan_has_manual_steps_for_the_functions_and_classifies_identity_center(fixtures):
+def test_scenario_06_plan_deletes_the_created_function_reviews_the_changed_one_and_classifies_identity_center(fixtures):
     plan = plan_of(scope_of(fixtures, "06_lambda"))
     steps = {a.title: a for a in plan.actions if "Lambda function" in a.title}
     created = steps["Delete a Lambda function the attacker created"]
-    assert created.target == "function exfil-fn (us-east-1)" and not created.operations
+    assert created.target == "function exfil-fn (us-east-1)" and created.disruptive
+    assert [(o.op, o.args, o.region) for o in created.operations] == [("delete_lambda_function", {"function": "exfil-fn"}, "us-east-1")]
     assert created.commands[-1] == "aws lambda delete-function --region us-east-1 --function-name exfil-fn"
     changed = steps["Review a Lambda function the attacker changed"]
     assert changed.target == "function billing-report (us-east-1)" and "redeploy" in (changed.caution or "")

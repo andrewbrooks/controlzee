@@ -99,7 +99,13 @@ class _Builder:
         self.created_keys: dict[str, tuple[str, ScopedEvent]] = {}  # key -> (user name, CreateAccessKey event)
         self.instances: dict[str, ScopedEvent] = {}  # instance id -> RunInstances event
         self.functions: dict[str, tuple[ScopedEvent, bool]] = {}  # function name -> (first call, created by the attacker)
+        self.created_buckets: dict[str, ScopedEvent] = {}  # bucket name -> the first successful CreateBucket
         self.revoked: list[tuple[str, str, str | None, list[ScopedEvent]]] = []  # (user|role, name, account, evidence)
+        for scoped in scope.events:
+            ev = scoped.event
+            if (ev.event_source == "s3.amazonaws.com" and ev.event_name == "CreateBucket" and ev.error_code is None
+                    and isinstance(bucket := _req(ev, "bucketName"), str)):
+                self.created_buckets.setdefault(bucket, scoped)
         for t in scope.taint.identities:
             s = self.by_id.get(t.issued_by)
             if s is None:
@@ -265,6 +271,13 @@ class _Builder:
                             s.event.recipient_account_id),
                      [("delete_role", {"role": name}, None)])
         self.lambda_functions()
+        for name, s in sorted(self.created_buckets.items()):
+            r = s.event.aws_region
+            self.run(_Draft("eradicate", "Delete a bucket the attacker created", f"bucket {name} ({r})", "created by an in-scope call",
+                            [s], s.event.recipient_account_id,
+                            caution="look inside first: it may hold what the attacker staged or took, and deleting it loses that. "
+                                    "respond deletes only an empty bucket, so it stops here until a person has emptied it"),
+                     [("delete_bucket", {"bucket": name}, r)])
         for instance, s in sorted(self.instances.items()):
             r = s.event.aws_region
             self.run(_Draft("eradicate", "Terminate an attacker's instance", f"instance {instance} ({r})",
@@ -279,8 +292,7 @@ class _Builder:
                                "created by an in-scope call; its execution role's sessions were followed", [s], account,
                                caution="download the code first if you want to read what it did: get-function returns a "
                                        "temporary link to it. Deleting it does not revoke its role; see the contain steps")
-                self.manual(draft, lambda n=name, r=r: [f"aws lambda get-function --region {q('region', r)} --function-name {q('function', n)}",
-                                                        f"aws lambda delete-function --region {q('region', r)} --function-name {q('function', n)}"])
+                self.run(draft, [("delete_lambda_function", {"function": name}, r)])
             else:
                 draft = _Draft("eradicate", "Review a Lambda function the attacker changed", f"function {name} ({r})",
                                "an in-scope call replaced its code or configuration; its calls after that were followed", [s], account,

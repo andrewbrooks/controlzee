@@ -46,20 +46,24 @@ class Account:
     detectors: dict[str, str] = field(default_factory=dict)
     hub: bool = True
     instances: dict[str, dict[str, Any]] = field(default_factory=dict)
+    functions: set[str] = field(default_factory=set)  # Lambda function names
+    buckets: dict[str, list[str]] = field(default_factory=dict)  # bucket name -> object keys
     denied: set[str] = field(default_factory=set)  # IAM actions the simulator denies
+    allowed_regions: set[str] | None = None  # an organization policy that allows only these regions, as the real simulator evaluates it
     missing_context: dict[str, list[str]] = field(default_factory=dict)  # denied action -> condition keys the simulator lacked
     skew: timedelta | None = timedelta(0)  # AWS's clock minus the local one; None = no Date header
     documents: dict[tuple[str, str, str], dict[str, Any]] = field(default_factory=dict)  # (user|role, name, policy) -> inline document
     calls: list[tuple[str, str, dict[str, Any]]] = field(default_factory=list)  # (service, operation, params), writes only
+    simulated_regions: list[str | None] = field(default_factory=list)  # aws:RequestedRegion of each simulator call
 
-    def install(self, monkeypatch: Any, profile: str | None = None, regions: tuple[str, ...] = ("us-east-1",)) -> None:
+    def install(self, monkeypatch: Any, profile: str | None = None, regions: tuple[str, ...] = ("us-east-1", "us-east-2")) -> None:
         from controlzee.ingest import remote
-        for service in ("sts", "iam", "ec2", "cloudtrail", "config", "guardduty", "securityhub"):
+        for service in ("sts", "iam", "ec2", "cloudtrail", "config", "guardduty", "securityhub", "lambda", "s3"):
             for region in regions:
                 monkeypatch.setitem(remote._clients, (service, profile, region), FakeClient(self, service, region))
 
 
-_READS = ("get_", "list_", "describe_", "simulate_")
+_READS = ("get_", "list_", "describe_", "simulate_", "head_")
 
 
 class FakeClient:
@@ -223,13 +227,45 @@ class FakeClient:
         del self.acct.roles[RoleName]
         return {}
 
-    def _iam_simulate_principal_policy(self, op: str, PolicySourceArn: str, ActionNames: list[str], ResourceArns: list[str]) -> Any:  # noqa: N803
+    def _iam_simulate_principal_policy(self, op: str, PolicySourceArn: str, ActionNames: list[str], ResourceArns: list[str],  # noqa: N803
+                                       ContextEntries: list[Any] | None = None) -> Any:  # noqa: N803
         if "iam:SimulatePrincipalPolicy" in self.acct.denied:
             raise _err("AccessDenied", op)
+        region = next((e["ContextKeyValues"][0] for e in ContextEntries or [] if e["ContextKeyName"] == "aws:RequestedRegion"), None)
+        locked = self.acct.allowed_regions is not None and region not in self.acct.allowed_regions  # a missing region is denied too
+        self.acct.simulated_regions.append(region)
         return {"EvaluationResults": [{"EvalActionName": a, "EvalResourceName": r,
-                                       "EvalDecision": "implicitDeny" if a in self.acct.denied else "allowed",
+                                       "EvalDecision": "explicitDeny" if locked else "implicitDeny" if a in self.acct.denied else "allowed",
                                        **({"MissingContextValues": self.acct.missing_context[a]} if a in self.acct.missing_context else {})}
                                       for a in ActionNames for r in ResourceArns], "IsTruncated": False}
+
+    # ---- lambda and s3
+
+    def _lambda_get_function(self, op: str, FunctionName: str) -> Any:  # noqa: N803
+        if FunctionName not in self.acct.functions:
+            raise _err("ResourceNotFoundException", op)
+        return {"Configuration": {"FunctionName": FunctionName}}
+
+    def _lambda_delete_function(self, op: str, FunctionName: str) -> Any:  # noqa: N803
+        if FunctionName not in self.acct.functions:
+            raise _err("ResourceNotFoundException", op)
+        self.acct.functions.discard(FunctionName)
+        return {}
+
+    def _s3_head_bucket(self, op: str, Bucket: str) -> Any:  # noqa: N803
+        if Bucket not in self.acct.buckets:
+            raise _err("404", op)
+        return {}
+
+    def _s3_list_objects_v2(self, op: str, Bucket: str, MaxKeys: int) -> Any:  # noqa: N803
+        keys = self.acct.buckets[Bucket][:MaxKeys]
+        return {"KeyCount": len(keys), "Contents": [{"Key": k} for k in keys]}
+
+    def _s3_delete_bucket(self, op: str, Bucket: str) -> Any:  # noqa: N803
+        if self.acct.buckets[Bucket]:
+            raise _err("BucketNotEmpty", op)
+        del self.acct.buckets[Bucket]
+        return {}
 
     # ---- logging and detection
 

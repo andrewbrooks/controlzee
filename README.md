@@ -27,15 +27,17 @@ after a dry run that a person has reviewed and approved.
 
 ### What has been tested
 
-- **Everything** runs in the test suite (333 tests, no network): generated CloudTrail for six scenarios, and an
-  in-memory AWS account whose calls are checked against botocore's service models.
-- **Against a real sandbox account**, as of the last field test ([docs/field-testing.md](docs/field-testing.md)): event
-  history as a source; taint through an assumed role; the plan; the dry run and the permission check (including a
-  denied permission, an MFA-conditioned permission and a refused self-cutoff); and `execute` for deactivating a key,
-  revoking and lifting a role's sessions. Nothing else in the operations list has run against a real account:
-  that includes logging and detection restoration, cutting an instance off its role, stopping or terminating
-  instances, and the Lambda and instance-profile taint rules. Treat those as untested.
-- **Against attack emulation**: eight [Stratus Red Team](https://github.com/DataDog/stratus-red-team) techniques were run
+- **Everything** runs in the test suite (369 tests, no network): generated CloudTrail for six scenarios, real CloudTrail
+  captured from Stratus runs (identifiers replaced), and an in-memory AWS account whose calls are checked against
+  botocore's service models.
+- **Against a real sandbox account** ([docs/field-testing.md](docs/field-testing.md), [docs/validation.md](docs/validation.md)):
+  event history as a source; taint through an assumed role, an instance profile, a Lambda function and a federation token;
+  the plan; the dry run and the permission check (including a denied permission, an MFA-conditioned permission, a refused
+  self-cutoff and an organization policy that allows one region); and `execute` for deactivating a key, revoking and lifting a
+  role's sessions, deleting a Lambda function and deleting a bucket. Nothing else in the operations list has run against a
+  real account: logging and detection restoration, and the instance operations (cut off from its role, stop, snapshot,
+  terminate). Treat those as untested.
+- **Against attack emulation**: eleven [Stratus Red Team](https://github.com/DataDog/stratus-red-team) techniques were run
   in the sandbox and scoped from event history; results and the gaps they showed are in
   [docs/validation.md](docs/validation.md).
 - **Not tested**: macOS or Windows, Python other than 3.12, and the minimum dependency versions in `pyproject.toml`
@@ -54,7 +56,7 @@ controlzee respond execute dryrun.json --scope scope.json --approve <sha256>    
 
 controlzee can carry out the plan's steps in AWS: deactivate the keys the attacker used or made, revoke their sessions,
 cut their instances off from their roles, undo the permissions they granted, turn logging and detection back on and,
-when you allow it, delete the users and roles they created. It never does this unasked. There are always two steps,
+when you allow it, delete the users, roles and Lambda functions they created and the empty buckets. It never does this unasked. There are always two steps,
 with a person in between.
 
 **1. Dry run (changes nothing).**
@@ -103,9 +105,13 @@ order, reads each target again first (anything already put right is skipped), st
 - When the simulator denies something because of a condition it has no value for (MFA, source IP, tags), the dry run
   still fails but adds the condition keys the simulator had no value for. It lists every such key in any policy it read, so
   it is a lead (a role that needs MFA, for example), not a diagnosis.
+- A bucket is deleted only if it is empty. Emptying one destroys what may be evidence (what the attacker staged or took), so
+  controlzee never does it: a non-empty bucket fails the dry run, and a person looks inside first.
 - Root credentials are refused, since their permissions cannot be checked. Use an IAM role or user.
-- The simulator covers identity policies, permission boundaries and SCPs, not session or resource-based policies, so
-  AWS can still refuse a call: execute then stops at that step and records it.
+- The simulator covers identity policies, permission boundaries and SCPs (organization policies), not session or
+  resource-based policies. It is told the region of each step, because an SCP that allows only some regions denies every
+  regional action otherwise. AWS can still refuse a call that the simulator allowed: execute then stops at that step and
+  records it.
 
 The credentials need, besides the permissions for the changes themselves: `sts:GetCallerIdentity`,
 `iam:SimulatePrincipalPolicy`, `iam:GetRole` (for role sessions), and read access to the targets (`iam:GetUser`,
