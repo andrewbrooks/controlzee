@@ -35,6 +35,9 @@ after a dry run that a person has reviewed and approved.
   revoking and lifting a role's sessions. Nothing else in the operations list has run against a real account:
   that includes logging and detection restoration, cutting an instance off its role, stopping or terminating
   instances, and the Lambda and instance-profile taint rules. Treat those as untested.
+- **Against attack emulation**: eight [Stratus Red Team](https://github.com/DataDog/stratus-red-team) techniques were run
+  in the sandbox and scoped from event history; results and the gaps they showed are in
+  [docs/validation.md](docs/validation.md).
 - **Not tested**: macOS or Windows, Python other than 3.12, and the minimum dependency versions in `pyproject.toml`
   (the suite runs against `uv.lock`).
 
