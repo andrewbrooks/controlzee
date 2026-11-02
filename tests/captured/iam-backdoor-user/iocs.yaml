@@ -1,0 +1,4 @@
+version: 1
+indicators:
+  key: {type: access_key_id, value: AKIAIOSFODNN70000001}
+expression: key

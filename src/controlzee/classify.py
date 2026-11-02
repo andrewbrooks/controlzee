@@ -49,7 +49,14 @@ _BY_TACTIC: Final[dict[Tactic, dict[str, tuple[str, ...]]]] = {
                      "rds": ("ModifyDBSnapshotAttribute", "ModifyDBClusterSnapshotAttribute"),
                      "s3": ("PutBucketPolicy", "PutBucketAcl", "PutObjectAcl", "DeletePublicAccessBlock", "DeleteBucketPublicAccessBlock",
                             "PutBucketReplication")},
+    # removing an identity, a credential or a permission is ATT&CK's "account access removal"; changing or deleting stored
+    # secrets, parameters and functions is data manipulation or destruction. An attacker removing its own traces looks the same.
     "impact": {"s3": ("DeleteBucket", "DeleteObject", "DeleteObjects", "PutBucketEncryption"),
+               "iam": ("DeleteUser", "DeleteRole", "DeleteAccessKey", "UpdateAccessKey", "DeleteLoginProfile", "DeleteUserPolicy",
+                       "DeleteRolePolicy", "DeleteGroupPolicy", "DetachUserPolicy", "DetachRolePolicy", "DetachGroupPolicy",
+                       "RemoveUserFromGroup", "DeleteGroup"),
+               "secretsmanager": ("PutSecretValue", "UpdateSecret", "DeleteSecret"),
+               "ssm": ("PutParameter", "DeleteParameter", "DeleteParameters"), "lambda": ("DeleteFunction",),
                "ec2": ("TerminateInstances", "DeleteVolume", "DeleteSnapshot"), "rds": ("DeleteDBInstance", "DeleteDBCluster"),
                "kms": ("ScheduleKeyDeletion", "DisableKey")},
 }
@@ -71,6 +78,8 @@ def action(ev: Event) -> str:
 
 def tactic(ev: Event) -> Tactic:
     svc, name = action(ev).split(":", 1)
+    if svc == "sts" and name == "AssumeRole" and ev.user_identity.type == "AWSService":
+        return "execution"  # a service running code as the role (Lambda, EC2...), not someone moving between identities
     if (t := _TABLE.get((svc, name))) is not None:
         return t
     reads = ev.read_only if ev.read_only is not None else name.startswith(_READ_PREFIXES)

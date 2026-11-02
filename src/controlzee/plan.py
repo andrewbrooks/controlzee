@@ -248,9 +248,12 @@ class _Builder:
         # needs --allow-disruptive, and the privilege the attacker granted must not stay in place when it is left out.
         changes = [(pc, self.by_id[pc.event_id]) for pc in exposure(self.scope).privilege_changes
                    if pc.outcome == "ok" and pc.event_id in self.by_id]
-        for pc, s in changes:
+        merged: dict[tuple[str, str, str, str | None], list[ScopedEvent]] = {}
+        for pc, s in changes:  # the same change made twice is undone once, citing both calls
             kind, _, who = pc.principal.partition(" ")
-            self._undo(pc.action, kind, who, pc.policy, s)
+            merged.setdefault((pc.action, kind, who, pc.policy), []).append(s)
+        for (act, kind, who, policy), evs in merged.items():
+            self._undo(act, kind, who, policy, evs)
         for name, s in sorted(self.created_users.items()):
             self.run(_Draft("eradicate", "Delete a user the attacker created", f"user {name}", "created by an in-scope call", [s],
                             s.event.recipient_account_id,
@@ -291,9 +294,9 @@ class _Builder:
              "iam:PutGroupPolicy": ("delete_group_policy", "group", "policy"),
              "iam:AddUserToGroup": ("remove_user_from_group", "user", "group")}
 
-    def _undo(self, act: str, kind: str, who: str, policy: str | None, s: ScopedEvent) -> None:
+    def _undo(self, act: str, kind: str, who: str, policy: str | None, evs: list[ScopedEvent]) -> None:
         draft = _Draft("eradicate", "Undo a permission change", f"{kind} {who}",
-                       f"{act} by an in-scope call" + (f" ({policy})" if policy else ""), [s], _account(s.event))
+                       f"{act} by an in-scope call" + (f" ({policy})" if policy else ""), evs, _account(evs[0].event))
         if act in self._UNDO:
             op, principal_arg, other_arg = self._UNDO[act]
             self.run(draft, [(op, {principal_arg: who, other_arg: policy}, None)])
@@ -314,6 +317,26 @@ class _Builder:
     }
     _ARG = {"start_logging": "trail", "start_config_recorder": "recorder"}
 
+    _READ_NOUN = {"secret": "secrets", "parameter": "parameters", "parameter path": "parameter paths", "": "credentials"}
+    _READ_STEPS: dict[str, tuple[str, str, str, Callable[[str, str], list[str]] | None]] = {
+        "secret": ("Rotate a secret the attacker read", "Rotate the {n} secrets the attacker read",
+                   "rotation needs a rotation function; otherwise set a new value and update its users",
+                   lambda n, r: [f"aws secretsmanager rotate-secret --region {q('region', r)} --secret-id {q('secret', n)}"]),
+        "parameter": ("Change a parameter the attacker read", "Change the {n} parameters the attacker read",
+                      "the value is a credential only if it is one; check before changing it",
+                      lambda n, r: [f"aws ssm put-parameter --region {q('region', r)} --name {q('parameter', n)} "
+                                    "--type SecureString --overwrite --value NEW_VALUE"]),
+        "parameter path": ("Change the parameters under a path the attacker read", "Change the parameters under the {n} paths the attacker read",
+                           "the attacker could read every parameter under the path; the value of each is a credential "
+                           "only if it is one, so check before changing it",
+                           lambda n, r: [f"aws ssm get-parameters-by-path --region {q('region', r)} --path {q('parameter', n)} "
+                                         "--recursive --query 'Parameters[].Name'",
+                                         f"aws ssm put-parameter --region {q('region', r)} --name NAME_FROM_ABOVE "
+                                         "--type SecureString --overwrite --value NEW_VALUE"]),
+        "": ("Review something the attacker read", "Review the {n} things the attacker read",
+             "controlzee does not know this kind of credential; rotate or review it by hand", None),
+    }
+
     def recover(self) -> None:
         for t in self.scope.coverage.tampering:
             if not (t.in_scope and t.error_code is None and t.event_id in self.by_id):
@@ -330,33 +353,25 @@ class _Builder:
                 args["trail"] = _req(s.event, "trailName")
             self.run(_Draft("recover", title, target, f"an in-scope {t.event_name} {t.effect}", [s], t.account, caution=caution),
                      [(op, args, t.region)])
+        reads: dict[str, list[tuple[str, str, list[ScopedEvent], str, str | None]]] = {}
         for item in exposure(self.scope).credentials_read:
             kind, name = next(((k, item[len(k) + 1:]) for k in ("parameter path", "parameter", "secret") if item.startswith(k + " ")),
                               ("", item))
             readers = [s for s in self.scope.events if s.event.error_code is None and _reads(s.event, kind, name)]
             r = readers[0].event.aws_region if readers else "us-east-1"
             account = readers[0].event.recipient_account_id if readers else None
-            if kind == "secret":
-                self.manual(_Draft("recover", "Rotate a secret the attacker read", item, "read by an in-scope call", readers, account,
-                                   caution="rotation needs a rotation function; otherwise set a new value and update its users"),
-                            lambda n=name, r=r: [f"aws secretsmanager rotate-secret --region {q('region', r)} --secret-id {q('secret', n)}"])
-            elif kind == "parameter":
-                self.manual(_Draft("recover", "Change a parameter the attacker read", item, "read by an in-scope call", readers, account,
-                                   caution="the value is a credential only if it is one; check before changing it"),
-                            lambda n=name, r=r: [f"aws ssm put-parameter --region {q('region', r)} --name {q('parameter', n)} "
-                                                 "--type SecureString --overwrite --value NEW_VALUE"])
-            elif kind == "parameter path":
-                self.manual(_Draft("recover", "Change the parameters under a path the attacker read", item, "read by an in-scope call",
-                                   readers, account,
-                                   caution="the attacker could read every parameter under the path; the value of each is a credential "
-                                           "only if it is one, so check before changing it"),
-                            lambda n=name, r=r: [f"aws ssm get-parameters-by-path --region {q('region', r)} --path {q('parameter', n)} "
-                                                 "--recursive --query 'Parameters[].Name'",
-                                                 f"aws ssm put-parameter --region {q('region', r)} --name NAME_FROM_ABOVE "
-                                                 "--type SecureString --overwrite --value NEW_VALUE"])
-            else:
-                self.manual(_Draft("recover", "Review something the attacker read", item, "read by an in-scope call", readers, account,
-                                   caution="controlzee does not know this kind of credential; rotate or review it by hand"))
+            reads.setdefault(kind, []).append((item, name, readers, r, account))
+        for kind, group in reads.items():  # one step per kind of thing read, not one per item: a bulk read is one decision
+            title, plural, caution, cmds = self._READ_STEPS[kind]
+            accounts = {a for *_, a in group}
+            evidence = [s for _, _, readers, *_ in group for s in readers]
+            single = len(group) == 1
+            self.manual(_Draft("recover", title if single else plural.format(n=len(group)),
+                               group[0][0] if single else f"{len(group)} {self._READ_NOUN[kind]}: " + ", ".join(i for i, *_ in group[:3])
+                               + (", ..." if len(group) > 3 else ""),
+                               "read by an in-scope call" if single else "each read by an in-scope call", evidence,
+                               accounts.pop() if len(accounts) == 1 else None, caution=caution),
+                        (lambda group=group, cmds=cmds: [c for _, n, _, r, _ in group for c in cmds(n, r)]) if cmds else None)
         for kind, name, account, evs in self.revoked:
             if kind == "role" and name in self.created_roles:
                 continue  # deleted in the eradicate steps

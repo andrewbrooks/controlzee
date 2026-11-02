@@ -37,27 +37,29 @@ event history read from `us-east-1` and `us-east-2`.
 Every technique that could run was found, tagged with a fitting tactic, and given the plan operations expected of it.
 The expectations were written from the Stratus documentation, partly after looking at the first two runs.
 
-## What it showed
+## What it showed, and what changed
 
-Things worth fixing, in rough order of value:
+The first run found five things. The first four are fixed, with regression tests that run on the captured logs
+(`tests/captured/`, identifiers replaced by `controlzee.sanitize`); the fifth is open.
 
-1. **Many calls have no tactic.** `iam:DeleteRole`, `DetachRolePolicy`, `DeleteAccessKey`, `DeleteUser`,
-   `DeleteLoginProfile`, `UpdateAccessKey`, `DeleteUserPolicy`, `secretsmanager:CreateSecret` / `PutSecretValue` /
-   `DeleteSecret`, `ssm:PutParameter` / `DeleteParameter`, and `s3:CreateBucket` / `PutBucketTagging` are classified
-   `other`.
-2. **A call made by an AWS service is called lateral movement.** When Lambda assumes the attacker's role
-   (`sts:AssumeRole` with an `AWSService` caller), the timeline tags it `lateral-movement`.
-3. **A mass read becomes a wall of steps.** Reading 20 secrets gives 20 identical "Rotate a secret the attacker read"
-   steps (the SSM run gave 26 "change a parameter" steps). One step listing every target would be easier to act on.
-4. **Repeated changes to one target give repeated steps.** Two `UpdateAssumeRolePolicy` events on one role gave two
-   identical manual "Undo a permission change" steps.
-5. **Some attacker-created things have no plan step.** A bucket created by the attacker has none, and a created Lambda
-   function has a step but no operation, so `respond` cannot carry it out.
+| # | finding | before | after |
+|---|---|---|---|
+| 1 | many calls had no tactic: `iam:Delete*`, `Detach*`, `UpdateAccessKey`, Secrets Manager and SSM writes and deletes, `lambda:DeleteFunction` were all `other` | 2 to 84 `other` entries per run | removing an identity, credential or permission, and changing or deleting a secret, parameter or function, are `impact` (ATT&CK "account access removal" and data manipulation or destruction); 0 for five of seven runs. Still `other`: `s3:CreateBucket`, `PutBucketTagging`, `secretsmanager:CreateSecret` |
+| 2 | a call made by an AWS service was called lateral movement: Lambda assuming the attacker's role | `lateral-movement` | `execution` |
+| 3 | a mass read became a wall of steps | 20 secrets: 20 steps; 42 parameters: 42 steps | one step each, naming the first three and carrying every command ("Rotate the 20 secrets the attacker read") |
+| 4 | repeated changes to one target gave repeated steps | two identical "Undo a permission change" for one trust policy | one step citing both calls |
+| 5 | some attacker-created things have no plan step: a bucket has none, and a created Lambda function has a step but no operation, so `respond` cannot carry it out | | open: needs new `respond` operations |
 
-Worth knowing about how it was measured:
+The tactic for removals is a judgement call: an attacker cleaning up its own traces looks the same as one locking
+defenders out, so both are `impact`. The tactics are per call and deliberately simple (see `classify.py`).
+
+How it was measured, and its limits:
 
 - The attacker's key also ran Stratus's own set-up and clean-up, so a lot of in-scope events are that noise. The
   precision of the scope was not measured.
+- A scope built too early misses late events: the harness stopped waiting once the technique's own call appeared, and
+  the first SSM scope saw 26 parameter reads where the full history has 42. Counts in the table are from the captured,
+  complete logs.
 - Event history holds management events only, so nothing here tests data-event coverage. The coverage note about data
   events appeared on every run, as it should.
 - Cleanup of IAM users failed in this account (an SCP denies `iam:DeleteLoginProfile`, which Terraform's destroy
