@@ -113,6 +113,11 @@ def _exposure(tl: Timeline) -> list[str]:
         out += _table(["Time", "Change", "Principal", "Policy", "Full control", "Result"],
                       [[md(p.time), md(p.action), md(p.principal), md(p.policy or ""), "**yes**" if p.admin else "no", md(p.outcome)]
                        for p in x.privilege_changes])
+    if x.instance_role_use:
+        out = _gap(out) + ["Instance role credentials used from more than one address (an instance calls from its own address):", ""]
+        out += _table(["Instance", "Region", "Address", "Calls", "First seen", "Actions"],
+                      [[md(u.instance), md(u.region), md(a.address), str(a.events), md(a.first_event_time), md(", ".join(a.actions), 300)]
+                       for u in x.instance_role_use for a in u.addresses])
     if x.resources:
         out = _gap(out) + ["Resources touched:", ""]
         out += _table(["Service", "Type", "Name", "Access", "Calls", "Refused", "Actions"],

@@ -99,6 +99,38 @@
       "title": "Actor",
       "type": "object"
     },
+    "AddressUse": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Actions",
+          "type": "array"
+        },
+        "address": {
+          "title": "Address",
+          "type": "string"
+        },
+        "events": {
+          "title": "Events",
+          "type": "integer"
+        },
+        "first_event_time": {
+          "title": "First Event Time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "address",
+        "events",
+        "actions",
+        "first_event_time"
+      ],
+      "title": "AddressUse",
+      "type": "object"
+    },
     "Confidence": {
       "enum": [
         "strong",
@@ -126,6 +158,13 @@
             "type": "string"
           },
           "title": "Credentials Read",
+          "type": "array"
+        },
+        "instance_role_use": {
+          "items": {
+            "$ref": "#/$defs/InstanceRoleUse"
+          },
+          "title": "Instance Role Use",
           "type": "array"
         },
         "notes": {
@@ -156,9 +195,51 @@
         "credentials_read",
         "privilege_changes",
         "resources",
+        "instance_role_use",
         "notes"
       ],
       "title": "Exposure",
+      "type": "object"
+    },
+    "InstanceRoleUse": {
+      "additionalProperties": false,
+      "description": "An instance's role credentials used from more than one address. The instance makes its own calls from its own\naddress, so any other address holds a copy of the credentials: they were taken from the instance.",
+      "properties": {
+        "account": {
+          "title": "Account",
+          "type": "string"
+        },
+        "addresses": {
+          "items": {
+            "$ref": "#/$defs/AddressUse"
+          },
+          "title": "Addresses",
+          "type": "array"
+        },
+        "event_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Event Ids",
+          "type": "array"
+        },
+        "instance": {
+          "title": "Instance",
+          "type": "string"
+        },
+        "region": {
+          "title": "Region",
+          "type": "string"
+        }
+      },
+      "required": [
+        "instance",
+        "account",
+        "region",
+        "addresses",
+        "event_ids"
+      ],
+      "title": "InstanceRoleUse",
       "type": "object"
     },
     "PrivilegeChange": {

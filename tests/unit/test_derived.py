@@ -235,3 +235,37 @@ def test_calls_in_the_same_second_list_what_they_create_first(tmp_path, attach_f
     scope = build_scope([tmp_path / "logs"], assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7SAMESC"]))]),
                         ScopeOptions(workers=1)).scope
     assert [e.action for e in timeline_of(scope).entries] == ["iam:CreateUser", "iam:AttachUserPolicy"]
+
+
+# ---- instance role credentials used from more than one address
+
+def _session_event(n, session, ip, *, type_="AssumedRole"):
+    from types import SimpleNamespace
+    event = Event(event_id=f"e{n}", event_time=f"2026-10-20T12:00:{n:02d}Z", event_source="ec2.amazonaws.com", event_name="DescribeInstances",
+                  aws_region="us-east-1", recipient_account_id="111122223333", read_only=True, source_ip=ip,
+                  user_identity=UserIdentity(type=type_, session_name=session), source=SourceRef(input="x.json", record=n))
+    return SimpleNamespace(event=event)
+
+
+def _use(*events):
+    from types import SimpleNamespace
+
+    from controlzee.timeline import _instance_role_use
+    return _instance_role_use(SimpleNamespace(events=list(events)))
+
+
+def test_an_instance_role_session_from_two_addresses_is_flagged_with_each_address():
+    use = _use(_session_event(1, "i-0123456789abcdef0", "203.0.113.5"), _session_event(2, "i-0123456789abcdef0", "198.51.100.9"),
+               _session_event(3, "i-0123456789abcdef0", "198.51.100.9"))
+    assert [(u.instance, u.region, [(a.address, a.events) for a in u.addresses]) for u in use] == [
+        ("i-0123456789abcdef0", "us-east-1", [("198.51.100.9", 2), ("203.0.113.5", 1)])]
+    assert use[0].event_ids == ["e1", "e2", "e3"]
+
+
+def test_one_address_service_names_and_other_sessions_are_not_flagged():
+    assert _use(_session_event(1, "i-0123456789abcdef0", "203.0.113.5"), _session_event(2, "i-0123456789abcdef0", "203.0.113.5")) == []
+    assert _use(_session_event(1, "i-0123456789abcdef0", "203.0.113.5"), _session_event(2, "i-0123456789abcdef0", "ec2.amazonaws.com"),
+                _session_event(3, "i-0123456789abcdef0", "AWS Internal")) == []
+    assert _use(_session_event(1, "alice", "203.0.113.5"), _session_event(2, "alice", "198.51.100.9")) == []  # a person moves around
+    assert _use(_session_event(1, "i-0123456789abcdef0", "203.0.113.5", type_="IAMUser"),
+                _session_event(2, "i-0123456789abcdef0", "198.51.100.9", type_="IAMUser")) == []

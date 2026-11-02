@@ -241,6 +241,20 @@ class _Builder:
             self.manual(_Draft("investigate", "Look for object-level access elsewhere", "S3 and other data-plane activity",
                                "the inputs have no data events, so reads of objects, secrets in Lambda and the like are invisible here",
                                [], caution="sources: S3 server access logs, CloudTrail data events on another trail, VPC flow logs"))
+        for use in exposure(self.scope).instance_role_use:
+            evs = [self.by_id[e] for e in use.event_ids if e in self.by_id]
+            self.manual(_Draft("investigate", "Find out how an instance's role credentials got out", f"instance {use.instance} ({use.region})",
+                               f"its role's credentials were used from {len(use.addresses)} addresses ("
+                               f"{', '.join(a.address for a in use.addresses)}); an instance calls from its own address",
+                               evs, use.account,
+                               caution="the other address holds a copy of the credentials: revoke the role's sessions (see the contain "
+                                       "steps), then find how they left the instance, for example a request-forgery flaw in an "
+                                       "application on it, or a shell on it. Requiring IMDSv2 on the instance stops the first"),
+                        lambda i=use.instance, r=use.region: [
+                            f"aws ec2 describe-instances --region {q('region', r)} --instance-ids {q('instance', i)} "
+                            "--query 'Reservations[].Instances[].MetadataOptions'",
+                            f"aws ec2 modify-instance-metadata-options --region {q('region', r)} --instance-id {q('instance', i)} "
+                            "--http-tokens required"])
         for instance, s in sorted(self.instances.items()):
             r = s.event.aws_region
             self.run(_Draft("investigate", "Preserve an attacker's instance for analysis", f"instance {instance} ({r})",

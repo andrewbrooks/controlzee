@@ -27,7 +27,7 @@ after a dry run that a person has reviewed and approved.
 
 ### What has been tested
 
-- **Everything** runs in the test suite (369 tests, no network): generated CloudTrail for six scenarios, real CloudTrail
+- **Everything** runs in the test suite (373 tests, no network): generated CloudTrail for six scenarios, real CloudTrail
   captured from Stratus runs (identifiers replaced), and an in-memory AWS account whose calls are checked against
   botocore's service models.
 - **Against a real sandbox account** ([docs/field-testing.md](docs/field-testing.md), [docs/validation.md](docs/validation.md)):
@@ -193,7 +193,8 @@ Each output cites the scope it came from; the same scope always gives the same b
 
 - **`timeline`**: the attacker's identities (actors), every in-scope event with its tactic (named after the MITRE
   ATT&CK cloud tactics), target and result, the coverage gaps in place, and **exposure**: permission changes (and
-  whether full administrative access was granted), secrets and parameters read, and every resource touched.
+  whether full administrative access was granted), secrets and parameters read, instance role credentials used from more
+  than one address (a sign they were taken from the instance), and every resource touched.
 - **`plan`**: numbered steps in four phases. Contain: deactivate keys, revoke sessions of roles and users (an inline deny
   on `aws:TokenIssueTime`, as the console's "Revoke active sessions" does), cut attacker instances off their role.
   Investigate: accounts reached without logs, gaps to fill from event history, instances to preserve. Eradicate: delete

@@ -4,6 +4,9 @@ Versions are `0.x`: output formats (schemas) may change between releases.
 
 ## Unreleased
 
+- The exposure, report and plan flag an instance's role credentials used from more than one address: an instance calls
+  from its own address, so another address holds a copy. The plan has an investigate step (and checks IMDSv2).
+
 - `respond` can delete a Lambda function the attacker created (`delete_lambda_function`) and a bucket the attacker created
   (`delete_bucket`), both disruptive. A bucket that is not empty fails the dry run, and a bucket filled after the dry run
   stops `execute`: controlzee never empties a bucket.

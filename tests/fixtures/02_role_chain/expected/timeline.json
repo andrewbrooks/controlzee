@@ -317,6 +317,7 @@
     ],
     "admin_granted": false,
     "credentials_read": [],
+    "instance_role_use": [],
     "notes": [
       "the inputs have no data events, so object-level S3 access (and similar) cannot be listed here",
       "activity reached account(s) with no logs in the inputs; exposure there is unknown"
@@ -451,7 +452,7 @@
       "tactic": "lateral-movement"
     }
   ],
-  "timeline_sha256": "cafd88fd92386f4a01a1b983c2126cc4a689cbbdb722b2a79ec167bc2f04958f",
+  "timeline_sha256": "4ccd2319927e2d578a2f62180aaf79e07f6a18796600418fd4e52582279643f3",
   "tool": {
     "name": "controlzee",
     "version": "0.1.0.dev0"
