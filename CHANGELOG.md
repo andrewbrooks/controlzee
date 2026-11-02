@@ -4,6 +4,8 @@ Versions are `0.x`: output formats (schemas) may change between releases.
 
 ## Unreleased
 
+- A plan step's evidence is a table (when, who, call, target, result, short event id), with repeated calls as one row
+  ("x3"), not a row of event ids.
 - `report.md` folds its long parts (the timeline, big tables, each plan step's commands and evidence, the appendix) in
   collapsible `<details>` blocks that GitHub and VS Code draw, and has a "Jump to" line. A new "Identities" section has one
   collapsible block per identity: who it is, how it came about (the call that created it, with the request parameters that

@@ -178,13 +178,19 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: the key's legitimate owner will stop working until it has a replacement \(see the recover steps\).
 
   <details>
-  <summary>1 command · 3 events of evidence</summary>
+  <summary>1 command · evidence from 3 calls</summary>
 
   ```sh
   aws iam update-access-key --user-name ci-deploy --access-key-id AKIAIOSFODNN7LEAKED --status Inactive
   ```
 
-  Evidence: 8bb4cd19-45aa-5db0-ae36-93addf041786, d554bd6b-07d7-5564-b3ed-5c98efd37228, b2177994-d66c-53bd-8801-5261f0f910a8
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 11:00:00Z | user/ci-deploy | sts:GetCallerIdentity |  | ok | `8bb4cd19` |
+  | 2026-10-20 11:01:00Z | user/ci-deploy | lambda:CreateFunction | function exfil-fn | ok | `d554bd6b` |
+  | 2026-10-20 11:03:00Z | user/ci-deploy | lambda:UpdateFunctionCode | function arn:aws:lambda:us-east-1:111122223333:function:billing-report:\$LATEST | ok | `b2177994` |
 
   </details>
 
@@ -196,13 +202,18 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: this also ends legitimate sessions of the role; they can assume it again.
 
   <details>
-  <summary>1 command · 2 events of evidence</summary>
+  <summary>1 command · evidence from 2 calls</summary>
 
   ```sh
   aws iam put-role-policy --role-name lambda-exec --policy-name controlzee-revoke-older-sessions --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":"*","Resource":"*","Condition":{"DateLessThan":{"aws:TokenIssueTime":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}}}]}'
   ```
 
-  Evidence: 2ffe710f-fbb1-5679-86f8-d41da46a5f2c, 50ee173c-5c13-5689-97cd-ef168207f84c
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 11:05:00Z | assumed-role/lambda-exec/exfil-fn | secretsmanager:GetSecretValue | secret prod/db | ok | `2ffe710f` |
+  | 2026-10-20 11:10:00Z | assumed-role/lambda-exec/billing-report | secretsmanager:GetSecretValue | secret prod/db | ok | `50ee173c` |
 
   </details>
 
@@ -224,13 +235,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: the logs do not show the previous code: redeploy it from source control or your pipeline.
 
   <details>
-  <summary>1 command · 1 event of evidence</summary>
+  <summary>1 command · evidence from 1 call</summary>
 
   ```sh
   aws lambda get-function --region us-east-1 --function-name billing-report
   ```
 
-  Evidence: b2177994-d66c-53bd-8801-5261f0f910a8
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 11:03:00Z | user/ci-deploy | lambda:UpdateFunctionCode | function arn:aws:lambda:us-east-1:111122223333:function:billing-report:\$LATEST | ok | `b2177994` |
 
   </details>
 
@@ -242,14 +257,18 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: download the code first if you want to read what it did: get-function returns a temporary link to it. Deleting it does not revoke its role; see the contain steps.
 
   <details>
-  <summary>2 commands · 1 event of evidence</summary>
+  <summary>2 commands · evidence from 1 call</summary>
 
   ```sh
   aws lambda get-function --region us-east-1 --function-name exfil-fn
   aws lambda delete-function --region us-east-1 --function-name exfil-fn
   ```
 
-  Evidence: d554bd6b-07d7-5564-b3ed-5c98efd37228
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 11:01:00Z | user/ci-deploy | lambda:CreateFunction | function exfil-fn | ok | `d554bd6b` |
 
   </details>
 
@@ -263,13 +282,18 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: rotation needs a rotation function; otherwise set a new value and update its users.
 
   <details>
-  <summary>1 command · 2 events of evidence</summary>
+  <summary>1 command · evidence from 2 calls</summary>
 
   ```sh
   aws secretsmanager rotate-secret --region us-east-1 --secret-id prod/db
   ```
 
-  Evidence: 2ffe710f-fbb1-5679-86f8-d41da46a5f2c, 50ee173c-5c13-5689-97cd-ef168207f84c
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 11:05:00Z | assumed-role/lambda-exec/exfil-fn | secretsmanager:GetSecretValue | secret prod/db | ok | `2ffe710f` |
+  | 2026-10-20 11:10:00Z | assumed-role/lambda-exec/billing-report | secretsmanager:GetSecretValue | secret prod/db | ok | `50ee173c` |
 
   </details>
 
@@ -281,13 +305,18 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: only once the attacker's access is gone; respond runs this step only when it is named with --steps.
 
   <details>
-  <summary>1 command · 2 events of evidence</summary>
+  <summary>1 command · evidence from 2 calls</summary>
 
   ```sh
   aws iam delete-role-policy --role-name lambda-exec --policy-name controlzee-revoke-older-sessions
   ```
 
-  Evidence: 2ffe710f-fbb1-5679-86f8-d41da46a5f2c, 50ee173c-5c13-5689-97cd-ef168207f84c
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 11:05:00Z | assumed-role/lambda-exec/exfil-fn | secretsmanager:GetSecretValue | secret prod/db | ok | `2ffe710f` |
+  | 2026-10-20 11:10:00Z | assumed-role/lambda-exec/billing-report | secretsmanager:GetSecretValue | secret prod/db | ok | `50ee173c` |
 
   </details>
 
@@ -299,14 +328,20 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: the new secret is shown once: create it where the owner's secret store can take it, and find out how the old one leaked.
 
   <details>
-  <summary>2 commands · 3 events of evidence</summary>
+  <summary>2 commands · evidence from 3 calls</summary>
 
   ```sh
   aws iam create-access-key --user-name ci-deploy
   aws iam delete-access-key --user-name ci-deploy --access-key-id AKIAIOSFODNN7LEAKED
   ```
 
-  Evidence: 8bb4cd19-45aa-5db0-ae36-93addf041786, d554bd6b-07d7-5564-b3ed-5c98efd37228, b2177994-d66c-53bd-8801-5261f0f910a8
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 11:00:00Z | user/ci-deploy | sts:GetCallerIdentity |  | ok | `8bb4cd19` |
+  | 2026-10-20 11:01:00Z | user/ci-deploy | lambda:CreateFunction | function exfil-fn | ok | `d554bd6b` |
+  | 2026-10-20 11:03:00Z | user/ci-deploy | lambda:UpdateFunctionCode | function arn:aws:lambda:us-east-1:111122223333:function:billing-report:\$LATEST | ok | `b2177994` |
 
   </details>
 

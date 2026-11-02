@@ -130,13 +130,23 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: the key's legitimate owner will stop working until it has a replacement \(see the recover steps\).
 
   <details>
-  <summary>1 command · 7 events of evidence</summary>
+  <summary>1 command · evidence from 7 calls</summary>
 
   ```sh
   aws iam update-access-key --user-name ci-deploy --access-key-id AKIAIOSFODNN7LEAKED --status Inactive
   ```
 
-  Evidence: 5f00f41d-8b86-5299-b525-749bf3cb99cf, facf69c4-71e9-57ad-8f76-5ec535b49c6c, 214625b6-6bcf-58ec-9956-4cc75ff606ce, 6e2a9f8d-7e60-51ca-84a2-d9f7b0fb63f5, f28e8312-d896-50a7-9bf2-20635e39e60a, e510f9f7-b40d-594a-b7fd-60345a52ef80, 0c4724b0-c705-5f43-b734-61f1923edf71
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 14:30:00Z | user/ci-deploy | sts:GetCallerIdentity |  | ok | `5f00f41d` |
+  | 2026-10-20 14:31:00Z | user/ci-deploy | cloudtrail:DescribeTrails |  | ok | `facf69c4` |
+  | 2026-10-20 14:31:30Z | user/ci-deploy | guardduty:ListDetectors |  | ok | `214625b6` |
+  | 2026-10-20 14:31:40Z | user/ci-deploy | guardduty:DeleteDetector | detector 12abc34d567e8fa901bc2d34e56789f0 | AccessDeniedException | `6e2a9f8d` |
+  | 2026-10-20 14:32:00Z | user/ci-deploy | config:StopConfigurationRecorder | config recorder default | ok | `f28e8312` |
+  | 2026-10-20 14:33:00Z | user/ci-deploy | cloudtrail:StopLogging | trail arn:aws:cloudtrail:us-east-1:111122223333:trail/org-trail | ok | `e510f9f7` |
+  | 2026-10-20 17:00:00Z | user/ci-deploy | s3:ListBuckets |  | ok | `0c4724b0` |
 
   </details>
 
@@ -150,13 +160,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: event history can only be read from inside the account, with credentials for it.
 
   <details>
-  <summary>1 command · 1 event of evidence</summary>
+  <summary>1 command · evidence from 1 call</summary>
 
   ```sh
   controlzee scope --lookup-events us-east-1 --window 2026-10-20T14:33:00Z 2026-10-20T16:40:00Z --iocs YOUR_IOC_FILE -o scope-gap.json
   ```
 
-  Evidence: e510f9f7-b40d-594a-b7fd-60345a52ef80
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 14:33:00Z | user/ci-deploy | cloudtrail:StopLogging | trail arn:aws:cloudtrail:us-east-1:111122223333:trail/org-trail | ok | `e510f9f7` |
 
   </details>
 
@@ -168,13 +182,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   an in-scope StopConfigurationRecorder stops AWS Config recording. *(`controlzee respond` can do this)*
 
   <details>
-  <summary>1 command · 1 event of evidence</summary>
+  <summary>1 command · evidence from 1 call</summary>
 
   ```sh
   aws configservice start-configuration-recorder --region us-east-1 --configuration-recorder-name default
   ```
 
-  Evidence: f28e8312-d896-50a7-9bf2-20635e39e60a
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 14:32:00Z | user/ci-deploy | config:StopConfigurationRecorder | config recorder default | ok | `f28e8312` |
 
   </details>
 
@@ -186,14 +204,18 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: someone may have turned it back on already; respond checks first, and starting it again does no harm.
 
   <details>
-  <summary>2 commands · 1 event of evidence</summary>
+  <summary>2 commands · evidence from 1 call</summary>
 
   ```sh
   aws cloudtrail get-trail-status --region us-east-1 --name arn:aws:cloudtrail:us-east-1:111122223333:trail/org-trail --query IsLogging
   aws cloudtrail start-logging --region us-east-1 --name arn:aws:cloudtrail:us-east-1:111122223333:trail/org-trail
   ```
 
-  Evidence: e510f9f7-b40d-594a-b7fd-60345a52ef80
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 14:33:00Z | user/ci-deploy | cloudtrail:StopLogging | trail arn:aws:cloudtrail:us-east-1:111122223333:trail/org-trail | ok | `e510f9f7` |
 
   </details>
 
@@ -205,14 +227,24 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: the new secret is shown once: create it where the owner's secret store can take it, and find out how the old one leaked.
 
   <details>
-  <summary>2 commands · 7 events of evidence</summary>
+  <summary>2 commands · evidence from 7 calls</summary>
 
   ```sh
   aws iam create-access-key --user-name ci-deploy
   aws iam delete-access-key --user-name ci-deploy --access-key-id AKIAIOSFODNN7LEAKED
   ```
 
-  Evidence: 5f00f41d-8b86-5299-b525-749bf3cb99cf, facf69c4-71e9-57ad-8f76-5ec535b49c6c, 214625b6-6bcf-58ec-9956-4cc75ff606ce, 6e2a9f8d-7e60-51ca-84a2-d9f7b0fb63f5, f28e8312-d896-50a7-9bf2-20635e39e60a, e510f9f7-b40d-594a-b7fd-60345a52ef80, 0c4724b0-c705-5f43-b734-61f1923edf71
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 14:30:00Z | user/ci-deploy | sts:GetCallerIdentity |  | ok | `5f00f41d` |
+  | 2026-10-20 14:31:00Z | user/ci-deploy | cloudtrail:DescribeTrails |  | ok | `facf69c4` |
+  | 2026-10-20 14:31:30Z | user/ci-deploy | guardduty:ListDetectors |  | ok | `214625b6` |
+  | 2026-10-20 14:31:40Z | user/ci-deploy | guardduty:DeleteDetector | detector 12abc34d567e8fa901bc2d34e56789f0 | AccessDeniedException | `6e2a9f8d` |
+  | 2026-10-20 14:32:00Z | user/ci-deploy | config:StopConfigurationRecorder | config recorder default | ok | `f28e8312` |
+  | 2026-10-20 14:33:00Z | user/ci-deploy | cloudtrail:StopLogging | trail arn:aws:cloudtrail:us-east-1:111122223333:trail/org-trail | ok | `e510f9f7` |
+  | 2026-10-20 17:00:00Z | user/ci-deploy | s3:ListBuckets |  | ok | `0c4724b0` |
 
   </details>
 

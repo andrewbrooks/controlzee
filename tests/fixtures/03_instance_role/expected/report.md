@@ -188,13 +188,20 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: the key's legitimate owner will stop working until it has a replacement \(see the recover steps\).
 
   <details>
-  <summary>1 command · 4 events of evidence</summary>
+  <summary>1 command · evidence from 4 calls</summary>
 
   ```sh
   aws iam update-access-key --user-name dev-sam --access-key-id AKIAIOSFODNN7DEVSAM --status Inactive
   ```
 
-  Evidence: 79b57279-7f3c-5b8a-b198-3b0b181b9d46, 8bb4cd19-45aa-5db0-ae36-93addf041786, d554bd6b-07d7-5564-b3ed-5c98efd37228, b2177994-d66c-53bd-8801-5261f0f910a8
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 15:05:00Z | user/dev-sam | ec2:DescribeInstanceTypes |  | ok | `79b57279` |
+  | 2026-10-20 15:06:00Z | user/dev-sam | ec2:RunInstances | instance i-0a1b2c3d4e5f60718 | ok | `8bb4cd19` |
+  | 2026-10-20 15:07:00Z | user/dev-sam | iam:CreateUser | user svc-metrics | ok | `d554bd6b` |
+  | 2026-10-20 15:07:30Z | user/dev-sam | iam:CreateLoginProfile | user svc-metrics | ok | `b2177994` |
 
   </details>
 
@@ -206,13 +213,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: denies everything to credentials issued before now; remove the policy once the incident is over.
 
   <details>
-  <summary>1 command · 1 event of evidence</summary>
+  <summary>1 command · evidence from 1 call</summary>
 
   ```sh
   aws iam put-user-policy --user-name svc-metrics --policy-name controlzee-revoke-older-sessions --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":"*","Resource":"*","Condition":{"DateLessThan":{"aws:TokenIssueTime":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}}}]}'
   ```
 
-  Evidence: 9c765f05-4203-5522-a74d-58c985b1a06a
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 18:06:00Z | user/svc-metrics | iam:ListUsers |  | ok | `9c765f05` |
 
   </details>
 
@@ -224,13 +235,19 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: this also ends legitimate sessions of the role; they can assume it again.
 
   <details>
-  <summary>1 command · 3 events of evidence</summary>
+  <summary>1 command · evidence from 3 calls</summary>
 
   ```sh
   aws iam put-role-policy --role-name app-role --policy-name controlzee-revoke-older-sessions --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":"*","Resource":"*","Condition":{"DateLessThan":{"aws:TokenIssueTime":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}}}]}'
   ```
 
-  Evidence: 50ee173c-5c13-5689-97cd-ef168207f84c, cb96022f-25c2-56a3-ab3f-bf725e6fd694, 94d6ce92-a4b5-5017-b554-c200a68a9aa4
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 15:15:00Z | assumed-role/app-role/i-0a1b2c3d4e5f60718 | s3:ListBuckets |  | ok | `50ee173c` |
+  | 2026-10-20 15:17:00Z | assumed-role/app-role/i-0a1b2c3d4e5f60718 | secretsmanager:ListSecrets |  | ok | `cb96022f` |
+  | 2026-10-20 17:05:00Z | assumed-role/app-role/i-0a1b2c3d4e5f60718 | secretsmanager:GetSecretValue | secret prod/db | ok | `94d6ce92` |
 
   </details>
 
@@ -240,13 +257,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   an in-scope call gave it a console password. *(`controlzee respond` can do this)*
 
   <details>
-  <summary>1 command · 1 event of evidence</summary>
+  <summary>1 command · evidence from 1 call</summary>
 
   ```sh
   aws iam delete-login-profile --user-name svc-metrics
   ```
 
-  Evidence: d554bd6b-07d7-5564-b3ed-5c98efd37228
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 15:07:00Z | user/dev-sam | iam:CreateUser | user svc-metrics | ok | `d554bd6b` |
 
   </details>
 
@@ -256,14 +277,18 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   launched by an in-scope call with an instance profile; it keeps fetching new role credentials until the profile is removed. *(`controlzee respond` can do this)*
 
   <details>
-  <summary>2 commands · 1 event of evidence</summary>
+  <summary>2 commands · evidence from 1 call</summary>
 
   ```sh
   aws ec2 describe-iam-instance-profile-associations --region us-east-1 --filters Name=instance-id,Values=i-0a1b2c3d4e5f60718 --query 'IamInstanceProfileAssociations[].AssociationId'
   aws ec2 disassociate-iam-instance-profile --region us-east-1 --association-id ASSOCIATION_ID_FROM_ABOVE
   ```
 
-  Evidence: 8bb4cd19-45aa-5db0-ae36-93addf041786
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 15:06:00Z | user/dev-sam | ec2:RunInstances | instance i-0a1b2c3d4e5f60718 | ok | `8bb4cd19` |
 
   </details>
 
@@ -275,13 +300,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: stopping loses its memory; capture it first if you need it, and snapshot the disks \(see the investigate steps\).
 
   <details>
-  <summary>1 command · 1 event of evidence</summary>
+  <summary>1 command · evidence from 1 call</summary>
 
   ```sh
   aws ec2 stop-instances --region us-east-1 --instance-ids i-0a1b2c3d4e5f60718
   ```
 
-  Evidence: 8bb4cd19-45aa-5db0-ae36-93addf041786
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 15:06:00Z | user/dev-sam | ec2:RunInstances | instance i-0a1b2c3d4e5f60718 | ok | `8bb4cd19` |
 
   </details>
 
@@ -299,14 +328,18 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   snapshot its disks before it is terminated. *(`controlzee respond` can do this)*
 
   <details>
-  <summary>2 commands · 1 event of evidence</summary>
+  <summary>2 commands · evidence from 1 call</summary>
 
   ```sh
   aws ec2 describe-instances --region us-east-1 --instance-ids i-0a1b2c3d4e5f60718 --query 'Reservations[].Instances[].BlockDeviceMappings[].Ebs.VolumeId'
   aws ec2 create-snapshot --region us-east-1 --volume-id VOLUME_ID_FROM_ABOVE --description 'controlzee: evidence from i-0a1b2c3d4e5f60718'
   ```
 
-  Evidence: 8bb4cd19-45aa-5db0-ae36-93addf041786
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 15:06:00Z | user/dev-sam | ec2:RunInstances | instance i-0a1b2c3d4e5f60718 | ok | `8bb4cd19` |
 
   </details>
 
@@ -320,7 +353,7 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: removes its keys, password, policies, groups and MFA devices first; respond does this, by hand repeat each list-then-delete pair until the lists are empty.
 
   <details>
-  <summary>10 commands · 1 event of evidence</summary>
+  <summary>10 commands · evidence from 1 call</summary>
 
   ```sh
   aws iam list-access-keys --user-name svc-metrics
@@ -335,7 +368,11 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   aws iam delete-user --user-name svc-metrics
   ```
 
-  Evidence: d554bd6b-07d7-5564-b3ed-5c98efd37228
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 15:07:00Z | user/dev-sam | iam:CreateUser | user svc-metrics | ok | `d554bd6b` |
 
   </details>
 
@@ -347,13 +384,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: only after its disks are preserved.
 
   <details>
-  <summary>1 command · 1 event of evidence</summary>
+  <summary>1 command · evidence from 1 call</summary>
 
   ```sh
   aws ec2 terminate-instances --region us-east-1 --instance-ids i-0a1b2c3d4e5f60718
   ```
 
-  Evidence: 8bb4cd19-45aa-5db0-ae36-93addf041786
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 15:06:00Z | user/dev-sam | ec2:RunInstances | instance i-0a1b2c3d4e5f60718 | ok | `8bb4cd19` |
 
   </details>
 
@@ -367,13 +408,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: rotation needs a rotation function; otherwise set a new value and update its users.
 
   <details>
-  <summary>1 command · 1 event of evidence</summary>
+  <summary>1 command · evidence from 1 call</summary>
 
   ```sh
   aws secretsmanager rotate-secret --region us-east-1 --secret-id prod/db
   ```
 
-  Evidence: 94d6ce92-a4b5-5017-b554-c200a68a9aa4
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 17:05:00Z | assumed-role/app-role/i-0a1b2c3d4e5f60718 | secretsmanager:GetSecretValue | secret prod/db | ok | `94d6ce92` |
 
   </details>
 
@@ -385,13 +430,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: only once the attacker's access is gone; respond runs this step only when it is named with --steps.
 
   <details>
-  <summary>1 command · 1 event of evidence</summary>
+  <summary>1 command · evidence from 1 call</summary>
 
   ```sh
   aws iam delete-user-policy --user-name svc-metrics --policy-name controlzee-revoke-older-sessions
   ```
 
-  Evidence: 9c765f05-4203-5522-a74d-58c985b1a06a
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 18:06:00Z | user/svc-metrics | iam:ListUsers |  | ok | `9c765f05` |
 
   </details>
 
@@ -403,13 +452,19 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: only once the attacker's access is gone; respond runs this step only when it is named with --steps.
 
   <details>
-  <summary>1 command · 3 events of evidence</summary>
+  <summary>1 command · evidence from 3 calls</summary>
 
   ```sh
   aws iam delete-role-policy --role-name app-role --policy-name controlzee-revoke-older-sessions
   ```
 
-  Evidence: 50ee173c-5c13-5689-97cd-ef168207f84c, cb96022f-25c2-56a3-ab3f-bf725e6fd694, 94d6ce92-a4b5-5017-b554-c200a68a9aa4
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 15:15:00Z | assumed-role/app-role/i-0a1b2c3d4e5f60718 | s3:ListBuckets |  | ok | `50ee173c` |
+  | 2026-10-20 15:17:00Z | assumed-role/app-role/i-0a1b2c3d4e5f60718 | secretsmanager:ListSecrets |  | ok | `cb96022f` |
+  | 2026-10-20 17:05:00Z | assumed-role/app-role/i-0a1b2c3d4e5f60718 | secretsmanager:GetSecretValue | secret prod/db | ok | `94d6ce92` |
 
   </details>
 
@@ -421,14 +476,21 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: the new secret is shown once: create it where the owner's secret store can take it, and find out how the old one leaked.
 
   <details>
-  <summary>2 commands · 4 events of evidence</summary>
+  <summary>2 commands · evidence from 4 calls</summary>
 
   ```sh
   aws iam create-access-key --user-name dev-sam
   aws iam delete-access-key --user-name dev-sam --access-key-id AKIAIOSFODNN7DEVSAM
   ```
 
-  Evidence: 79b57279-7f3c-5b8a-b198-3b0b181b9d46, 8bb4cd19-45aa-5db0-ae36-93addf041786, d554bd6b-07d7-5564-b3ed-5c98efd37228, b2177994-d66c-53bd-8801-5261f0f910a8
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 15:05:00Z | user/dev-sam | ec2:DescribeInstanceTypes |  | ok | `79b57279` |
+  | 2026-10-20 15:06:00Z | user/dev-sam | ec2:RunInstances | instance i-0a1b2c3d4e5f60718 | ok | `8bb4cd19` |
+  | 2026-10-20 15:07:00Z | user/dev-sam | iam:CreateUser | user svc-metrics | ok | `d554bd6b` |
+  | 2026-10-20 15:07:30Z | user/dev-sam | iam:CreateLoginProfile | user svc-metrics | ok | `b2177994` |
 
   </details>
 

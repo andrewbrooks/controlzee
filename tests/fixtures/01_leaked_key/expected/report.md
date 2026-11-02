@@ -178,13 +178,18 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   2 in-scope call\(s\) were made with it. *(`controlzee respond` can do this)*
 
   <details>
-  <summary>1 command · 2 events of evidence</summary>
+  <summary>1 command · evidence from 2 calls</summary>
 
   ```sh
   aws iam update-access-key --user-name backdoor-svc --access-key-id AKIAIOSFODNN7BKDOOR --status Inactive
   ```
 
-  Evidence: ea972266-d206-5a49-9154-6b3c92801147, 1e53ffdd-8f58-549b-a23f-5584b5fdb45b
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 14:39:00Z | user/backdoor-svc | s3:ListBuckets |  | ok | `ea972266` |
+  | 2026-10-20 14:40:00Z | user/backdoor-svc | iam:ListUsers |  | ok | `1e53ffdd` |
 
   </details>
 
@@ -196,13 +201,25 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: the key's legitimate owner will stop working until it has a replacement \(see the recover steps\).
 
   <details>
-  <summary>1 command · 9 events of evidence</summary>
+  <summary>1 command · evidence from 9 calls</summary>
 
   ```sh
   aws iam update-access-key --user-name ci-deploy --access-key-id AKIAIOSFODNN7LEAKED --status Inactive
   ```
 
-  Evidence: d554bd6b-07d7-5564-b3ed-5c98efd37228, b2177994-d66c-53bd-8801-5261f0f910a8, 2ffe710f-fbb1-5679-86f8-d41da46a5f2c, 50ee173c-5c13-5689-97cd-ef168207f84c, cb96022f-25c2-56a3-ab3f-bf725e6fd694, 94d6ce92-a4b5-5017-b554-c200a68a9aa4, ba5efc04-26a3-539d-90ad-b357e29515e5, 2d59f198-929c-5fd6-93e2-4b2dbc3e31ac, 9c765f05-4203-5522-a74d-58c985b1a06a
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 14:30:00Z | user/ci-deploy | sts:GetCallerIdentity |  | ok | `d554bd6b` |
+  | 2026-10-20 14:30:10Z | user/ci-deploy | iam:ListUsers |  | ok | `b2177994` |
+  | 2026-10-20 14:30:20Z | user/ci-deploy | iam:ListRoles |  | ok | `2ffe710f` |
+  | 2026-10-20 14:30:30Z | user/ci-deploy | s3:ListBuckets |  | ok | `50ee173c` |
+  | 2026-10-20 14:30:40Z | user/ci-deploy | ec2:DescribeInstances |  | ok | `cb96022f` |
+  | 2026-10-20 14:30:55Z | user/ci-deploy | iam:GetAccountAuthorizationDetails |  | AccessDenied | `94d6ce92` |
+  | 2026-10-20 14:32:00Z | user/ci-deploy | iam:CreateUser | user backdoor-svc | ok | `ba5efc04` |
+  | 2026-10-20 14:32:10Z | user/ci-deploy | iam:AttachUserPolicy | policy arn:aws:iam::aws:policy/AdministratorAccess; user backdoor-svc | ok | `2d59f198` |
+  | 2026-10-20 14:32:20Z | user/ci-deploy | iam:CreateAccessKey | user backdoor-svc | ok | `9c765f05` |
 
   </details>
 
@@ -222,13 +239,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   iam:AttachUserPolicy by an in-scope call \(arn:aws:iam::aws:policy/AdministratorAccess\). *(`controlzee respond` can do this)*
 
   <details>
-  <summary>1 command · 1 event of evidence</summary>
+  <summary>1 command · evidence from 1 call</summary>
 
   ```sh
   aws iam detach-user-policy --user-name backdoor-svc --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
   ```
 
-  Evidence: 2d59f198-929c-5fd6-93e2-4b2dbc3e31ac
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 14:32:10Z | user/ci-deploy | iam:AttachUserPolicy | policy arn:aws:iam::aws:policy/AdministratorAccess; user backdoor-svc | ok | `2d59f198` |
 
   </details>
 
@@ -240,7 +261,7 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: removes its keys, password, policies, groups and MFA devices first; respond does this, by hand repeat each list-then-delete pair until the lists are empty.
 
   <details>
-  <summary>10 commands · 1 event of evidence</summary>
+  <summary>10 commands · evidence from 1 call</summary>
 
   ```sh
   aws iam list-access-keys --user-name backdoor-svc
@@ -255,7 +276,11 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   aws iam delete-user --user-name backdoor-svc
   ```
 
-  Evidence: ba5efc04-26a3-539d-90ad-b357e29515e5
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 14:32:00Z | user/ci-deploy | iam:CreateUser | user backdoor-svc | ok | `ba5efc04` |
 
   </details>
 
@@ -269,14 +294,26 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: the new secret is shown once: create it where the owner's secret store can take it, and find out how the old one leaked.
 
   <details>
-  <summary>2 commands · 9 events of evidence</summary>
+  <summary>2 commands · evidence from 9 calls</summary>
 
   ```sh
   aws iam create-access-key --user-name ci-deploy
   aws iam delete-access-key --user-name ci-deploy --access-key-id AKIAIOSFODNN7LEAKED
   ```
 
-  Evidence: d554bd6b-07d7-5564-b3ed-5c98efd37228, b2177994-d66c-53bd-8801-5261f0f910a8, 2ffe710f-fbb1-5679-86f8-d41da46a5f2c, 50ee173c-5c13-5689-97cd-ef168207f84c, cb96022f-25c2-56a3-ab3f-bf725e6fd694, 94d6ce92-a4b5-5017-b554-c200a68a9aa4, ba5efc04-26a3-539d-90ad-b357e29515e5, 2d59f198-929c-5fd6-93e2-4b2dbc3e31ac, 9c765f05-4203-5522-a74d-58c985b1a06a
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 14:30:00Z | user/ci-deploy | sts:GetCallerIdentity |  | ok | `d554bd6b` |
+  | 2026-10-20 14:30:10Z | user/ci-deploy | iam:ListUsers |  | ok | `b2177994` |
+  | 2026-10-20 14:30:20Z | user/ci-deploy | iam:ListRoles |  | ok | `2ffe710f` |
+  | 2026-10-20 14:30:30Z | user/ci-deploy | s3:ListBuckets |  | ok | `50ee173c` |
+  | 2026-10-20 14:30:40Z | user/ci-deploy | ec2:DescribeInstances |  | ok | `cb96022f` |
+  | 2026-10-20 14:30:55Z | user/ci-deploy | iam:GetAccountAuthorizationDetails |  | AccessDenied | `94d6ce92` |
+  | 2026-10-20 14:32:00Z | user/ci-deploy | iam:CreateUser | user backdoor-svc | ok | `ba5efc04` |
+  | 2026-10-20 14:32:10Z | user/ci-deploy | iam:AttachUserPolicy | policy arn:aws:iam::aws:policy/AdministratorAccess; user backdoor-svc | ok | `2d59f198` |
+  | 2026-10-20 14:32:20Z | user/ci-deploy | iam:CreateAccessKey | user backdoor-svc | ok | `9c765f05` |
 
   </details>
 

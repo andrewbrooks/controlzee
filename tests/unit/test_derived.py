@@ -388,3 +388,32 @@ def test_parameters_keep_cloudtrails_own_hiding_summarise_policies_and_cap_every
     assert len(many) == MAX_PAIRS and all(len(v) <= MAX_VALUE for _, v in many)
     deep = describe(_call({"a": {"b": {"c": {"d": {"e": "too deep"}}}}}))
     assert deep == []
+
+
+# ---- evidence a person can read
+
+def test_evidence_is_a_table_of_what_happened_and_not_a_list_of_ids(fixtures):
+    for scenario in SCENARIOS:
+        report = build_report(scope_of(fixtures, scenario)).decode()
+        assert not re.search(r"Evidence: [0-9a-f]{8}-", report), scenario  # the old row of GUIDs
+    report = build_report(scope_of(fixtures, "01_leaked_key")).decode()
+    step = report.split("- [ ] **A02.")[1].split("- [ ] **A03.")[0]
+    assert "| When (UTC) | Who | Call | Target | Result | Event |" in step and "evidence from 9 calls" in step
+    rows = [ln for ln in step.splitlines() if re.match(r"\s+\| 2026-", ln)]
+    assert len(rows) == 9 and all(re.search(r"`[0-9a-f]{8}`( \+\d+)? \|$", ln) for ln in rows)  # a short id, last
+    assert any("iam:AttachUserPolicy" in r and "AdministratorAccess" in r and "backdoor-svc" in r for r in rows)
+    assert any("iam:GetAccountAuthorizationDetails" in r and "AccessDenied" in r for r in rows)
+
+
+def test_the_same_call_made_repeatedly_is_one_evidence_row(tmp_path):
+    logs = LogSet()
+    key = iam_user("ci", "AKIAIOSFODNN7REPEAT")
+    for minute in range(3):
+        logs.add(at(f"2026-10-20T12:0{minute}:00Z"), "iam.amazonaws.com", "ListUsers", key)
+    logs.add(at("2026-10-20T12:05:00Z"), "s3.amazonaws.com", "ListBuckets", key)
+    (tmp_path / "logs").mkdir()
+    (tmp_path / "logs" / "x.json").write_bytes(orjson.dumps({"Records": logs.records}))
+    scope = build_scope([tmp_path / "logs"], assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7REPEAT"]))]), ScopeOptions(workers=1)).scope
+    step = build_report(scope).decode().split("- [ ] **A01.")[1].split("- [ ] **A02.")[0]
+    rows = [ln for ln in step.splitlines() if re.match(r"\s+\| 2026-", ln)]
+    assert len(rows) == 2 and "iam:ListUsers ×3" in rows[0] and "12:00:00Z" in rows[0] and re.search(r"` \+2 \|$", rows[0])

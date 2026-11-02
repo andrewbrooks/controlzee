@@ -266,13 +266,20 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: the key's legitimate owner will stop working until it has a replacement \(see the recover steps\).
 
   <details>
-  <summary>1 command · 4 events of evidence</summary>
+  <summary>1 command · evidence from 4 calls</summary>
 
   ```sh
   aws iam update-access-key --user-name jenkins --access-key-id AKIAIOSFODNN7LEAKED --status Inactive
   ```
 
-  Evidence: 79b57279-7f3c-5b8a-b198-3b0b181b9d46, 8bb4cd19-45aa-5db0-ae36-93addf041786, d554bd6b-07d7-5564-b3ed-5c98efd37228, 94d6ce92-a4b5-5017-b554-c200a68a9aa4
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 10:00:00Z | user/jenkins | sts:GetCallerIdentity |  | ok | `79b57279` |
+  | 2026-10-20 10:00:20Z | user/jenkins | iam:ListRoles |  | ok | `8bb4cd19` |
+  | 2026-10-20 10:01:00Z | user/jenkins | sts:AssumeRole | role arn:aws:iam::111122223333:role/ops-admin | ok | `d554bd6b` |
+  | 2026-10-20 10:05:00Z | user/jenkins | sts:GetSessionToken |  | ok | `94d6ce92` |
 
   </details>
 
@@ -284,13 +291,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: denies everything to credentials issued before now; remove the policy once the incident is over.
 
   <details>
-  <summary>1 command · 1 event of evidence</summary>
+  <summary>1 command · evidence from 1 call</summary>
 
   ```sh
   aws iam put-user-policy --user-name jenkins --policy-name controlzee-revoke-older-sessions --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":"*","Resource":"*","Condition":{"DateLessThan":{"aws:TokenIssueTime":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}}}]}'
   ```
 
-  Evidence: ba5efc04-26a3-539d-90ad-b357e29515e5
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 10:20:00Z | user/jenkins | ec2:DescribeInstances |  | ok | `ba5efc04` |
 
   </details>
 
@@ -302,13 +313,20 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: this also ends legitimate sessions of the role; they can assume it again.
 
   <details>
-  <summary>1 command · 4 events of evidence</summary>
+  <summary>1 command · evidence from 4 calls</summary>
 
   ```sh
   aws iam put-role-policy --role-name ops-admin --policy-name controlzee-revoke-older-sessions --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":"*","Resource":"*","Condition":{"DateLessThan":{"aws:TokenIssueTime":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}}}]}'
   ```
 
-  Evidence: b2177994-d66c-53bd-8801-5261f0f910a8, 2ffe710f-fbb1-5679-86f8-d41da46a5f2c, 50ee173c-5c13-5689-97cd-ef168207f84c, cb96022f-25c2-56a3-ab3f-bf725e6fd694
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 10:02:00Z | assumed-role/ops-admin/maint | s3:ListBuckets |  | ok | `b2177994` |
+  | 2026-10-20 10:03:00Z | assumed-role/ops-admin/maint | iam:CreateRole | role support-audit | ok | `2ffe710f` |
+  | 2026-10-20 10:03:10Z | assumed-role/ops-admin/maint | iam:AttachRolePolicy | policy arn:aws:iam::aws:policy/ReadOnlyAccess; role support-audit | ok | `50ee173c` |
+  | 2026-10-20 10:04:00Z | assumed-role/ops-admin/maint | sts:AssumeRole | role arn:aws:iam::444455556666:role/prod-deploy | ok | `cb96022f` |
 
   </details>
 
@@ -318,13 +336,18 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   2 in-scope call\(s\) were made with sessions of this role; the attacker created it. *(`controlzee respond` can do this)*
 
   <details>
-  <summary>1 command · 2 events of evidence</summary>
+  <summary>1 command · evidence from 2 calls</summary>
 
   ```sh
   aws iam put-role-policy --role-name support-audit --policy-name controlzee-revoke-older-sessions --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":"*","Resource":"*","Condition":{"DateLessThan":{"aws:TokenIssueTime":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}}}]}'
   ```
 
-  Evidence: ea972266-d206-5a49-9154-6b3c92801147, 1e53ffdd-8f58-549b-a23f-5584b5fdb45b
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 13:01:00Z | assumed-role/support-audit/audit | s3:ListBuckets |  | ok | `ea972266` |
+  | 2026-10-20 13:02:00Z | assumed-role/support-audit/audit | secretsmanager:ListSecrets |  | ok | `1e53ffdd` |
 
   </details>
 
@@ -338,13 +361,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: the attacker may hold credentials there that this plan cannot revoke.
 
   <details>
-  <summary>1 command · 1 event of evidence</summary>
+  <summary>1 command · evidence from 1 call</summary>
 
   ```sh
   controlzee scope --logs THAT_ACCOUNTS_LOGS --access-key ASIAIOSFODNN7PRODMT -o scope-ASIAIOSFODNN7PRODMT.json
   ```
 
-  Evidence: cb96022f-25c2-56a3-ab3f-bf725e6fd694
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 10:04:00Z | assumed-role/ops-admin/maint | sts:AssumeRole | role arn:aws:iam::444455556666:role/prod-deploy | ok | `cb96022f` |
 
   </details>
 
@@ -362,13 +389,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   iam:AttachRolePolicy by an in-scope call \(arn:aws:iam::aws:policy/ReadOnlyAccess\). *(`controlzee respond` can do this)*
 
   <details>
-  <summary>1 command · 1 event of evidence</summary>
+  <summary>1 command · evidence from 1 call</summary>
 
   ```sh
   aws iam detach-role-policy --role-name support-audit --policy-arn arn:aws:iam::aws:policy/ReadOnlyAccess
   ```
 
-  Evidence: 50ee173c-5c13-5689-97cd-ef168207f84c
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 10:03:10Z | assumed-role/ops-admin/maint | iam:AttachRolePolicy | policy arn:aws:iam::aws:policy/ReadOnlyAccess; role support-audit | ok | `50ee173c` |
 
   </details>
 
@@ -378,7 +409,7 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   created by an in-scope call. *(`controlzee respond` can do this, with --allow-disruptive)*
 
   <details>
-  <summary>7 commands · 1 event of evidence</summary>
+  <summary>7 commands · evidence from 1 call</summary>
 
   ```sh
   aws iam list-attached-role-policies --role-name support-audit
@@ -390,7 +421,11 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   aws iam delete-role --role-name support-audit
   ```
 
-  Evidence: 2ffe710f-fbb1-5679-86f8-d41da46a5f2c
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 10:03:00Z | assumed-role/ops-admin/maint | iam:CreateRole | role support-audit | ok | `2ffe710f` |
 
   </details>
 
@@ -404,13 +439,17 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: only once the attacker's access is gone; respond runs this step only when it is named with --steps.
 
   <details>
-  <summary>1 command · 1 event of evidence</summary>
+  <summary>1 command · evidence from 1 call</summary>
 
   ```sh
   aws iam delete-user-policy --user-name jenkins --policy-name controlzee-revoke-older-sessions
   ```
 
-  Evidence: ba5efc04-26a3-539d-90ad-b357e29515e5
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 10:20:00Z | user/jenkins | ec2:DescribeInstances |  | ok | `ba5efc04` |
 
   </details>
 
@@ -422,13 +461,20 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: only once the attacker's access is gone; respond runs this step only when it is named with --steps.
 
   <details>
-  <summary>1 command · 4 events of evidence</summary>
+  <summary>1 command · evidence from 4 calls</summary>
 
   ```sh
   aws iam delete-role-policy --role-name ops-admin --policy-name controlzee-revoke-older-sessions
   ```
 
-  Evidence: b2177994-d66c-53bd-8801-5261f0f910a8, 2ffe710f-fbb1-5679-86f8-d41da46a5f2c, 50ee173c-5c13-5689-97cd-ef168207f84c, cb96022f-25c2-56a3-ab3f-bf725e6fd694
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 10:02:00Z | assumed-role/ops-admin/maint | s3:ListBuckets |  | ok | `b2177994` |
+  | 2026-10-20 10:03:00Z | assumed-role/ops-admin/maint | iam:CreateRole | role support-audit | ok | `2ffe710f` |
+  | 2026-10-20 10:03:10Z | assumed-role/ops-admin/maint | iam:AttachRolePolicy | policy arn:aws:iam::aws:policy/ReadOnlyAccess; role support-audit | ok | `50ee173c` |
+  | 2026-10-20 10:04:00Z | assumed-role/ops-admin/maint | sts:AssumeRole | role arn:aws:iam::444455556666:role/prod-deploy | ok | `cb96022f` |
 
   </details>
 
@@ -440,14 +486,21 @@ All times UTC. *Found by*: a seed matched the indicators; *followed* acted as so
   Caution: the new secret is shown once: create it where the owner's secret store can take it, and find out how the old one leaked.
 
   <details>
-  <summary>2 commands · 4 events of evidence</summary>
+  <summary>2 commands · evidence from 4 calls</summary>
 
   ```sh
   aws iam create-access-key --user-name jenkins
   aws iam delete-access-key --user-name jenkins --access-key-id AKIAIOSFODNN7LEAKED
   ```
 
-  Evidence: 79b57279-7f3c-5b8a-b198-3b0b181b9d46, 8bb4cd19-45aa-5db0-ae36-93addf041786, d554bd6b-07d7-5564-b3ed-5c98efd37228, 94d6ce92-a4b5-5017-b554-c200a68a9aa4
+  Evidence, the calls behind this step:
+
+  | When (UTC) | Who | Call | Target | Result | Event |
+  |---|---|---|---|---|---|
+  | 2026-10-20 10:00:00Z | user/jenkins | sts:GetCallerIdentity |  | ok | `79b57279` |
+  | 2026-10-20 10:00:20Z | user/jenkins | iam:ListRoles |  | ok | `8bb4cd19` |
+  | 2026-10-20 10:01:00Z | user/jenkins | sts:AssumeRole | role arn:aws:iam::111122223333:role/ops-admin | ok | `d554bd6b` |
+  | 2026-10-20 10:05:00Z | user/jenkins | sts:GetSessionToken |  | ok | `94d6ce92` |
 
   </details>
 

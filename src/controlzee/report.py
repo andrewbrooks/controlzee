@@ -10,12 +10,13 @@ import re
 from collections.abc import Iterable
 
 from controlzee import __version__
+from controlzee.classify import action, resources
 from controlzee.model.plan import Plan
 from controlzee.model.scope import Scope
 from controlzee.model.timeline import Timeline
 from controlzee.plan import PHASES, build_plan
 from controlzee.safety import clean
-from controlzee.timeline import build_timeline
+from controlzee.timeline import actor_label, build_timeline
 from controlzee.visual import at_a_glance, attack_path, details, identities_section
 
 _SPECIAL = re.compile(r"([\\`*_{}\[\]<>()#+!|~&$])")
@@ -137,7 +138,26 @@ def _exposure(tl: Timeline) -> list[str]:
     return [*out, ""]
 
 
-def _plan(plan: Plan) -> list[str]:
+def _evidence(ids: list[str], scope: Scope) -> list[str]:
+    """The calls behind a step as a table a person can read: when, who, what, on what, and how it went. The same call made
+    several times is one row ("x3", at its first time). The event id is the last column, shortened: the full ids are in
+    plan.json and scope.json."""
+    by_id = {s.event.event_id: s.event for s in scope.events}
+    groups: dict[tuple[str, str, str, str], list[str]] = {}
+    first: dict[tuple[str, str, str, str], str] = {}
+    for i in ids:
+        ev = by_id.get(i)
+        if ev is None:
+            continue
+        key = (actor_label(ev.user_identity), action(ev), "; ".join(f"{k} {v}" for k, v in resources(ev)), ev.error_code or "ok")
+        groups.setdefault(key, []).append(ev.event_id)
+        first.setdefault(key, ev.event_time)
+    rows = [[md(first[k].replace("T", " ")), md(k[0], 80), md(k[1]) + (f" ×{len(v)}" if len(v) > 1 else ""), md(k[2], 160), md(k[3]),
+             f"`{md(v[0][:8])}`" if len(v) == 1 else f"`{md(v[0][:8])}` +{len(v) - 1}"] for k, v in groups.items()]
+    return _table(["When (UTC)", "Who", "Call", "Target", "Result", "Event"], rows) if rows else []
+
+
+def _plan(plan: Plan, scope: Scope) -> list[str]:
     """The steps as a task list, so a ticket or pull request that holds this report shows tick boxes to work through."""
     out = ["## Response plan", ""] + [f"- {md(n, 400)}" for n in plan.notes] + [""]
     for phase in PHASES:
@@ -156,10 +176,13 @@ def _plan(plan: Plan) -> list[str]:
             inner: list[str] = []
             if a.commands:
                 inner += _fence(a.commands)
-            if a.evidence:
-                inner += ["", f"Evidence: {', '.join(md(e) for e in a.evidence)}"]
+            table = _evidence(a.evidence, scope) if a.evidence else []
+            if table:
+                inner += ["", "Evidence, the calls behind this step:", "", *table]
             if inner:
-                folded = details(f"{_n(len(a.commands), 'command', 'commands')} · {_n(len(a.evidence), 'event', 'events')} of evidence", inner)
+                label = " · ".join(x for x in (_n(len(a.commands), "command", "commands") if a.commands else "",
+                                               f"evidence from {_n(len(a.evidence), 'call', 'calls')}" if table else "") if x)
+                folded = details(label, inner)
                 out += [""] + [f"  {line}" if line else "" for line in folded]
             out.append("")
     return out
@@ -196,7 +219,7 @@ def build_report(scope: Scope) -> bytes:
     tl = Timeline.model_validate(build_timeline(scope))
     plan = Plan.model_validate(build_plan(scope))
     parts = [at_a_glance(scope, tl, plan, md), _summary(scope, tl), attack_path(scope), identities_section(scope, tl, md),
-             _coverage(scope), _timeline(tl), _exposure(tl), _plan(plan), _appendix(scope)]
+             _coverage(scope), _timeline(tl), _exposure(tl), _plan(plan, scope), _appendix(scope)]
     body = [line for part in parts for line in part]
     jump = " · ".join(f"[{title}](#{anchor})" for title, anchor in _SECTIONS if f"## {title}" in body)
     lines = ["# Incident report", "",
