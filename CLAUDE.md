@@ -43,6 +43,7 @@ Pipeline: ingest -> normalize -> seed (IOC match) -> propagate taint -> coverage
 ## Testing notes
 
 - Fixtures are generated: `tests/builders/` (`LogSet`, scenarios) produce the CloudTrail JSON under `tests/fixtures/<scenario>/logs`, which is committed. Edit the builder, rebuild, then update goldens; never hand-edit fixtures.
+- The repo is public: tests, docs and commit messages must use made-up identifiers, never values copied from a real account, capture or machine (account and organization ids, IPs, key ids, user agents). Real data goes through `controlzee.sanitize` first.
 - Expected outputs live in `tests/fixtures/<scenario>/expected/`. Review the diff after `UPDATE_GOLDENS=1`.
 - `tests/helpers.make_row(**kw)` makes index rows for matcher tests.
 - CLI tests set `COLUMNS=400` so rich does not wrap messages mid-phrase.

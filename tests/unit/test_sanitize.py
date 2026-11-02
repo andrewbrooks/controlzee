@@ -4,13 +4,13 @@ import json
 from controlzee.sanitize import Sanitizer
 
 RECORD = {
-    "eventID": "775f4d5c-9412-4605-9ddc-130bb6466735",
-    "recipientAccountId": "361659538953",
-    "sourceIPAddress": "45.23.117.1",
-    "userIdentity": {"accessKeyId": "AKIAVINEWTYEWTRTNOZN", "principalId": "AIDAVINEWTYE3GT2ORYEY",
-                     "arn": "arn:aws:iam::361659538953:user/stratus-attacker"},
-    "errorMessage": "User: arn:aws:iam::361659538953:user/x is not authorized with an explicit deny in a service control "
-                    "policy: arn:aws:organizations::958124171913:policy/o-9dg0u4djy2/service_control_policy/p-n6x1yjzt",
+    "eventID": "0f1e2d3c-4b5a-4968-8776-655443322110",
+    "recipientAccountId": "123456789012",
+    "sourceIPAddress": "93.184.216.34",
+    "userIdentity": {"accessKeyId": "AKIAQWERTYUIOPASDFGH", "principalId": "AIDAQWERTYUIOPASDFGHJ",
+                     "arn": "arn:aws:iam::123456789012:user/stratus-attacker"},
+    "errorMessage": "User: arn:aws:iam::123456789012:user/x is not authorized with an explicit deny in a service control "
+                    "policy: arn:aws:organizations::210987654321:policy/o-a1b2c3d4e5/service_control_policy/p-q9w8e7r6",
     "userAgent": "aws-sdk-go-v2 contact me@corp.example.org",
 }
 
@@ -18,8 +18,8 @@ RECORD = {
 def test_every_identifier_is_replaced_and_nothing_original_is_left():
     s = Sanitizer()
     text = json.dumps(s.clean(RECORD))
-    for original in ("361659538953", "958124171913", "45.23.117.1", "AKIAVINEWTYEWTRTNOZN", "AIDAVINEWTYE3GT2ORYEY",
-                     "o-9dg0u4djy2", "p-n6x1yjzt", "775f4d5c-9412-4605-9ddc-130bb6466735", "me@corp.example.org"):
+    for original in ("123456789012", "210987654321", "93.184.216.34", "AKIAQWERTYUIOPASDFGH", "AIDAQWERTYUIOPASDFGHJ",
+                     "o-a1b2c3d4e5", "p-q9w8e7r6", "0f1e2d3c-4b5a-4968-8776-655443322110", "me@corp.example.org"):
         assert original not in text
     assert s.leaks(text) == []
 
@@ -30,8 +30,8 @@ def test_the_same_original_always_gets_the_same_replacement_and_relations_surviv
     assert a["userIdentity"] == b["userIdentity"] and a["recipientAccountId"] == b["recipientAccountId"]
     assert a["eventID"] != b["eventID"]
     assert a["userIdentity"]["arn"].split(":")[4] == a["recipientAccountId"]  # the account in the ARN is the account field
-    assert a["userIdentity"]["accessKeyId"].startswith("AKIA") and len(a["userIdentity"]["accessKeyId"]) == len("AKIAVINEWTYEWTRTNOZN")
-    assert len(a["userIdentity"]["principalId"]) == len("AIDAVINEWTYE3GT2ORYEY")
+    assert a["userIdentity"]["accessKeyId"].startswith("AKIA") and len(a["userIdentity"]["accessKeyId"]) == len("AKIAQWERTYUIOPASDFGH")
+    assert len(a["userIdentity"]["principalId"]) == len("AIDAQWERTYUIOPASDFGHJ")
 
 
 def test_output_is_reproducible_for_the_same_input_order():
@@ -48,8 +48,8 @@ def test_documentation_addresses_and_the_example_key_are_left_alone():
 def test_leaks_finds_what_the_sanitizer_never_saw():
     s = Sanitizer()
     s.clean(RECORD)
-    leaked = s.leaks('{"a": "999988887777", "b": "8.8.4.4", "c": "AKIAABCDEFGHIJKLMNOP", "d": "x@y.org", "e": "45.23.117.1"}')
-    assert set(leaked) == {"999988887777", "8.8.4.4", "AKIAABCDEFGHIJKLMNOP", "x@y.org", "45.23.117.1"}
+    leaked = s.leaks('{"a": "999988887777", "b": "8.8.4.4", "c": "AKIAABCDEFGHIJKLMNOP", "d": "x@y.org", "e": "93.184.216.34"}')
+    assert set(leaked) == {"999988887777", "8.8.4.4", "AKIAABCDEFGHIJKLMNOP", "x@y.org", "93.184.216.34"}
     assert s.leaks("{}") == []
 
 
