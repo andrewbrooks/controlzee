@@ -53,6 +53,7 @@ The first run found five things. The first four are fixed, with regression tests
 | 4 | repeated changes to one target gave repeated steps | two identical "Undo a permission change" for one trust policy | one step citing both calls |
 | 5 | some attacker-created things have no plan step: a bucket has none, and a created Lambda function has a step but no operation, so `respond` cannot carry it out | no step for a bucket; a manual step for a function | fixed: `delete_bucket` (only if the bucket is empty) and `delete_lambda_function`, both disruptive. Run on a real function and bucket, see below |
 | 6 | changing an instance's user data (`ModifyInstanceAttribute` with `userData`) and stopping an instance had no tactic | `other` | `execution` and `impact` |
+| 7 | the report did not say when an instance's role credentials were used from another address, the clearest sign of theft in the steal-credentials run | not flagged | flagged in the exposure (a table of each address, its calls and first use), a note, and an investigate step (check and require IMDSv2). Only a session whose name is an instance id, seen from two or more real addresses |
 
 **Round two (EC2, and the new operations on a real account).** Three EC2 techniques showed the instance-profile rule
 working on a real instance, which the first round could not (in these runs the attacker also created the role, so the role
@@ -76,9 +77,6 @@ How it was measured, and its limits:
 
 - The attacker's key also ran Stratus's own set-up and clean-up, so a lot of in-scope events are that noise. The
   precision of the scope was not measured.
-- A report does not yet say when a role session is used from an address other than the instance's. In the
-  steal-credentials run the stolen credentials were used from elsewhere, which is the clearest sign of theft; that would be a
-  useful addition.
 - A scope built too early misses late events: the harness stopped waiting once the technique's own call appeared, and
   the first SSM scope saw 26 parameter reads where the full history has 42. Counts in the table are from the captured,
   complete logs.

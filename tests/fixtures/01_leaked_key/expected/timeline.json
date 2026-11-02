@@ -254,6 +254,7 @@
     ],
     "admin_granted": true,
     "credentials_read": [],
+    "instance_role_use": [],
     "notes": [
       "full administrative access was granted: assume the attacker could read or change anything in the affected account(s) from that moment, including what the logs do not show",
       "the inputs have no data events, so object-level S3 access (and similar) cannot be listed here"
@@ -330,7 +331,7 @@
       "tactic": "discovery"
     }
   ],
-  "timeline_sha256": "666a5cd8e88c547e290182eb253b86be84d44493ca8e3cd49617d82ff816f781",
+  "timeline_sha256": "0539fda281ad64d2a6c21e477e6a924c9c9ac278f64ce7818d79067d05823b00",
   "tool": {
     "name": "controlzee",
     "version": "0.1.0.dev0"

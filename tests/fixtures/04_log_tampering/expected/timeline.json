@@ -179,6 +179,7 @@
     ],
     "admin_granted": false,
     "credentials_read": [],
+    "instance_role_use": [],
     "notes": [],
     "privilege_changes": [],
     "resources": [
@@ -248,7 +249,7 @@
       "tactic": "discovery"
     }
   ],
-  "timeline_sha256": "7c58cb85464ef729011ac276b0d466fb151836a3cc46018a8d82c99b5487cd4e",
+  "timeline_sha256": "0c7c7fb5bc39a41ba749c16c3302eb781c9df408fa035c417d19b81d1bcfd57d",
   "tool": {
     "name": "controlzee",
     "version": "0.1.0.dev0"

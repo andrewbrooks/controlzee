@@ -125,3 +125,22 @@ def test_new_user_data_on_an_instance_is_execution_and_stopping_it_is_impact():
     assert {by_event[s.event.event_id] for s in user_data} == {"execution"}
     assert tactics(tl)["ec2:StopInstances"] == "impact"
     assert any(o.op == "terminate_instance" for a in plan.actions for o in a.operations)
+
+
+def test_credentials_stolen_from_an_instance_are_flagged_in_the_exposure_the_report_and_the_plan():
+    scope, plan, tl = load("ec2-steal-instance-credentials")
+    assert len(tl.exposure.instance_role_use) == 1
+    use = tl.exposure.instance_role_use[0]
+    assert use.instance.startswith("i-") and len(use.addresses) == 2
+    assert any("more than one address" in n for n in tl.exposure.notes)
+    step = next(a for a in plan.actions if a.title == "Find out how an instance's role credentials got out")
+    assert step.phase == "investigate" and not step.operations and use.instance in step.target
+    assert any("--http-tokens required" in c for c in step.commands)
+    from controlzee.report import build_report
+    assert "Instance role credentials used from more than one address" in build_report(scope).decode()
+
+
+def test_an_instance_acting_on_its_own_is_not_flagged():
+    _, plan, tl = load("ec2-enumerate-from-instance")
+    assert tl.exposure.instance_role_use == []
+    assert not any(a.title.startswith("Find out how an instance's role credentials") for a in plan.actions)

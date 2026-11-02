@@ -77,12 +77,31 @@ class PrivilegeChange(Model):
     outcome: str
 
 
+class AddressUse(Model):
+    address: str
+    events: int
+    actions: list[str]  # first 5, sorted
+    first_event_time: str
+
+
+class InstanceRoleUse(Model):
+    """An instance's role credentials used from more than one address. The instance makes its own calls from its own
+    address, so any other address holds a copy of the credentials: they were taken from the instance."""
+
+    instance: str
+    account: str
+    region: str
+    addresses: list[AddressUse]  # sorted by address
+    event_ids: list[str]  # first 20
+
+
 class Exposure(Model):
     accounts: list[str]  # where in-scope activity was recorded, plus accounts reached without logs
     admin_granted: bool
     credentials_read: list[str]  # secrets and parameters successfully read: assume they are known to the attacker
     privilege_changes: list[PrivilegeChange]
     resources: list[ResourceAccess]
+    instance_role_use: list[InstanceRoleUse]  # instance role sessions seen from several addresses
     notes: list[str]
 
 

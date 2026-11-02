@@ -4,7 +4,9 @@ Everything here is derived from `scope.json` alone and is deterministic: the sam
 """
 from __future__ import annotations
 
+import ipaddress
 import json
+import re
 from collections import defaultdict
 from collections.abc import Iterable
 from typing import Any
@@ -16,7 +18,9 @@ from controlzee.model.event import Event, UserIdentity
 from controlzee.model.scope import Scope, ScopedEvent
 from controlzee.model.timeline import (
     Actor,
+    AddressUse,
     Exposure,
+    InstanceRoleUse,
     PrivilegeChange,
     ResourceAccess,
     TacticSummary,
@@ -138,6 +142,32 @@ def privilege_change(ev: Event) -> PrivilegeChange | None:
                            outcome=ev.error_code or "ok")
 
 
+_INSTANCE_SESSION = re.compile(r"^i-[0-9a-f]{8,17}$")
+
+
+def _instance_role_use(scope: Scope) -> list[InstanceRoleUse]:
+    """Instance role sessions (the session name is the instance id) whose calls came from more than one address."""
+    seen: dict[tuple[str, str], dict[str, list[Event]]] = defaultdict(lambda: defaultdict(list))
+    for s in scope.events:
+        ev, ui = s.event, s.event.user_identity
+        if ui.type == "AssumedRole" and ui.session_name and _INSTANCE_SESSION.match(ui.session_name) and ev.source_ip:
+            try:
+                ipaddress.ip_address(ev.source_ip)  # not an AWS service name ("ec2.amazonaws.com", "AWS Internal")
+            except ValueError:
+                continue
+            seen[(ev.recipient_account_id, ui.session_name)][ev.source_ip].append(ev)
+    out = []
+    for (account, instance), by_ip in sorted(seen.items()):
+        if len(by_ip) < 2:
+            continue
+        evs = sorted((e for group in by_ip.values() for e in group), key=lambda e: (e.event_time, e.event_id))
+        out.append(InstanceRoleUse(
+            instance=instance, account=account, region=evs[0].aws_region, event_ids=[e.event_id for e in evs][:LISTED_EVENT_IDS],
+            addresses=[AddressUse(address=ip, events=len(group), actions=sorted({action(e) for e in group})[:5],
+                                  first_event_time=min(e.event_time for e in group)) for ip, group in sorted(by_ip.items())]))
+    return out
+
+
 def exposure(scope: Scope) -> Exposure:
     groups: dict[tuple[str, str, str, str], list[Event]] = defaultdict(list)
     changes: list[PrivilegeChange] = []
@@ -169,8 +199,12 @@ def exposure(scope: Scope) -> Exposure:
         notes.append("the inputs have no data events, so object-level S3 access (and similar) cannot be listed here")
     if scope.coverage.unlogged_accounts:
         notes.append("activity reached account(s) with no logs in the inputs; exposure there is unknown")
+    stolen = _instance_role_use(scope)
+    if stolen:
+        notes.append(f"the role credentials of {len(stolen)} instance(s) were used from more than one address: an instance calls from "
+                     "its own address, so any other address holds a copy of them (see the instance role table)")
     return Exposure(accounts=accounts, admin_granted=admin, credentials_read=sorted(credentials), privilege_changes=changes,
-                    resources=res, notes=notes)
+                    resources=res, instance_role_use=stolen, notes=notes)
 
 
 def build_timeline(scope: Scope) -> dict[str, Any]:

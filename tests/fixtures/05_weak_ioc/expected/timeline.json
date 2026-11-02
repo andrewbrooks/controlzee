@@ -85,6 +85,7 @@
     ],
     "admin_granted": false,
     "credentials_read": [],
+    "instance_role_use": [],
     "notes": [
       "the inputs have no data events, so object-level S3 access (and similar) cannot be listed here"
     ],
@@ -124,7 +125,7 @@
       "tactic": "discovery"
     }
   ],
-  "timeline_sha256": "3270c3b01e77e027dcc8963e4afec20321a6b986c74a788311f7349cfa5a449c",
+  "timeline_sha256": "04d8f29c8963c3c9909f95edc718eeb348f51c95caec65bf9ee411c6447a39aa",
   "tool": {
     "name": "controlzee",
     "version": "0.1.0.dev0"

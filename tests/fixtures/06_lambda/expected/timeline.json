@@ -169,6 +169,7 @@
     "credentials_read": [
       "secret prod/db"
     ],
+    "instance_role_use": [],
     "notes": [
       "1 secret(s) or parameter(s) were read: treat their values as known to the attacker",
       "the inputs have no data events, so object-level S3 access (and similar) cannot be listed here"
@@ -248,7 +249,7 @@
       "tactic": "discovery"
     }
   ],
-  "timeline_sha256": "ec4538e1fadccefbe5a9b66aa4c9fa94df63fdd8692379624e80dd8d03b3b808",
+  "timeline_sha256": "a2af734b8c3e40a00d0ee529aef4e76915df3abf2119486d868b06bad53e3b80",
   "tool": {
     "name": "controlzee",
     "version": "0.1.0.dev0"
