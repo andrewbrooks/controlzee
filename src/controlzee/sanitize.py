@@ -23,6 +23,8 @@ _IPV4 = re.compile(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])")
 _ACCESS_KEY = re.compile(r"\b(AKIA|ASIA)[A-Z0-9]{16}\b")
 _PRINCIPAL = re.compile(r"\b(AIDA|AROA|AIPA|ANPA|AGPA|ASCA)[A-Z0-9]{16,17}\b")
 _UUID = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")
+# SDK user agents carry the operating system and kernel of the machine that made the call ("os/linux#5.15.0-1-generic")
+_CLIENT_OS = re.compile(r"\bos/(\w+)#\S+")
 _EMAIL = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b")
 
 # addresses reserved for documentation (RFC 5737): safe stand-ins
@@ -83,6 +85,7 @@ class Sanitizer:
     # ---- public
 
     def text(self, s: str) -> str:
+        s = _CLIENT_OS.sub(r"os/\1", s)  # before the IP pattern, which reads a kernel version as an address
         s = _UUID.sub(self._uuid, s)  # first: a UUID's digits must not be taken for an account id
         s = _EMAIL.sub(self._email, s)
         s = _ORG.sub(self._org, s)
@@ -119,5 +122,6 @@ class Sanitizer:
         found += [a for a in _ACCOUNT.findall(text) if a not in replaced and a not in _FAKE_ACCOUNTS]
         found += [ip for ip in _IPV4.findall(text) if ip not in replaced and not _is_documentation_ip(ip) and _valid_ipv4(ip)]
         found += [m.group(0) for m in _ACCESS_KEY.finditer(text) if m.group(0) not in replaced and "IOSFODNN7" not in m.group(0)]
+        found += [m.group(0) for m in _CLIENT_OS.finditer(text)]
         found += [m.group(0) for m in _EMAIL.finditer(text) if m.group(0) not in replaced and not m.group(0).endswith("@example.com")]
         return sorted(set(found))

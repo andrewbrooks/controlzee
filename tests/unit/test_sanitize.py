@@ -59,3 +59,11 @@ def test_a_uuid_made_only_of_digits_is_not_taken_for_an_account_id():
     assert s.leaks(json.dumps(out)) == []
     assert out["other"].count("-") == 4 and not out["other"][-12:].isdigit()
     assert s.clean("12345678-1234-4234-8234-123456789012") == out["other"]
+
+
+def test_the_operating_system_of_the_calling_machine_is_dropped_from_user_agents():
+    s = Sanitizer()
+    ua = "Boto3/1.43.119 md/Botocore#1.43.119 ua/2.1 os/linux#5.15.0-1-generic md/arch#x86_64 lang/python#3.12.3"
+    out = s.clean({"userAgent": ua})["userAgent"]
+    assert "generic" not in out and "5.15" not in out and "os/linux md/arch#x86_64" in out
+    assert s.leaks(json.dumps({"userAgent": ua})) != []
