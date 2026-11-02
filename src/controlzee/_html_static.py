@@ -43,7 +43,7 @@ h1{font-size:30px;margin:28px 0 4px}h2{font-size:20px;margin:0 0 12px;padding-bo
 .points li.info::before{background:var(--accent)}.points strong{font-weight:650}
 .first{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}.first ol{margin:6px 0 0;padding-left:22px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
-.chip{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;color:#fff;background:var(--c,var(--c-other))}
+.chip{display:inline-block;white-space:nowrap;padding:2px 9px;border-radius:999px;font-size:12px;color:#fff;background:var(--c,var(--c-other))}
 .chip.t-credential-access,.chip.t-persistence-x{color:#1f2328}
 button.chip{border:0;font:inherit;font-size:12px;cursor:pointer}button.chip.off{opacity:.35;text-decoration:line-through}
 .scroll{overflow-x:auto}
@@ -86,7 +86,7 @@ circle.dot{fill:var(--c,var(--c-other))}circle.dot.prop{stroke:var(--fg);stroke-
 .t-privilege-escalation{--c:var(--c-privilege-escalation)}.t-defense-evasion{--c:var(--c-defense-evasion)}.t-credential-access{--c:var(--c-credential-access)}
 .t-discovery{--c:var(--c-discovery)}.t-lateral-movement{--c:var(--c-lateral-movement)}.t-collection{--c:var(--c-collection)}
 .t-exfiltration{--c:var(--c-exfiltration)}.t-impact{--c:var(--c-impact)}.t-other{--c:var(--c-other)}
-svg.tactic-bar rect{fill:var(--c,var(--c-other))}svg.tactic-bar{height:18px;border-radius:4px}
+svg.tactic-bar rect{fill:var(--c,var(--c-other))}svg.tactic-bar{width:100%;height:18px;border-radius:4px}
 footer{margin-top:60px;padding-top:14px;border-top:1px solid var(--line);color:var(--mut);font-size:12px}
 @media print{header.top,.tools,.toolbar,.cmd button{display:none}main{max-width:none;padding:0}details{break-inside:avoid}svg{break-inside:avoid}.step{break-inside:avoid}}
 """

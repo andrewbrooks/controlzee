@@ -81,9 +81,9 @@ def attack_svg(g: Graph, anchors: dict[str, str]) -> str:
         else:  # same column or backwards: leave the bottom, arrive at the top
             sx, sy, ex, ey = x1 + NODE_W / 2, y1 + NODE_H, x2 + NODE_W / 2, y2
             d = f"M{_f(sx)} {_f(sy)} C{_f(sx)} {_f(sy + 40)} {_f(ex)} {_f(ey - 40)} {_f(ex)} {_f(ey)}"
-        mx, my = (sx + ex) / 2, (sy + ey) / 2
         text = _cut(call, 26)
         w = len(text) * 6.6 + 12
+        mx, my = (ex - 16 - w / 2, ey) if x2 > x1 else ((sx + ex) / 2, (sy + ey) / 2)  # beside the arrowhead, where edges from one node have parted
         out.append(f'<path class="edge{" dashed" if dashed else ""}" d="{d}" marker-end="url(#arrow)"/>')
         out.append(f'<rect class="edge-label-bg" x="{_f(mx - w / 2)}" y="{_f(my - 10)}" width="{_f(w)}" height="20" rx="5"/>')
         out.append(f'<text class="edge-label" x="{_f(mx)}" y="{_f(my + 4)}" text-anchor="middle">{h(text)}</text>')
@@ -98,14 +98,14 @@ def attack_svg(g: Graph, anchors: dict[str, str]) -> str:
         link = f' data-target="{h(target)}" tabindex="0" role="link"' if target else ""
         out.append(f'<g class="node {css}{" link" if target else ""}"{link}><title>{h(title, 200)}</title>'
                    f'<rect class="box" x="{_f(x)}" y="{_f(y)}" width="{NODE_W}" height="{NODE_H}" rx="10"/>'
-                   f'<text class="name" x="{_f(x + 14)}" y="{_f(y + 22)}">{h(_cut(name, 30))}</text>'
+                   f'<text class="name" x="{_f(x + 14)}" y="{_f(y + 22)}">{h(_cut(name, 32))}</text>'
                    f'<text class="sub" x="{_f(x + 14)}" y="{_f(y + 40)}">{h(sub)}</text></g>')
 
     for i, nd in enumerate(g.nodes):
         node(("n", i), "seed" if nd.seed else "followed", f"{nd.label} · {_plural(nd.calls, 'call', 'calls')}", nd.label,
              f"{_plural(nd.calls, 'call', 'calls')} · {'matched an indicator' if nd.seed else 'followed'}", anchors.get(nd.label))
     for k, (_src, what, _call) in enumerate(g.unused):
-        node(("u", k), "unused", what, what, "handed over, never used", None)
+        node(("u", k), "unused", what, what.removesuffix(" (unused)"), "handed over, never used", None)
     out.append("</svg>")
     return "".join(out)
 
