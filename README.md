@@ -48,6 +48,7 @@ controlzee scope --logs ./logs --iocs iocs.yaml -o scope.json   # what happened 
 controlzee timeline scope.json                                  # timeline.json: in order, with tactics and exposure
 controlzee plan scope.json                                      # plan.json: contain, investigate, eradicate, recover
 controlzee report scope.json                                    # report.md: all of it, for people
+controlzee report scope.json --format html                      # report.html: the same, as one page with diagrams and a checklist
 controlzee respond dry-run scope.json                           # dryrun.json: what would change, and may we? (changes nothing)
 controlzee respond execute dryrun.json --scope scope.json --approve <sha256>       # response.json: make the approved changes
 ```
@@ -203,7 +204,9 @@ Each output cites the scope it came from; the same scope always gives the same b
   Steps with operations can be carried out by `controlzee respond` (see above); the rest are for a person. A value from
   the logs reaches a command only if it has the documented form for its kind, and is shell-quoted; otherwise the step is
   manual and says why.
-- **`report`**: Markdown with an at-a-glance block, the summary, a diagram of how the attacker moved (Mermaid, which
+- **`report`**: `--format md` (the default) or `--format html`. HTML is one self-contained page with the diagrams drawn,
+  click-to-copy for event ids and commands, a filter on the calls, a checklist that remembers what was done, expand all and
+  a light or dark theme; it needs no network. The Markdown has an at-a-glance block, the summary, a diagram of how the attacker moved (Mermaid, which
   GitHub draws), the coverage, timeline, exposure, the plan as a task list, and the indicators. Everything from the logs
   is escaped, so log content cannot add links, HTML or table cells, and diagram labels are cut to a safe character set.
   Long parts are folded into collapsible blocks, and each identity has one saying who it is, how it came about (the call
