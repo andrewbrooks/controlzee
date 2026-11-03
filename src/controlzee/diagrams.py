@@ -123,9 +123,17 @@ def _tick(us: int, span_us: int) -> str:
     return iso[11:19] if span_us < 86_400_000_000 else iso[11:16]
 
 
-def timeline_svg(scope: Scope, tl: Timeline) -> str:
-    """A lane for each identity, time left to right, a dot for each call (a cross if it failed, a ring if it was found by
-    following the attacker), the log silences shaded and the attacker's logging changes marked."""
+PAD_L: Final = 8  # room left of the plot, so a mark on the first tick is not cut in half by the plot's clip
+
+
+def timeline_svg(scope: Scope, tl: Timeline, rows: dict[str, str] | None = None) -> str:
+    """A lane for each identity, time left to right, a mark for each call (a cross if it failed, a ring if it was found by
+    following the attacker), the log silences shaded and the attacker's logging changes marked.
+
+    The plot is a nested <svg>, which clips what is zoomed out of view. Every mark carries its time (`data-t`, microseconds
+    after the first call) so the page script can move it when the reader zooms or pans, and `data-target`, the id of its row in
+    the call table (from `rows`, event id to row id), so a click can take the reader there."""
+    rows = rows or {}
     actors = tl.actors[:MAX_NODES]
     lane = {a.label: i for i, a in enumerate(actors)}
     events = [(parse_time_us(s.event.event_time), s) for s in scope.events if actor_label(s.event.user_identity) in lane]
@@ -140,18 +148,24 @@ def timeline_svg(scope: Scope, tl: Timeline) -> str:
         return GUTTER + (t - t0) / span * PLOT_W if t1 > t0 else GUTTER + PLOT_W / 2
 
     label = f"Timeline: {_plural(len(events), 'call', 'calls')} by {_plural(len(actors), 'identity', 'identities')}"
-    out = [f'<svg class="timeline" viewBox="0 0 {width} {height}" role="img" aria-label="{h(label)}">']
+    out = [f'<svg class="timeline" viewBox="0 0 {width} {height}" data-t0="{t0}" data-span="{t1 - t0}" data-gutter="{GUTTER}" '
+           f'data-plot="{PLOT_W}" role="img" aria-label="{h(label)}">']
     for i, a in enumerate(actors):
         y = TOP + i * LANE_H
         out.append(f'<rect class="lane{" alt" if i % 2 else ""}" x="0" y="{y}" width="{width}" height="{LANE_H}"/>')
         out.append(f'<text class="lane-label" x="12" y="{_f(y + LANE_H / 2 + 4)}"><title>{h(a.label, 200)}</title>{h(_cut(a.label, 30))}</text>')
+    base = TOP + len(actors) * LANE_H
+    out.append(f'<line class="axis" x1="{GUTTER}" y1="{base}" x2="{GUTTER + PLOT_W}" y2="{base}"/>')
+    out.append(f'<svg class="plot" x="{GUTTER - PAD_L}" y="0" width="{PLOT_W + PAD_R + PAD_L}" height="{height}" '
+               f'viewBox="{GUTTER - PAD_L} 0 {PLOT_W + PAD_R + PAD_L} {height}">')
     for g in scope.coverage.gaps:  # silences in the logs
         gs, ge = parse_time_us(g.start), parse_time_us(g.end)
         if ge < t0 or gs > t1:
             continue
         gx1, gx2 = x(max(gs, t0)), x(min(ge, t1))
         out.append(f'<g class="gap"><title>{h(f"No events for {g.minutes} minutes ({g.region})", 120)}</title>'
-                   f'<rect x="{_f(gx1)}" y="{TOP}" width="{_f(max(gx2 - gx1, 2))}" height="{len(actors) * LANE_H}"/></g>')
+                   f'<rect data-t="{max(gs, t0) - t0}" data-t2="{min(ge, t1) - t0}" x="{_f(gx1)}" y="{TOP}" width="{_f(max(gx2 - gx1, 2))}" '
+                   f'height="{len(actors) * LANE_H}"/></g>')
     placed: dict[int, list[tuple[float, int]]] = {}
     for t, s in sorted(events, key=lambda e: (e[0], e[1].event.event_id)):
         ev = s.event
@@ -163,18 +177,17 @@ def timeline_svg(scope: Scope, tl: Timeline) -> str:
         cy = TOP + i * LANE_H + LANE_H / 2 + off
         targets = "; ".join(f"{k} {v}" for k, v in resources(ev))
         what = " · ".join(part for part in (ev.event_time, action(ev), targets, ev.error_code or "ok") if part)
-        cls = f"{tactic_class(tactic(ev))}{' prop' if s.origin == 'propagated' else ''}"
-        if ev.error_code:
-            out.append(f'<g class="dot fail {tactic_class(tactic(ev))}"><title>{h(what, 240)}</title>'
-                       f'<path d="M{_f(cx - 4)} {_f(cy - 4)} L{_f(cx + 4)} {_f(cy + 4)} M{_f(cx - 4)} {_f(cy + 4)} L{_f(cx + 4)} {_f(cy - 4)}"/></g>')
-        else:
-            out.append(f'<circle class="dot {cls}" cx="{_f(cx)}" cy="{_f(cy)}" r="4.5"><title>{h(what, 240)}</title></circle>')
+        row = f' data-target="{h(rows[ev.event_id])}"' if ev.event_id in rows else ""
+        cls = f"{tactic_class(tactic(ev))}{' prop' if s.origin == 'propagated' else ''}{' fail' if ev.error_code else ''}{' link' if row else ''}"
+        shape = ('<circle class="hit" r="8"/><path d="M-4 -4 L4 4 M-4 4 L4 -4"/>' if ev.error_code else '<circle class="body" r="4.5"/>')
+        out.append(f'<g class="dot {cls}" data-t="{t - t0}" data-y="{_f(cy)}"{row} transform="translate({_f(cx)} {_f(cy)})">'
+                   f'<title>{h(what, 240)}</title>{shape}</g>')
     for tm in (t for t in scope.coverage.tampering if t.in_scope):  # the attacker changed logging or detection
-        tx = x(max(min(parse_time_us(tm.event_time), t1), t0))
-        out.append(f'<g class="tamper"><title>{h(f"{tm.event_time} · {tm.event_name}: {tm.effect}", 200)}</title>'
-                   f'<path d="M{_f(tx)} {TOP - 16} l5 8 l-5 8 l-5 -8 z"/></g>')
-    base = TOP + len(actors) * LANE_H
-    out.append(f'<line class="axis" x1="{GUTTER}" y1="{base}" x2="{GUTTER + PLOT_W}" y2="{base}"/>')
+        tt = max(min(parse_time_us(tm.event_time), t1), t0)
+        out.append(f'<g class="tamper" data-t="{tt - t0}" data-y="0" transform="translate({_f(x(tt))} 0)">'
+                   f'<title>{h(f"{tm.event_time} · {tm.event_name}: {tm.effect}", 200)}</title>'
+                   f'<path d="M0 {TOP - 16} l5 8 l-5 8 l-5 -8 z"/></g>')
+    out.append('<g class="ticks">')
     for k in range(6):
         tt = t0 + span * k // 5
         tx = x(tt) if t1 > t0 else GUTTER + PLOT_W / 2
@@ -183,6 +196,7 @@ def timeline_svg(scope: Scope, tl: Timeline) -> str:
                    f'<text class="tick-label" x="{_f(tx)}" y="{base + 20}" text-anchor="{anchor}">{h(_tick(tt, span))}</text>')
         if t1 == t0:
             break
+    out.append("</g></svg>")
     out.append(f'<text class="axis-note" x="{GUTTER}" y="{base + 38}">UTC · {h(format_time_us(t0)[:10])}</text>')
     out.append("</svg>")
     return "".join(out)

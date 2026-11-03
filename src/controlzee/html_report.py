@@ -152,7 +152,14 @@ def _coverage(scope: Scope) -> str:
     return "".join(out)
 
 
+def _call_ids(tl: Timeline) -> dict[str, str]:
+    """Event id to the id of its row in the call table, numbered in order (the timeline's marks link to them)."""
+    ids = [e.event_id for e in tl.entries if e.kind != "gap" and e.event_id]
+    return {event_id: f"call-{n}" for n, event_id in enumerate(ids, 1)}
+
+
 def _calls(tl: Timeline) -> str:
+    ids = _call_ids(tl)
     toolbar = ('<div class="toolbar"><input type="search" id="filter" placeholder="Filter the calls (actor, call, target...)" aria-label="Filter the calls">'
                '<span class="note" id="count"></span></div><div class="chips">'
                + "".join(f'<button class="chip {tactic_class(t.tactic)}" data-tactic="{_tactic_key(t.tactic)}">{h(t.tactic)}</button>' for t in tl.tactics)
@@ -165,7 +172,8 @@ def _calls(tl: Timeline) -> str:
         found = "seed" if e.origin == "seed" and not e.via else ("followed" if e.origin == "propagated" else "seed, followed")
         tactic = e.tactic or "other"
         tk = _tactic_key(tactic)
-        rows.append(f'<tr data-tactic="{tk}"><td class="nowrap">{h(e.time)}</td><td>{h(e.actor, 80)}</td><td>{h(e.action)}</td>'
+        rid = f' id="{ids[e.event_id]}"' if e.event_id in ids else ""
+        rows.append(f'<tr{rid} data-tactic="{tk}"><td class="nowrap">{h(e.time)}</td><td>{h(e.actor, 80)}</td><td>{h(e.action)}</td>'
                     f'<td>{h("; ".join(e.targets), 300)}</td><td>{h(e.outcome)}</td><td>{_chip(tk, tactic)}</td>'
                     f'<td>{h(found)} ({h(e.confidence.value if e.confidence else "")})</td></tr>')
     table = ('<div class="scroll"><table id="call-table"><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Target</th><th>Result</th><th>Tactic</th>'
@@ -268,12 +276,15 @@ def build_html(scope: Scope) -> bytes:
                     "handed over but never used in these logs.")
             sections.append(("path", "How the attacker moved", f'<p class="note">{note}</p><div class="scroll">{attack_svg(graph, anchors)}</div>'
                              + (f'<p class="note">{graph.hidden} more identities acted and are not drawn.</p>' if graph.hidden else "")))
-        lanes = timeline_svg(scope, tl)
+        lanes = timeline_svg(scope, tl, _call_ids(tl))
         if lanes:
             legend = "".join(f'<span><i class="{tactic_class(_tactic_key(t.tactic))}"></i>{h(t.tactic)}</span>' for t in tl.tactics)
             sections.append(("swimlanes", "Timeline", '<p class="note">One lane per identity, one dot per call, coloured by tactic. A ring: found by following the attacker. '
-                             "A cross: the call failed. A shaded band: the logs were silent. A red diamond: the attacker changed logging or detection."
-                             f'</p><div class="scroll">{lanes}</div><div class="legend">{legend}</div>'))
+                             "A cross: the call failed. A shaded band: the logs were silent. A red diamond: the attacker changed logging or detection. "
+                             "Click a dot to jump to its row in Calls; zoom with the buttons, Ctrl+wheel or a double click, and drag to pan."
+                             f'</p><div class="scroll tl-wrap"><div class="tl-zoom"><button type="button" data-zoom="in" aria-label="Zoom in">+</button>'
+                             '<button type="button" data-zoom="out" aria-label="Zoom out">&minus;</button>'
+                             f'<button type="button" data-zoom="reset">Reset</button></div>{lanes}</div><div class="legend">{legend}</div>'))
         sections.append(("identities", "Identities", _identities(scope, tl)))
     else:
         sections.append(("glance", "At a glance", '<p class="note">No events matched the indicators.</p>'))

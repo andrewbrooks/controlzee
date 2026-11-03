@@ -80,15 +80,20 @@ svg text{font-family:system-ui,sans-serif;fill:var(--fg)}
 .lane{fill:transparent}.lane.alt{fill:color-mix(in srgb,var(--fg) 4%,transparent)}.lane-label{font-size:12px}
 .gap rect{fill:var(--warn);opacity:.18}.axis,.tick{stroke:var(--mut);stroke-width:1}.tick-label,.axis-note{font-size:11px;fill:var(--mut)}
 .tamper path{fill:var(--danger)}
-circle.dot{fill:var(--c,var(--c-other))}circle.dot.prop{stroke:var(--fg);stroke-width:1.6}
-.dot.fail path{stroke:var(--c,var(--danger));stroke-width:2;fill:none}
+.dot .body{fill:var(--c,var(--c-other))}.dot.prop .body{stroke:var(--fg);stroke-width:1.6}
+.dot.fail path{stroke:var(--c,var(--danger));stroke-width:2;fill:none}.dot .hit{fill:transparent}.dot.link{cursor:pointer}
+.dot.link:hover .body{stroke:var(--fg);stroke-width:2}.dot.link:hover path{stroke-width:3}
+.tl-wrap{position:relative}.tl-zoom{position:absolute;top:6px;left:8px;display:flex;gap:4px;z-index:1}
+.tl-zoom button{font:inherit;font-size:12px;line-height:1;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);cursor:pointer}
+svg.timeline.zoomed{cursor:grab}svg.timeline.panning{cursor:grabbing}
+tr.hit td{background:color-mix(in srgb,var(--warn) 30%,transparent)}
 .t-initial-access{--c:var(--c-initial-access)}.t-execution{--c:var(--c-execution)}.t-persistence{--c:var(--c-persistence)}
 .t-privilege-escalation{--c:var(--c-privilege-escalation)}.t-defense-evasion{--c:var(--c-defense-evasion)}.t-credential-access{--c:var(--c-credential-access)}
 .t-discovery{--c:var(--c-discovery)}.t-lateral-movement{--c:var(--c-lateral-movement)}.t-collection{--c:var(--c-collection)}
 .t-exfiltration{--c:var(--c-exfiltration)}.t-impact{--c:var(--c-impact)}.t-other{--c:var(--c-other)}
 svg.tactic-bar rect{fill:var(--c,var(--c-other))}svg.tactic-bar{width:100%;height:18px;border-radius:4px}
 footer{margin-top:60px;padding-top:14px;border-top:1px solid var(--line);color:var(--mut);font-size:12px}
-@media print{header.top,.tools,.toolbar,.cmd button{display:none}main{max-width:none;padding:0}details{break-inside:avoid}svg{break-inside:avoid}.step{break-inside:avoid}}
+@media print{header.top,.tools,.toolbar,.tl-zoom,.cmd button{display:none}main{max-width:none;padding:0}details{break-inside:avoid}svg{break-inside:avoid}.step{break-inside:avoid}}
 """
 
 JS = """
@@ -143,6 +148,74 @@ JS = """
   if (q) { q.addEventListener('input', apply); }
   $$('button.chip[data-tactic]').forEach(function (b) { b.addEventListener('click', function () {
     var t = b.getAttribute('data-tactic'); off[t] = !off[t]; b.classList.toggle('off', !!off[t]); apply(); }); });
+
+  function goRow(id) {
+    var r = id && document.getElementById(id); if (!r) { return; }
+    var d = r.closest('details'); if (d) { d.open = true; }
+    if (r.hidden) { if (q) { q.value = ''; } Object.keys(off).forEach(function (k) { off[k] = false; });
+      $$('button.chip[data-tactic]').forEach(function (b) { b.classList.remove('off'); }); apply(); }
+    r.scrollIntoView({ behavior: 'smooth', block: 'center' }); r.classList.add('hit');
+    setTimeout(function () { r.classList.remove('hit'); }, 2500);
+  }
+
+  var tl = $('svg.timeline'), moved = false;
+  if (tl) {
+    tl.addEventListener('click', function (e) {
+      if (moved) { moved = false; e.stopPropagation(); return; }
+      var d = e.target.closest && e.target.closest('.dot'); if (d) { goRow(d.getAttribute('data-target')); }
+    });
+    var T0 = +tl.getAttribute('data-t0'), SPAN = +tl.getAttribute('data-span'), G = +tl.getAttribute('data-gutter'), W = +tl.getAttribute('data-plot');
+    if (SPAN > 0) { (function () {
+      var NS = 'http://www.w3.org/2000/svg', marks = $$('[data-t]', tl), ticks = $('.ticks', tl), note = $('.axis-note', tl);
+      var base = +$('.axis', tl).getAttribute('y1'), day = 86400e6, v0 = 0, v1 = 1, MIN = Math.min(1, 1e6 / SPAN), date0 = note.textContent;
+      function pad(n) { return (n < 10 ? '0' : '') + n; }
+      function fmt(us, view) {
+        var d = new Date(us / 1000), hm = pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()), hms = hm + ':' + pad(d.getUTCSeconds());
+        return view > 2 * day ? pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()) + ' ' + hm : view < day ? hms : hm;
+      }
+      function dur(us) { var s = Math.round(us / 1e6); return s < 120 ? s + 's' : s < 7200 ? Math.floor(s / 60) + 'm ' + (s % 60) + 's' :
+        s < 172800 ? Math.floor(s / 3600) + 'h ' + Math.floor(s % 3600 / 60) + 'm' : Math.floor(s / 86400) + 'd'; }
+      function X(t) { return G + (t / SPAN - v0) / (v1 - v0) * W; }
+      function el(name, attrs, text) { var n = document.createElementNS(NS, name); Object.keys(attrs).forEach(function (k) { n.setAttribute(k, attrs[k]); });
+        if (text) { n.textContent = text; } return n; }
+      function draw() {
+        marks.forEach(function (m) {
+          if (m.hasAttribute('data-t2')) { var a = X(+m.getAttribute('data-t')), b = X(+m.getAttribute('data-t2'));
+            m.setAttribute('x', a.toFixed(1)); m.setAttribute('width', Math.max(b - a, 2).toFixed(1)); }
+          else { m.setAttribute('transform', 'translate(' + X(+m.getAttribute('data-t')).toFixed(1) + ' ' + m.getAttribute('data-y') + ')'); }
+        });
+        while (ticks.firstChild) { ticks.removeChild(ticks.firstChild); }
+        for (var k = 0; k < 6; k++) {
+          var tx = (G + W * k / 5).toFixed(1), us = T0 + (v0 + (v1 - v0) * k / 5) * SPAN;
+          ticks.appendChild(el('line', { 'class': 'tick', x1: tx, y1: base, x2: tx, y2: base + 5 }));
+          ticks.appendChild(el('text', { 'class': 'tick-label', x: tx, y: base + 20, 'text-anchor': k === 0 ? 'start' : k === 5 ? 'end' : 'middle' }, fmt(us, (v1 - v0) * SPAN)));
+        }
+        var zoomed = v1 - v0 < 0.9999; tl.classList.toggle('zoomed', zoomed);
+        note.textContent = date0 + (zoomed ? ' \u00b7 showing ' + dur((v1 - v0) * SPAN) + ' of ' + dur(SPAN) : '');
+      }
+      function zoom(factor, c) {
+        var w = Math.min(1, Math.max(MIN, (v1 - v0) / factor)), at = v0 + c * (v1 - v0);
+        v0 = Math.min(Math.max(at - c * w, 0), 1 - w); v1 = v0 + w; draw();
+      }
+      function frac(e) { var p = tl.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; var m = tl.getScreenCTM();
+        return m ? Math.min(1, Math.max(0, (p.matrixTransform(m.inverse()).x - G) / W)) : 0.5; }
+      $$('[data-zoom]').forEach(function (b) { b.addEventListener('click', function () {
+        var z = b.getAttribute('data-zoom'); if (z === 'reset') { v0 = 0; v1 = 1; draw(); } else { zoom(z === 'in' ? 2 : 0.5, 0.5); } }); });
+      tl.addEventListener('wheel', function (e) { if (!(e.ctrlKey || e.metaKey)) { return; } e.preventDefault();
+        zoom(Math.exp(-Math.max(-60, Math.min(60, e.deltaY)) * 0.01), frac(e)); }, { passive: false });
+      tl.addEventListener('dblclick', function (e) { if (!(e.target.closest && e.target.closest('.dot'))) { zoom(2, frac(e)); } });
+      var drag = null;
+      tl.addEventListener('pointerdown', function (e) { moved = false; drag = e.button === 0 && v1 - v0 < 0.9999 ? { x: e.clientX, v0: v0, w: v1 - v0, id: e.pointerId } : null; });
+      tl.addEventListener('pointermove', function (e) {
+        if (!drag) { return; } var dx = e.clientX - drag.x, m = tl.getScreenCTM(); if (!m) { return; }
+        if (!moved && Math.abs(dx) < 5) { return; }
+        if (!moved) { moved = true; tl.classList.add('panning'); try { tl.setPointerCapture(drag.id); } catch (x) { /* no capture: still pans */ } }
+        v0 = Math.min(Math.max(drag.v0 - dx / (m.a * W) * drag.w, 0), 1 - drag.w); v1 = v0 + drag.w; draw();
+      });
+      function end() { drag = null; tl.classList.remove('panning'); }
+      tl.addEventListener('pointerup', end); tl.addEventListener('pointercancel', end);
+    }()); }
+  }
 
   var boxes = $$('.step input[type=checkbox]'), bar = $('#progress'), lab = $('#progress-label');
   var key = 'czee-steps-' + (document.body.getAttribute('data-scope') || ''), state = {};

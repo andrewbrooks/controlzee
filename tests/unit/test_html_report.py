@@ -29,7 +29,7 @@ TAGS = {"html", "head", "meta", "title", "style", "script", "body", "header", "n
         "code", "strong", "i", "progress", "svg", "g", "rect", "path", "text", "defs", "marker", "line", "circle"}
 ATTRS = {"lang", "charset", "name", "content", "http-equiv", "class", "id", "href", "type", "value", "max", "checked", "placeholder", "aria-label",
          "role", "tabindex", "title", "open", "colspan", "viewbox", "d", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "width", "height", "rx",
-         "text-anchor", "marker-end", "refx", "refy", "markerwidth", "markerheight", "orient", "preserveaspectratio"}
+         "text-anchor", "marker-end", "refx", "refy", "markerwidth", "markerheight", "orient", "preserveaspectratio", "transform"}
 VOID = {"meta", "input", "path", "rect", "line", "circle"}
 
 
@@ -198,3 +198,13 @@ def test_a_scope_with_no_events_still_gives_a_page(tmp_path):
     page = build_html(scope)
     check_inert(page)
     assert b"No events matched the indicators" in page
+
+
+def test_every_mark_of_the_timeline_links_to_its_row_in_the_call_table(fixtures):
+    scope = scope_of(fixtures, "01_leaked_key")
+    page = build_html(scope).decode()
+    marks = re.findall(r'<g class="dot [^"]*" data-t="(\d+)" data-y="[\d.]+" data-target="(call-\d+)"', page)
+    assert len(marks) == len(scope.events)
+    rows = re.findall(r'<tr id="(call-\d+)"', page)
+    assert len(set(rows)) == len(rows) and {t for _, t in marks} <= set(rows)  # check_inert also holds every data-target to an id
+    check_inert(page.encode())
