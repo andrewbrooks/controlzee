@@ -85,9 +85,17 @@ How it was measured, and its limits:
 - Cleanup of IAM users failed in this account (an SCP denies `iam:DeleteLoginProfile`, which Terraform's destroy
   needs); leftovers were removed by hand.
 
+**Round three (the instance operations on a real account).** A throwaway IAM user launched one `t3.micro` with an instance
+profile, and controlzee scoped it from event history seeded by that user's key. The plan had five runnable steps. The dry
+run passed all five (the real state of each resource, and the policy simulator allowing each action on the right resource)
+and `execute` carried them out: the key went inactive, the profile association was removed, the instance was stopped, one
+snapshot was started and the instance was terminated. A second dry run reported every step as already done. Everything the
+test created was deleted afterwards and the account was checked for leftovers. The responder was an administrator, so the
+simulator was not exercised against a narrowly scoped role on EC2.
+
 ## Not covered
 
 Anything needing a CloudTrail trail or an S3 bucket policy, and techniques that are only visible as data events. Of the
-`respond` operations, only deactivating a key, revoking and lifting a role's sessions, deleting a function and deleting a
-bucket have run on a real account; logging and detection restoration and the instance operations (stop, snapshot,
-terminate, remove the instance profile) have not, though their steps appear in the plans above.
+`respond` operations, deactivating a key, revoking and lifting a role's sessions, deleting a function, deleting a bucket
+and the instance operations (remove the instance profile, stop, snapshot, terminate) have run on a real account; logging
+and detection restoration has not, though its steps appear in the plans above.

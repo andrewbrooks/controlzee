@@ -27,16 +27,16 @@ after a dry run that a person has reviewed and approved.
 
 ### What has been tested
 
-- **Everything** runs in the test suite (373 tests, no network): generated CloudTrail for six scenarios, real CloudTrail
+- **Everything** runs in the test suite (403 tests, no network): generated CloudTrail for six scenarios, real CloudTrail
   captured from Stratus runs (identifiers replaced), and an in-memory AWS account whose calls are checked against
   botocore's service models.
 - **Against a real sandbox account** ([docs/field-testing.md](docs/field-testing.md), [docs/validation.md](docs/validation.md)):
   event history as a source; taint through an assumed role, an instance profile, a Lambda function and a federation token;
   the plan; the dry run and the permission check (including a denied permission, an MFA-conditioned permission, a refused
   self-cutoff and an organization policy that allows one region); and `execute` for deactivating a key, revoking and lifting a
-  role's sessions, deleting a Lambda function and deleting a bucket. Nothing else in the operations list has run against a
-  real account: logging and detection restoration, and the instance operations (cut off from its role, stop, snapshot,
-  terminate). Treat those as untested.
+  role's sessions, deleting a Lambda function, deleting a bucket, and the instance operations (cut off from its role, stop,
+  snapshot, terminate). Nothing else in the operations list has run against a real account: logging and detection
+  restoration. Treat those as untested.
 - **Against attack emulation**: eleven [Stratus Red Team](https://github.com/DataDog/stratus-red-team) techniques were run
   in the sandbox and scoped from event history; results and the gaps they showed are in
   [docs/validation.md](docs/validation.md).
