@@ -156,6 +156,8 @@ def timeline_svg(scope: Scope, tl: Timeline, rows: dict[str, str] | None = None)
         out.append(f'<text class="lane-label" x="12" y="{_f(y + LANE_H / 2 + 4)}"><title>{h(a.label, 200)}</title>{h(_cut(a.label, 30))}</text>')
     base = TOP + len(actors) * LANE_H
     out.append(f'<line class="axis" x1="{GUTTER}" y1="{base}" x2="{GUTTER + PLOT_W}" y2="{base}"/>')
+    out.append(f'<g class="sb"><rect class="sb-track" x="{GUTTER}" y="3" width="{PLOT_W}" height="8" rx="4"/>'
+               f'<rect class="sb-thumb" x="{GUTTER}" y="3" width="{PLOT_W}" height="8" rx="4"/></g>')  # the scroll bar, shown once zoomed
     out.append(f'<svg class="plot" x="{GUTTER - PAD_L}" y="0" width="{PLOT_W + PAD_R + PAD_L}" height="{height}" '
                f'viewBox="{GUTTER - PAD_L} 0 {PLOT_W + PAD_R + PAD_L} {height}">')
     for g in scope.coverage.gaps:  # silences in the logs
