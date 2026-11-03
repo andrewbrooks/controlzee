@@ -10,13 +10,13 @@ import re
 from collections.abc import Iterable
 
 from controlzee import __version__
-from controlzee.classify import action, resources
+from controlzee.facts import evidence_rows
 from controlzee.model.plan import Plan
 from controlzee.model.scope import Scope
 from controlzee.model.timeline import Timeline
 from controlzee.plan import PHASES, build_plan
 from controlzee.safety import clean
-from controlzee.timeline import actor_label, build_timeline
+from controlzee.timeline import build_timeline
 from controlzee.visual import at_a_glance, attack_path, details, identities_section
 
 _SPECIAL = re.compile(r"([\\`*_{}\[\]<>()#+!|~&$])")
@@ -142,24 +142,14 @@ def _evidence(ids: list[str], scope: Scope) -> list[str]:
     """The calls behind a step as a table a person can read: when, who, what, on what, and how it went. The same call made
     several times is one row ("x3", at its first time). The event id is the last column, shortened: the full ids are in
     plan.json and scope.json."""
-    by_id = {s.event.event_id: s.event for s in scope.events}
-    groups: dict[tuple[str, str, str, str], list[str]] = {}
-    first: dict[tuple[str, str, str, str], str] = {}
-    for i in ids:
-        ev = by_id.get(i)
-        if ev is None:
-            continue
-        key = (actor_label(ev.user_identity), action(ev), "; ".join(f"{k} {v}" for k, v in resources(ev)), ev.error_code or "ok")
-        groups.setdefault(key, []).append(ev.event_id)
-        first.setdefault(key, ev.event_time)
-    rows = [[md(first[k].replace("T", " ")), md(k[0], 80), md(k[1]) + (f" ×{len(v)}" if len(v) > 1 else ""), md(k[2], 160), md(k[3]),
-             f"`{md(v[0][:8])}`" if len(v) == 1 else f"`{md(v[0][:8])}` +{len(v) - 1}"] for k, v in groups.items()]
+    rows, shown = evidence_rows(ids, scope)
     if not rows:
         return []
-    shown = [i for i in ids if i in by_id]
+    cells = [[md(r.when), md(r.who, 80), md(r.call) + (f" ×{r.count}" if r.count > 1 else ""), md(r.target, 160), md(r.result),
+              f"`{md(r.ids[0][:8])}`" + (f" +{len(r.ids) - 1}" if len(r.ids) > 1 else "")] for r in rows]
     # one full id per line: GitHub puts a copy button on a code block, and a triple click selects exactly one id
     copy = details("Full event IDs, in the order of the calls above (to copy)", _fence(shown, ""))
-    return [*_table(["When (UTC)", "Who", "Call", "Target", "Result", "Event"], rows), "", *copy]
+    return [*_table(["When (UTC)", "Who", "Call", "Target", "Result", "Event"], cells), "", *copy]
 
 
 def _plan(plan: Plan, scope: Scope) -> list[str]:

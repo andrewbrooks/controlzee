@@ -10,22 +10,18 @@ from __future__ import annotations
 import html
 import re
 from collections.abc import Callable
-from typing import Final
+from dataclasses import dataclass
 
-from controlzee import params
-from controlzee.classify import action, resources
+from controlzee.facts import KIND_NAMES, MAX_NODES, Issued, collect_identities
 from controlzee.model.common import Confidence
 from controlzee.model.plan import Plan
-from controlzee.model.scope import Scope, ScopedEvent
+from controlzee.model.scope import Scope
 from controlzee.model.timeline import Timeline
 from controlzee.safety import clean
 from controlzee.timeline import actor_label
 from controlzee.timeutil import parse_time_us
 
-MAX_NODES: Final = 30  # a picture of more than this is not a picture
 _UNSAFE = re.compile(r"[^A-Za-z0-9 _/.@:+=,()-]")
-_KIND_NAMES: Final = {"access_key_id": "access key", "principal_id": "user", "role_id": "role", "instance_id": "instance",
-                      "function_name": "function"}
 
 
 def _label(value: object, limit: int = 48) -> str:
@@ -37,9 +33,25 @@ def _calls(n: int) -> str:
     return f"{n} call" if n == 1 else f"{n} calls"
 
 
-def attack_path(scope: Scope) -> list[str]:
-    """A flowchart: who acted, and which credential or principal one identity created or obtained for another.
-    Empty when no identity handed anything to another (a single identity has nothing to draw)."""
+@dataclass(frozen=True)
+class Node:
+    label: str  # as the logs name the identity
+    calls: int
+    seed: bool  # matched an indicator, as opposed to being found by following the attacker
+
+
+@dataclass(frozen=True)
+class Graph:
+    """Who acted, and which credential or principal one identity created or obtained for another."""
+
+    nodes: list[Node]  # in order of first appearance
+    edges: list[tuple[int, int, str]]  # (from node, to node, the call that issued what was handed over)
+    unused: list[tuple[int, str, str]]  # (from node, what, call): handed over and never used in these logs
+    hidden: int  # identities that acted but are not drawn
+
+
+def build_graph(scope: Scope) -> Graph | None:
+    """The graph of the scope, or None when no identity handed anything to another (a single identity has nothing to draw)."""
     by_id = {s.event.event_id: s for s in scope.events}
     label_of = {s.event.event_id: actor_label(s.event.user_identity) for s in scope.events}
     order: list[str] = []  # actors in order of first appearance
@@ -54,13 +66,12 @@ def attack_path(scope: Scope) -> list[str]:
         if s.origin == "seed":
             seeds.add(a)
     edges: list[tuple[str, str, str]] = []  # (from, to, call), first appearance order
-    unused: list[tuple[str, str, str]] = []  # (issuer, what, call): handed over and never used
+    unused: list[tuple[str, str, str]] = []  # (issuer, what, call)
     for t in scope.taint.identities:
-        issuer_event = by_id.get(t.issued_by)
-        if issuer_event is None:
+        if t.issued_by not in by_id:
             continue
         issuer = label_of[t.issued_by]
-        users = []
+        users: list[str] = []
         for s in scope.events:
             if s.via == f"{t.kind}:{t.value}" and (a := label_of[s.event.event_id]) not in users:
                 users.append(a)
@@ -69,34 +80,40 @@ def attack_path(scope: Scope) -> list[str]:
             if u != issuer and (issuer, u, call) not in edges:
                 edges.append((issuer, u, call))
         if not users:
-            what = f"new {_KIND_NAMES.get(t.kind, 'credential')} ...{t.value[-4:]} (unused)"
+            what = f"new {KIND_NAMES.get(t.kind, 'credential')} ...{t.value[-4:]} (unused)"
             if (issuer, what, call) not in unused:
                 unused.append((issuer, what, call))
-    if not edges and not unused:
-        return []
     shown = order[:MAX_NODES]
-    ids = {a: f"n{i}" for i, a in enumerate(shown)}
+    index = {a: i for i, a in enumerate(shown)}
+    kept_edges = [(index[a], index[b], c) for a, b, c in edges if a in index and b in index]
+    kept_unused = [(index[a], what, c) for a, what, c in unused if a in index]
+    if not kept_edges and not kept_unused:
+        return None
+    return Graph(nodes=[Node(a, calls[a], a in seeds) for a in shown], edges=kept_edges, unused=kept_unused,
+                 hidden=len(order) - len(shown))
+
+
+def attack_path(scope: Scope) -> list[str]:
+    """The graph as a Mermaid flowchart. Empty when there is nothing to draw."""
+    g = build_graph(scope)
+    if g is None:
+        return []
     out = ["## How the attacker moved", "",
            "Each arrow is a credential or principal one identity created or obtained for another, labelled with the call that "
            "issued it. Red: matched an indicator. Blue: found only by following the attacker. Dashed: handed over but never "
            "used in these logs.", "", "```mermaid", "flowchart LR"]
-    for a in shown:
-        out.append(f'    {ids[a]}["{_label(a)} · {_calls(calls[a])}"]:::{"seed" if a in seeds else "followed"}')
-    drawn = 0
-    for src, dst, call in edges:
-        if src in ids and dst in ids:
-            out.append(f'    {ids[src]} -->|"{_label(call, 30)}"| {ids[dst]}')
-            drawn += 1
-    for i, (src, what, call) in enumerate(unused):
-        if src in ids:
-            out += [f'    u{i}["{_label(what)}"]:::unused', f'    {ids[src]} -.->|"{_label(call, 30)}"| u{i}']
-            drawn += 1
+    for i, n in enumerate(g.nodes):
+        out.append(f'    n{i}["{_label(n.label)} · {_calls(n.calls)}"]:::{"seed" if n.seed else "followed"}')
+    for src, dst, call in g.edges:
+        out.append(f'    n{src} -->|"{_label(call, 30)}"| n{dst}')
+    for i, (src, what, call) in enumerate(g.unused):
+        out += [f'    u{i}["{_label(what)}"]:::unused', f'    n{src} -.->|"{_label(call, 30)}"| u{i}']
     out += ["    classDef seed fill:#fde2e2,stroke:#c0392b,color:#222",
             "    classDef followed fill:#e3edff,stroke:#3b6fd4,color:#222",
             "    classDef unused fill:#f4f4f4,stroke:#888,stroke-dasharray:4 3,color:#222", "```", ""]
-    if len(order) > len(shown):
-        out += [f"{len(order) - len(shown)} more identities acted and are not drawn; see the timeline.", ""]
-    return out if drawn else []
+    if g.hidden:
+        out += [f"{g.hidden} more identities acted and are not drawn; see the timeline.", ""]
+    return out
 
 
 def _minutes(scope: Scope) -> str:
@@ -111,34 +128,44 @@ def _n(count: int, one: str, many: str) -> str:
     return f"{count} {one if count == 1 else many}"
 
 
-def at_a_glance(scope: Scope, tl: Timeline, plan: Plan, md: Callable[..., str]) -> list[str]:
-    """A short block above the summary: how big, what stands out, and what to do first. `md` is the report's escaper."""
-    s, x, cov = scope.summary, tl.exposure, scope.coverage
-    if not s.events_in_scope:
-        return []
-    accounts = ", ".join(md(a) for a in x.accounts)
-    stands_out = []
+def glance_points(scope: Scope, tl: Timeline) -> list[tuple[str, str, str]]:
+    """What stands out in the exposure, as (the part to stress, the rest, "danger" or "info"): the same facts for the Markdown and
+    the HTML report."""
+    x, cov = tl.exposure, scope.coverage
+    points: list[tuple[str, str, str]] = []
     if x.admin_granted:
-        stands_out.append("**Full administrative access was granted**: assume anything in the account(s) could be read or changed.")
+        points.append(("Full administrative access was granted", ": assume anything in the account(s) could be read or changed.", "danger"))
     if x.credentials_read:
-        stands_out.append(f"**{_n(len(x.credentials_read), 'secret or parameter was', 'secrets or parameters were')} read**: "
-                          "treat the values as known to the attacker.")
+        points.append((f"{_n(len(x.credentials_read), 'secret or parameter was', 'secrets or parameters were')} read",
+                       ": treat the values as known to the attacker.", "danger"))
     if x.instance_role_use:
-        stands_out.append(f"**The role credentials of {_n(len(x.instance_role_use), 'instance', 'instances')} were used from another "
-                          "address**: a sign they were taken from the instance.")
+        points.append((f"The role credentials of {_n(len(x.instance_role_use), 'instance', 'instances')} were used from another address",
+                       ": a sign they were taken from the instance.", "danger"))
     in_scope_tampering = sum(1 for t in cov.tampering if t.in_scope)
     if in_scope_tampering:
-        stands_out.append(f"**The attacker changed logging or detection** ({_n(in_scope_tampering, 'call', 'calls')}).")
+        points.append(("The attacker changed logging or detection", f" ({_n(in_scope_tampering, 'call', 'calls')}).", "danger"))
     if cov.unlogged_accounts:
-        stands_out.append(f"**{_n(len(cov.unlogged_accounts), 'account', 'accounts')} reached without logs**: what happened there is unknown.")
+        points.append((f"{_n(len(cov.unlogged_accounts), 'account', 'accounts')} reached without logs", ": what happened there is unknown.", "info"))
     if cov.gaps:
-        stands_out.append(f"**{_n(len(cov.gaps), 'silence', 'silences')} in the logs** during the incident.")
+        points.append((f"{_n(len(cov.gaps), 'silence', 'silences')} in the logs", " during the incident.", "info"))
+    return points
+
+
+def headline(scope: Scope, tl: Timeline, accounts: str) -> str:
+    """"11 events by 2 identities over 10 minutes, in account 111122223333." with `accounts` already escaped by the caller."""
+    s = scope.summary
+    return (f"{_n(s.events_in_scope, 'event', 'events')} by {_n(len(tl.actors), 'identity', 'identities')} {_minutes(scope)}, "
+            f"in {'account' if len(tl.exposure.accounts) == 1 else 'accounts'} {accounts}.")
+
+
+def at_a_glance(scope: Scope, tl: Timeline, plan: Plan, md: Callable[..., str]) -> list[str]:
+    """A short block above the summary: how big, what stands out, and what to do first. `md` is the report's escaper."""
+    if not scope.summary.events_in_scope:
+        return []
     contain = [a for a in plan.actions if a.phase == "contain"]
     runnable = sum(1 for a in plan.actions if a.operations)
-    out = ["> **At a glance.** "
-           f"{_n(s.events_in_scope, 'event', 'events')} by {_n(len(tl.actors), 'identity', 'identities')} {_minutes(scope)}, "
-           f"in {'account' if len(x.accounts) == 1 else 'accounts'} {accounts}.", ">"]
-    out += [f"> - {line}" for line in stands_out] or ["> - Nothing in the exposure stands out beyond the timeline."]
+    out = [f"> **At a glance.** {headline(scope, tl, ', '.join(md(a) for a in tl.exposure.accounts))}", ">"]
+    out += [f"> - **{strong}**{rest}" for strong, rest, _ in glance_points(scope, tl)] or ["> - Nothing in the exposure stands out beyond the timeline."]
     out += ["> - Tactics: " + " · ".join(f"{t.tactic} ×{t.events}" for t in tl.tactics) + "."]
     if contain:
         first = ", ".join(f"{a.id} {a.title.lower()}" for a in contain[:3])
@@ -152,10 +179,7 @@ def at_a_glance(scope: Scope, tl: Timeline, plan: Plan, md: Callable[..., str]) 
     return [*out, ""]
 
 
-
 # ---- what each identity was: a collapsible block per identity
-
-MAX_CALLS: Final = 15
 
 
 def h(value: object, limit: int = 120) -> str:
@@ -173,32 +197,10 @@ def _kv_table(pairs: list[tuple[str, str]], md: Callable[..., str], header: tupl
     return [f"| {header[0]} | {header[1]} |", "|---|---|", *(f"| {md(k, 80)} | {md(v, 300)} |" for k, v in pairs)]
 
 
-def _idesc(kind: str, value: str) -> str:
-    if kind in ("function_name", "instance_id"):
-        return f"{_KIND_NAMES[kind]} {value}"
-    return f"{_KIND_NAMES.get(kind, 'credential')} ...{value[-4:]}"
-
-
-def _issued(t_rule: str, issuer: ScopedEvent, md: Callable[..., str]) -> list[str]:
-    ev = issuer.event
-    out = [f"**How it came about.** The call `{md(t_rule)}`, made by **{md(actor_label(ev.user_identity))}** at {md(ev.event_time)}"
-           + (f" from {md(ev.source_ip)}" if ev.source_ip else "") + ".", ""]
-    pairs = params.describe(ev)
-    return out + (_kv_table(pairs, md) + [""] if pairs else ["No parameters were logged for it.", ""])
-
-
-def _did(events: list[ScopedEvent], md: Callable[..., str]) -> list[str]:
-    rows = []
-    for s in events[:MAX_CALLS]:
-        ev = s.event
-        pairs = [] if ev.read_only else params.describe(ev)[:3]  # a write's parameters say what it changed; reads are noise
-        rows.append(f"| {md(ev.event_time)} | {md(action(ev))} | {md('; '.join(f'{k} {v}' for k, v in resources(ev)), 200)} | "
-                    f"{md(ev.error_code or 'ok')} | {md('; '.join(f'{k}={v[:60]}' for k, v in pairs), 240)} |")
-    out = ["| Time | Call | Target | Result | Parameters (writes) |", "|---|---|---|---|---|", *rows]
-    if len(events) > MAX_CALLS:
-        out.append("")
-        out.append(f"{len(events) - MAX_CALLS} more calls are in the timeline.")
-    return [*out, ""]
+def _issued_md(i: Issued, md: Callable[..., str]) -> list[str]:
+    out = [f"**How it came about.** The call `{md(i.rule)}`, made by **{md(i.by)}** at {md(i.time)}"
+           + (f" from {md(i.ip)}" if i.ip else "") + ".", ""]
+    return out + (_kv_table(i.params, md) + [""] if i.params else ["No parameters were logged for it.", ""])
 
 
 def identities_section(scope: Scope, tl: Timeline, md: Callable[..., str]) -> list[str]:
@@ -206,36 +208,24 @@ def identities_section(scope: Scope, tl: Timeline, md: Callable[..., str]) -> li
     came about (the issuing call and its parameters), and what it did."""
     if not scope.events:
         return []
-    by_id = {s.event.event_id: s for s in scope.events}
-    label_of = {s.event.event_id: actor_label(s.event.user_identity) for s in scope.events}
-    tainted = {f"{t.kind}:{t.value}": t for t in scope.taint.identities}
+    identities, unused = collect_identities(scope, tl)
     out = ["## Identities", "",
            "Open one to see who it is, how it came about (the call that created or handed it over, with the parameters that were "
            "logged) and what it did. Secrets are never shown, and environment variables show their names only.", ""]
-    for actor in tl.actors[:MAX_NODES]:
-        evs = [s for s in scope.events if label_of[s.event.event_id] == actor.label]
-        via: list[str] = []
-        for s in evs:
-            if s.via and s.via in tainted and s.via not in via:
-                via.append(s.via)
-        matched = sorted({i for s in evs if s.origin == "seed" for i in s.matched_indicators})
-        what = f" · {h(_idesc(*via[0].split(':', 1)))}" if via else ""
-        body: list[str] = []
-        who = [("ARN", actor.arn or ""), ("Account", actor.account or ""), ("Access keys", ", ".join(actor.access_keys)),
-               ("Source addresses", ", ".join(actor.source_ips)), ("User agents", "; ".join(actor.user_agents[:3])),
-               ("First seen", actor.first_event_time), ("Last seen", actor.last_event_time)]
-        body += _kv_table([(k, v) for k, v in who if v], md, ("Who it is", "Detail")) + [""]
-        if matched:
-            body += [f"**Matched** the indicator{'s' if len(matched) != 1 else ''} {', '.join(f'`{md(m)}`' for m in matched)}.", ""]
-        for v in via[:3]:
-            t = tainted[v]
-            if t.issued_by in by_id:
-                body += _issued(t.rule, by_id[t.issued_by], md)
-        body += [f"**What it did** ({_n(len(evs), 'call', 'calls')})", ""] + _did(evs, md)
-        out += details(f"<b>{h(actor.label)}</b> · {_calls(len(evs))} · {'matched an indicator' if matched else 'followed'}{what}", body)
-    used = {s.via for s in scope.events if s.via}
-    for t in scope.taint.identities:
-        if f"{t.kind}:{t.value}" in used or t.issued_by not in by_id:
-            continue
-        out += details(f"<b>{h(_idesc(t.kind, t.value))}</b> · never used in these logs", _issued(t.rule, by_id[t.issued_by], md))
+    for f in identities:
+        body = _kv_table(f.who, md, ("Who it is", "Detail")) + [""]
+        if f.matched:
+            body += [f"**Matched** the indicator{'s' if len(f.matched) != 1 else ''} {', '.join(f'`{md(m)}`' for m in f.matched)}.", ""]
+        for i in f.issued:
+            body += _issued_md(i, md)
+        rows = [f"| {md(d.time)} | {md(d.call)} | {md(d.target, 200)} | {md(d.result)} | {md(d.params, 240)} |" for d in f.did]
+        body += [f"**What it did** ({_n(f.calls, 'call', 'calls')})", "", "| Time | Call | Target | Result | Parameters (writes) |",
+                 "|---|---|---|---|---|", *rows]
+        if f.more:
+            body += ["", f"{f.more} more calls are in the timeline."]
+        body.append("")
+        what = f" · {h(f.what)}" if f.what else ""
+        out += details(f"<b>{h(f.label)}</b> · {_calls(f.calls)} · {'matched an indicator' if f.matched else 'followed'}{what}", body)
+    for u in unused:
+        out += details(f"<b>{h(u.what)}</b> · never used in these logs", _issued_md(u.issued, md))
     return out

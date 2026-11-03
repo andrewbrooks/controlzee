@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -212,17 +213,27 @@ def plan(
     out.print(f"Wrote {out_path} (sha256 {p.plan_sha256[:16]}...)")
 
 
+class ReportFormat(StrEnum):
+    md = "md"
+    html = "html"
+
+
 @app.command()
 def report(
     scope_path: ScopeArg = Path("scope.json"),
-    out_path: Annotated[Path, typer.Option("--out", "-o", help="Where to write the Markdown report.")] = Path("report.md"),
+    out_path: Annotated[Path | None, typer.Option("--out", "-o", help="Where to write the report (default: report.md, or report.html).")] = None,
+    fmt: Annotated[ReportFormat, typer.Option("--format", help="md: Markdown, for a ticket or a pull request. html: one self-contained page "
+                                              "with diagrams, click to copy, a checklist and a filter; no network needed.")] = ReportFormat.md,
     force: Force = False,
 ) -> None:
-    """Write a Markdown report: summary, coverage, timeline, exposure and the response plan."""
-    from controlzee.report import build_report
-
-    _derive(scope_path, out_path, force, build_report)
-    out.print(f"Wrote {out_path}")
+    """Write a report: summary, coverage, timeline, exposure and the response plan, as Markdown or as one HTML page."""
+    if fmt is ReportFormat.html:
+        from controlzee.html_report import build_html as build
+    else:
+        from controlzee.report import build_report as build
+    target = out_path or Path(f"report.{fmt.value}")
+    _derive(scope_path, target, force, build)
+    out.print(f"Wrote {target}")
 
 
 respond_app = typer.Typer(no_args_is_help=True, add_completion=False, rich_markup_mode=None,

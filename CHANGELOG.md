@@ -4,6 +4,12 @@ Versions are `0.x`: output formats (schemas) may change between releases.
 
 ## Unreleased
 
+- `controlzee report --format html` writes `report.html`: the same report as one self-contained page (no network, no library).
+  It adds a diagram of how the attacker moved and a swimlane timeline (plain SVG; zoom with the buttons, Ctrl+wheel or a double click, drag to pan or use the scroll bar, click a dot to jump to its row in the call table), click to copy event ids and commands, a
+  filter on the call table, a checklist that remembers what was done, expand all, and a light or dark theme. The page
+  carries a Content Security Policy that allows only its own stylesheet and script, by hash, and a test checks every tag
+  and attribute against an allowlist, including on a page built from hostile log content.
+
 - Each evidence table has a folded "Full event IDs" block (one id per line, so GitHub's copy button or a triple click gets
   exactly one) next to the shortened codes.
 - A plan step's evidence is a table (when, who, call, target, result, short event id), with repeated calls as one row
