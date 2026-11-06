@@ -5,6 +5,9 @@ did, and provides output that can be parsed by other tools and humans.
 
 Named for CTRL+Z, but most of the time the right answer is rebuild, not undo.
 
+**[See example reports](https://andrewbrooks.github.io/controlzee/)**: six incidents, from a chain of roles to switched-off logging, as live HTML
+reports. Four are built from made-up logs and two from sanitized real CloudTrail.
+
 > **Proof of concept (alpha).** Read the [status](#status) before pointing it at an account that matters. `respond`
 > changes IAM and other AWS resources; only part of it has been run against a real account.
 
@@ -204,9 +207,12 @@ Each output cites the scope it came from; the same scope always gives the same b
   Steps with operations can be carried out by `controlzee respond` (see above); the rest are for a person. A value from
   the logs reaches a command only if it has the documented form for its kind, and is shell-quoted; otherwise the step is
   manual and says why.
-- **`report`**: `--format md` (the default) or `--format html`. HTML is one self-contained page with the diagrams drawn,
-  click-to-copy for event ids and commands, a filter on the calls, a checklist that remembers what was done, expand all and
-  a light or dark theme; it needs no network. The Markdown has an at-a-glance block, the summary, a diagram of how the attacker moved (Mermaid, which
+- **`report`**: `--format md` (the default) or `--format html`. HTML is one self-contained page ([six live examples](https://andrewbrooks.github.io/controlzee/), from made-up and sanitized logs) with the diagrams drawn,
+  click-to-copy for event ids and commands, a filter on the calls, a checklist that remembers what was done and expand all; it
+  is light only, prints, and needs no network. It is laid out as a case file: the facts of the case, what to do first, how the
+  attacker moved (a graph whose arrows are numbered like the steps of the sequence of events, and whose identities list what
+  they changed or read), a timeline with long silences cut short, then the response plan with a phase bar, and the evidence
+  behind it. Plan steps and the identities they are about light each other, and long commands are laid out over lines. The Markdown has an at-a-glance block, the summary, a diagram of how the attacker moved (Mermaid, which
   GitHub draws), the coverage, timeline, exposure, the plan as a task list, and the indicators. Everything from the logs
   is escaped, so log content cannot add links, HTML or table cells, and diagram labels are cut to a safe character set.
   Long parts are folded into collapsible blocks, and each identity has one saying who it is, how it came about (the call

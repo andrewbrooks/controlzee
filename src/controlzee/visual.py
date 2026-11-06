@@ -12,7 +12,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from controlzee.facts import KIND_NAMES, MAX_NODES, Issued, collect_identities
+from controlzee.facts import KIND_NAMES, MAX_NODES, Issued, Touch, collect_identities, touched_by_actor
 from controlzee.model.common import Confidence
 from controlzee.model.plan import Plan
 from controlzee.model.scope import Scope
@@ -38,6 +38,7 @@ class Node:
     label: str  # as the logs name the identity
     calls: int
     seed: bool  # matched an indicator, as opposed to being found by following the attacker
+    touched: tuple[Touch, ...] = ()  # what it changed or read (the HTML report draws it; the Markdown diagram does not)
 
 
 @dataclass(frozen=True)
@@ -48,10 +49,15 @@ class Graph:
     edges: list[tuple[int, int, str]]  # (from node, to node, the call that issued what was handed over)
     unused: list[tuple[int, str, str]]  # (from node, what, call): handed over and never used in these logs
     hidden: int  # identities that acted but are not drawn
+    ghosts: tuple[tuple[int, str, str], ...] = ()  # (from node, "account 123456789012", call): reached, and no logs came from it
+    edge_ids: tuple[str, ...] = ()  # the event that issued each edge, unused item and ghost, in the order of the three lists
+    unused_ids: tuple[str, ...] = ()
+    ghost_ids: tuple[str, ...] = ()
 
 
-def build_graph(scope: Scope) -> Graph | None:
-    """The graph of the scope, or None when no identity handed anything to another (a single identity has nothing to draw)."""
+def build_graph(scope: Scope, with_touched: bool = False) -> Graph | None:
+    """The graph of the scope, or None when no identity handed anything to another (a single identity has nothing to draw).
+    `with_touched` adds what each identity changed or read, which only the HTML report draws."""
     by_id = {s.event.event_id: s for s in scope.events}
     label_of = {s.event.event_id: actor_label(s.event.user_identity) for s in scope.events}
     order: list[str] = []  # actors in order of first appearance
@@ -67,6 +73,7 @@ def build_graph(scope: Scope) -> Graph | None:
             seeds.add(a)
     edges: list[tuple[str, str, str]] = []  # (from, to, call), first appearance order
     unused: list[tuple[str, str, str]] = []  # (issuer, what, call)
+    edge_event: dict[tuple[str, str, str], str] = {}  # the event that issued each
     for t in scope.taint.identities:
         if t.issued_by not in by_id:
             continue
@@ -79,18 +86,30 @@ def build_graph(scope: Scope) -> Graph | None:
         for u in users:
             if u != issuer and (issuer, u, call) not in edges:
                 edges.append((issuer, u, call))
+                edge_event[(issuer, u, call)] = t.issued_by
         if not users:
             what = f"new {KIND_NAMES.get(t.kind, 'credential')} ...{t.value[-4:]} (unused)"
             if (issuer, what, call) not in unused:
                 unused.append((issuer, what, call))
+                edge_event[(issuer, what, call)] = t.issued_by
     shown = order[:MAX_NODES]
     index = {a: i for i, a in enumerate(shown)}
     kept_edges = [(index[a], index[b], c) for a, b, c in edges if a in index and b in index]
+    edge_ids = tuple(edge_event[(a, b, c)] for a, b, c in edges if a in index and b in index)
     kept_unused = [(index[a], what, c) for a, what, c in unused if a in index]
+    unused_ids = tuple(edge_event[(a, what, c)] for a, what, c in unused if a in index)
     if not kept_edges and not kept_unused:
         return None
-    return Graph(nodes=[Node(a, calls[a], a in seeds) for a in shown], edges=kept_edges, unused=kept_unused,
-                 hidden=len(order) - len(shown))
+    touched = touched_by_actor(scope) if with_touched else {}
+    ghosts: list[tuple[int, str, str]] = []
+    ghost_ids: list[str] = []
+    for gone in scope.coverage.unlogged_accounts:  # the chain does not end there: the logs just stop
+        for eid in gone.event_ids[:1]:
+            if eid in by_id and label_of[eid] in index:
+                ghosts.append((index[label_of[eid]], f"account {gone.account}", "AssumeRole"))
+                ghost_ids.append(eid)
+    return Graph(nodes=[Node(a, calls[a], a in seeds, tuple(touched.get(a, ()))) for a in shown], edges=kept_edges, unused=kept_unused,
+                 hidden=len(order) - len(shown), ghosts=tuple(ghosts), edge_ids=edge_ids, unused_ids=unused_ids, ghost_ids=tuple(ghost_ids))
 
 
 def attack_path(scope: Scope) -> list[str]:
@@ -180,6 +199,11 @@ def at_a_glance(scope: Scope, tl: Timeline, plan: Plan, md: Callable[..., str]) 
 
 
 # ---- what each identity was: a collapsible block per identity
+
+
+def mid(text: str, n: int) -> str:
+    """Cut from the middle, so the end that tells similar names apart ("...-olc-2f39", "...-olc-77ab") stays."""
+    return text if len(text) <= n else text[: (n - 1) * 3 // 5] + "\u2026" + text[len(text) - (n - 1 - (n - 1) * 3 // 5):]
 
 
 def h(value: object, limit: int = 120) -> str:
