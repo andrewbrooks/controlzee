@@ -32,6 +32,15 @@ class Example:
 
 
 EXAMPLES = (
+    Example("ec2-steal-instance-credentials", "captured", "Stolen instance credentials",
+            "An attacker creates a role and launches an instance, then uses the instance's role credentials from another address.",
+            ("Over 200 calls come down to a handful of steps in the sequence of events.",
+             "The credentials used from another address are flagged as needing attention.",
+             "The plan cuts the instance off from its role, stops it and terminates it.")),
+    Example("secretsmanager-retrieve-secrets", "captured", "Twenty secrets read",
+            "An attacker lists and reads 20 secrets in under a minute.",
+            ("The reads are grouped into one step in the sequence of events instead of 60 rows.",
+             "What stands out says to treat the values as known to the attacker, and the plan rotates the secrets.")),
     Example("02_role_chain", "fixtures", "A chain of roles",
             "A key assumes a role, that role creates a second one, and then a role is assumed in an account whose logs are not in the inputs.",
             ("The graph draws the account with no logs as a dotted box, so the chain does not seem to end where the logs do.",
@@ -49,15 +58,6 @@ EXAMPLES = (
     Example("05_weak_ioc", "fixtures", "Weak evidence",
             "All that is known is a shared NAT address and the user agent curl. Both are weak, so the search is limited to a one-hour window.",
             ("Every event is marked weak, and the report says to confirm them before acting.",)),
-    Example("ec2-steal-instance-credentials", "captured", "Stolen instance credentials",
-            "An attacker creates a role and launches an instance, then uses the instance's role credentials from another address.",
-            ("Over 200 calls come down to a handful of steps in the sequence of events.",
-             "The credentials used from another address are flagged as needing attention.",
-             "The plan cuts the instance off from its role, stops it and terminates it.")),
-    Example("secretsmanager-retrieve-secrets", "captured", "Twenty secrets read",
-            "An attacker lists and reads 20 secrets in under a minute.",
-            ("The reads are grouped into one step in the sequence of events instead of 60 rows.",
-             "What stands out says to treat the values as known to the attacker, and the plan rotates the secrets.")),
 )
 
 _CSS = """
