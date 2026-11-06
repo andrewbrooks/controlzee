@@ -1,6 +1,6 @@
 """SVG pictures for the HTML report: how the attacker moved, who did what when, and the tactic mix.
 
-Drawn here, in plain SVG with CSS classes (the page's stylesheet colours them, in light and dark), so the report needs no
+Drawn here, in plain SVG with CSS classes (the page's stylesheet colours them), so the report needs no
 library and no network. The numbers are computed, rounded to one decimal and always printed the same way, so the same
 scope gives the same bytes. Every piece of text from the logs goes through `visual.h`, and nothing from the logs is ever
 used as an element name, a class or an id: classes come from fixed lists, ids from counters.
@@ -56,8 +56,12 @@ def _short(name: str) -> str:
     parts = name.split(":", 5)
     if not name.startswith("arn:") or len(parts) < 6:
         return name
-    last = parts[5].split("/")[-1].removeprefix("function:")  # "function:billing-report:$LATEST" is the function and a version
-    return last.split(":")[0] or name
+    resource = parts[5]
+    if "/" in resource:  # "policy/ReadOnlyAccess", "role/path/name": the last part
+        return resource.split("/")[-1] or name
+    # "function:billing-report:$LATEST", "secret:prod-db-AbCdEf", "log-group:name:*": the name after the type
+    pieces = resource.split(":")
+    return (pieces[1] if len(pieces) > 1 else pieces[0]) or name
 
 
 def touch_text(t: Touch) -> str:
@@ -76,7 +80,7 @@ def _name_lines(name: str) -> list[str]:
     if len(name) <= NAME_CHARS or "/" not in name:
         return [_mid(name, NAME_CHARS)]
     head, rest = name.split("/", 1)
-    return [head + "/", _mid(rest, NAME_CHARS)]
+    return [_mid(head, NAME_CHARS - 1) + "/", _mid(rest, NAME_CHARS)]
 
 
 def _header(name: str) -> int:

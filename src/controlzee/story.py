@@ -10,8 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final, Literal
 
-from controlzee.classify import action, resources, tactic
-from controlzee.facts import KIND_NAMES
+from controlzee.classify import action
+from controlzee.facts import KIND_NAMES, reads_secret
 from controlzee.model.scope import Scope
 from controlzee.model.timeline import Timeline
 from controlzee.timeline import actor_label, privilege_change
@@ -23,7 +23,6 @@ GROUP_SECONDS: Final = 30  # repeats this close are one moment (bursts in the ca
 
 Kind = Literal["tamper", "privilege", "instance", "secrets", "issued", "start"]
 _RANK: Final = {k: i for i, k in enumerate(("tamper", "privilege", "instance", "secrets", "issued", "start"))}
-_SECRET_KINDS: Final = ("secret", "parameter", "parameter path")
 
 
 @dataclass(frozen=True)
@@ -68,7 +67,7 @@ def _raw(scope: Scope, tl: Timeline) -> list[Moment]:
         ev = s.event
         if (pc := privilege_change(ev)) is not None and pc.outcome == "ok":
             add("privilege", "Full control granted" if pc.admin else "Permissions changed", f"{pc.action} on {pc.principal}", ev.event_id, pc.admin)
-        elif ev.error_code is None and tactic(ev) == "credential-access" and any(k in _SECRET_KINDS for k, _ in resources(ev)):
+        elif reads_secret(ev):
             add("secrets", "Secrets read", action(ev), ev.event_id, True)
         elif ev.event_id in issued:
             add("issued", issued[ev.event_id], action(ev), ev.event_id, False)
@@ -88,18 +87,25 @@ def _raw(scope: Scope, tl: Timeline) -> list[Moment]:
     return sorted(found.values(), key=lambda m: (m.t_us, _RANK[m.kind], m.event_id))
 
 
-def build_moments(scope: Scope, tl: Timeline) -> list[Moment]:
-    """The moments in time order with bursts grouped, or [] when there are fewer than `MIN_MOMENTS` (not enough to be a story).
-    All of them are returned; the renderer shows `MAX_MOMENTS` and counts the rest."""
+def _group(raw: list[Moment]) -> list[Moment]:
+    """Bursts of the same call by the same identity (`GROUP_SECONDS` apart at most) as one moment with a count. A group keeps every call it
+    stands for, and the marker of the first call that matched an indicator if any of them has it."""
     grouped: list[Moment] = []
     last_of: dict[tuple[str, str, str], int] = {}  # (kind, actor, detail) to the index of its latest group
-    for m in _raw(scope, tl):
+    for m in raw:
         key = (m.kind, m.actor, m.detail)
         i = last_of.get(key)
         if i is not None and m.t_us - grouped[i].end_us <= GROUP_SECONDS * 1_000_000 and m.kind != "start":
             g = grouped[i]
-            grouped[i] = Moment(**{**g.__dict__, "end_us": m.t_us, "count": g.count + 1, "event_ids": (*g.event_ids, *m.event_ids)})
+            grouped[i] = Moment(**{**g.__dict__, "end_us": m.t_us, "count": g.count + 1, "event_ids": (*g.event_ids, *m.event_ids), "first": g.first or m.first})
         else:
             last_of[key] = len(grouped)
             grouped.append(m)
+    return grouped
+
+
+def build_moments(scope: Scope, tl: Timeline) -> list[Moment]:
+    """The moments in time order with bursts grouped, or [] when there are fewer than `MIN_MOMENTS` (not enough to be a story).
+    All of them are returned; the renderer shows `MAX_MOMENTS` and counts the rest."""
+    grouped = _group(_raw(scope, tl))
     return grouped if len(grouped) >= MIN_MOMENTS else []

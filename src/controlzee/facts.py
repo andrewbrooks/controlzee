@@ -19,7 +19,7 @@ from controlzee.timeline import actor_label, privilege_change
 MAX_NODES: Final = 30  # a picture of more than this is not a picture
 MAX_CALLS: Final = 15  # calls listed per identity
 MAX_TOUCHED: Final = 4  # kinds of resource shown on an identity in the picture; the rest are counted
-_SECRET_KINDS: Final = ("secret", "parameter", "parameter path")
+SECRET_KINDS: Final = ("secret", "parameter", "parameter path")
 KIND_NAMES: Final = {"access_key_id": "access key", "principal_id": "user", "role_id": "role", "instance_id": "instance",
                      "function_name": "function"}
 
@@ -149,6 +149,11 @@ class Touch:
 _ACCESS_ORDER: Final = {"write": 0, "delete": 0, "read": 1}
 
 
+def reads_secret(ev: Event) -> bool:
+    """A successful call that reads a secret or parameter value: the one test the graph and the sequence of events both use."""
+    return ev.error_code is None and tactic(ev) == "credential-access" and any(k in SECRET_KINDS for k, _ in resources(ev))
+
+
 def touched_by_actor(scope: Scope) -> dict[str, list[Touch]]:
     """For each identity, the resources its successful calls changed, deleted or read, grouped by kind and access, the ones that need
     attention first. Role assumptions are left out (they are the arrows of the graph) and so are failed calls."""
@@ -167,7 +172,7 @@ def touched_by_actor(scope: Scope) -> dict[str, list[Touch]]:
                 group.append(name)
             if pc is not None and pc.admin and pc.principal == f"{kind} {name}":
                 flags.setdefault(who, {})[(kind, acc)] = "admin"
-            elif acc == "read" and tactic(ev) == "credential-access" and kind in _SECRET_KINDS:
+            elif acc == "read" and kind in SECRET_KINDS and reads_secret(ev):
                 flags.setdefault(who, {}).setdefault((kind, acc), "secret")
     out: dict[str, list[Touch]] = {}
     for who, groups in names.items():

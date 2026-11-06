@@ -204,9 +204,10 @@ JS = """
 
   var gw = $('.gwrap');
   if (gw) { (function () {
-    var svg = $('svg.graph', gw), own = svg.getAttribute('width'), fit = svg.getBoundingClientRect().width, z = 1;
-    function apply() { if (z === 1) { svg.setAttribute('width', own); svg.classList.remove('zoomed'); fit = svg.getBoundingClientRect().width; return; }
-      svg.setAttribute('width', Math.round(fit * z)); svg.classList.add('zoomed'); }
+    var svg = $('svg.graph', gw), own = svg.getAttribute('width'), z = 1;
+    function fit() { return svg.classList.contains('wide') ? +own : Math.max(1000, gw.clientWidth); }  // the width the stylesheet gives it unzoomed
+    function apply() { if (z === 1) { svg.setAttribute('width', own); svg.classList.remove('zoomed'); return; }
+      svg.setAttribute('width', Math.round(fit() * z)); svg.classList.add('zoomed'); }
     function set(k) { z = Math.min(3, Math.max(0.5, k)); apply(); }
     $$('[data-gzoom]').forEach(function (b) { b.addEventListener('click', function () {
       var k = b.getAttribute('data-gzoom'); set(k === 'reset' ? 1 : z * (k === 'in' ? 1.25 : 0.8)); }); });

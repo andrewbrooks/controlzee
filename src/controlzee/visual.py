@@ -55,8 +55,9 @@ class Graph:
     ghost_ids: tuple[str, ...] = ()
 
 
-def build_graph(scope: Scope) -> Graph | None:
-    """The graph of the scope, or None when no identity handed anything to another (a single identity has nothing to draw)."""
+def build_graph(scope: Scope, with_touched: bool = False) -> Graph | None:
+    """The graph of the scope, or None when no identity handed anything to another (a single identity has nothing to draw).
+    `with_touched` adds what each identity changed or read, which only the HTML report draws."""
     by_id = {s.event.event_id: s for s in scope.events}
     label_of = {s.event.event_id: actor_label(s.event.user_identity) for s in scope.events}
     order: list[str] = []  # actors in order of first appearance
@@ -99,7 +100,7 @@ def build_graph(scope: Scope) -> Graph | None:
     unused_ids = tuple(edge_event[(a, what, c)] for a, what, c in unused if a in index)
     if not kept_edges and not kept_unused:
         return None
-    touched = touched_by_actor(scope)
+    touched = touched_by_actor(scope) if with_touched else {}
     ghosts: list[tuple[int, str, str]] = []
     ghost_ids: list[str] = []
     for gone in scope.coverage.unlogged_accounts:  # the chain does not end there: the logs just stop

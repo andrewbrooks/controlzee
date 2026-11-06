@@ -107,7 +107,7 @@ def _case_header(scope: Scope, tl: Timeline, plan: Plan) -> str:
     runnable = sum(1 for a in plan.actions if a.operations)
     rows = [("Incident window", window, took),
             ("Accounts", accounts or "none named", ""),
-            ("Identities", f'<a href="#identities">{len(tl.actors)}</a>', f"{len(scope.taint.identities)} credentials followed"),
+            ("Identities", f'<a href="#identities">{len(tl.actors)}</a>', _n(len(scope.taint.identities), "credential", "credentials") + " followed"),
             ("Events in scope", f'<a href="#calls">{s.events_in_scope}</a>', f"{s.by_confidence.get('strong', 0)} strong, {s.by_confidence.get('weak', 0)} weak"),
             ("Plan steps", f'<a href="#plan">{len(plan.actions)}</a>', f"{runnable} can be run by respond")]
     return '<dl class="case">' + "".join(f'<div><dt>{h(k)}</dt><dd>{v}' + (f'<span class="sub">{h(d)}</span>' if d else "") + "</dd></div>" for k, v, d in rows) + "</dl>"
@@ -332,20 +332,22 @@ def _command(c: str) -> tuple[str, str]:
     return "\n".join(h(x, 4000) for x in lines), "&#10;".join(h(x, 4000) for x in lines)
 
 
-def _step(a: PlanAction, scope: Scope, identities: dict[str, str], pictured: bool) -> str:
-    """`identities` maps the labels of the identities this step is about to the ids of their blocks; `pictured`: the graph is on the page."""
+def _step(a: PlanAction, scope: Scope, identities: dict[str, str], drawn: set[str]) -> str:
+    """`identities` maps the labels of the identities this step is about to the ids of their blocks; `drawn` holds the labels the graph on
+    the page draws (none when there is no graph)."""
+    lit = {label: i for label, i in identities.items() if label in drawn}
     runs = ('<span class="badge run"><span aria-hidden="true">\u25b6</span> respond can do this</span>' if a.operations and not a.on_request and not a.disruptive else
             '<span class="badge run"><span aria-hidden="true">\u25b6</span> respond can do this, when named with --steps</span>' if a.operations and a.on_request else
             '<span class="badge danger"><span aria-hidden="true">\u25b2</span> respond can do this, with --allow-disruptive</span>' if a.operations else
             '<span class="badge"><span aria-hidden="true">\u270b</span> manual</span>')
     weak = ' <span class="badge">weak evidence: confirm first</span>' if a.confidence.value == "weak" else ""
-    nodes = f' data-nodes="{h(" ".join(identities.values()), 300)}"' if identities and pictured else ""
+    nodes = f' data-nodes="{h(" ".join(lit.values()), 300)}"' if lit else ""
     out = [f'<article class="step" id="step-{h(a.id)}" data-phase="{h(a.phase)}"{nodes}><div class="step-head"><input type="checkbox" data-step="{h(a.id)}" aria-label="Done: {h(a.id)}">'
            f'<span class="sid">{h(a.id)}</span><h3>{h(a.title)}</h3>{runs}{weak}</div>',
            f'<p class="target">{h(a.target, 300)}</p><p class="why">{h(a.why, 600)}</p>']
     if identities:
-        out.append('<p class="concerns">About the identity ' + ", ".join(f'<a href="#{h(i)}">{_m(label, 80)}</a>' for label, i in identities.items())
-                   + (" in the picture above.</p>" if pictured else ".</p>"))
+        out.append('<p class="concerns">About the identity ' + ", ".join(
+            f'<a href="#{h(i)}">{_m(label, 80)}</a>' + (" (in the picture above)" if label in drawn else "") for label, i in identities.items()) + ".</p>")
     if a.caution:
         out.append(f'<p class="caution"><strong>Caution:</strong> {h(a.caution, 600)}</p>')
     if a.commands:
@@ -357,7 +359,7 @@ def _step(a: PlanAction, scope: Scope, identities: dict[str, str], pictured: boo
     return "".join(out)
 
 
-def _plan(plan: Plan, scope: Scope, identities: dict[str, dict[str, str]], pictured: bool) -> str:
+def _plan(plan: Plan, scope: Scope, identities: dict[str, dict[str, str]], drawn: set[str]) -> str:
     """The response plan: a phase bar that stays in view and shows how far each phase is, then the steps by phase."""
     phases = [(phase, [a for a in plan.actions if a.phase == phase]) for phase in PHASES]
     phases = [(phase, steps) for phase, steps in phases if steps]
@@ -367,11 +369,11 @@ def _plan(plan: Plan, scope: Scope, identities: dict[str, dict[str, str]], pictu
         for phase, steps in phases) + "</nav>")
     out = ['<div class="progress"><progress id="progress" value="0" max="1"></progress><span class="note" id="progress-label"></span></div>', bar,
            '<ul class="note">' + "".join(f"<li>{h(n, 400)}</li>" for n in plan.notes) + "</ul>"]
-    if pictured and any(identities.values()):
+    if any(label in drawn for found in identities.values() for label in found):
         out.append('<p class="note">Hover over or tab to a step that is about an identity in the picture of how the attacker moved, and that identity '
                    "is outlined there; hover over an identity to see the steps about it.</p>")
     for phase, steps in phases:
-        out.append(f'<h3 class="phase-title" id="phase-{phase}">{_PHASE_TITLES[phase]}</h3>' + "".join(_step(a, scope, identities.get(a.id, {}), pictured) for a in steps))
+        out.append(f'<h3 class="phase-title" id="phase-{phase}">{_PHASE_TITLES[phase]}</h3>' + "".join(_step(a, scope, identities.get(a.id, {}), drawn) for a in steps))
     return "".join(out)
 
 
@@ -409,15 +411,13 @@ def build_html(scope: Scope) -> bytes:
             for label in labels:
                 steps_of.setdefault(label, []).append(sid)
         sections.append(("glance", "At a glance", _case_header(scope, tl, plan) + _glance(scope, tl, plan)))
-        graph = build_graph(scope)
+        graph = build_graph(scope, with_touched=True)
         if graph is not None:
-            note = ("Each arrow is a credential or principal one identity created or obtained for another. Its number is the step of the "
-                    "sequence of events that issued it, and the list under the picture says what it is. "
-                    "Click an identity to jump to its details. A double outline: matched an indicator. A single grey outline: found only by following the attacker. Dashed: "
-                    "handed over but never used in these logs. The lines inside an identity are what it changed, deleted or read, by kind "
-                    "(a triangle: it was given full control; a star: it read secrets). Dotted: an account that was reached but sent no logs, "
-                    "so what happened there is unknown. Drag the lower edge of the picture to make it taller; with scripts on, zoom with the "
-                    "buttons or Ctrl+wheel.")
+            note = ("An arrow is a credential or principal one identity created or obtained for another; its number is the step in the sequence of "
+                    "events that issued it, and the list under the picture says what it is. Double outline: matched an indicator. Grey outline: found by "
+                    "following the attacker. Dashed: handed over, never used. Dotted: an account that was reached but sent no logs, so what happened "
+                    "there is unknown. The lines inside an identity are what it changed, deleted or read (\u25b2 full control, \u2605 secrets read). "
+                    "Click an identity for its details. Drag the lower edge of the picture to make it taller; with scripts on, zoom with the buttons or Ctrl+wheel.")
             drawn = attack_svg(graph, anchors, numbers, {label: " ".join(ids) for label, ids in steps_of.items()})
             sections.append(("path", "How the attacker moved", f'<p class="note">{note}</p><div class="gbox"><div class="g-zoom">'
                              '<button type="button" data-gzoom="in" aria-label="Zoom in">+</button>'
@@ -438,7 +438,7 @@ def build_html(scope: Scope) -> bytes:
                              f'</p><div class="scroll tl-wrap"><div class="tl-zoom"><button type="button" data-zoom="in" aria-label="Zoom in">+</button>'
                              '<button type="button" data-zoom="out" aria-label="Zoom out">&minus;</button>'
                              f'<button type="button" data-zoom="reset">Reset</button></div>{lanes}</div><div class="legend">{legend}</div>'))
-        sections += [("plan", "Response plan", _plan(plan, scope, about, graph is not None)), ("identities", "Identities", _identities(scope, tl))]
+        sections += [("plan", "Response plan", _plan(plan, scope, about, {n.label for n in graph.nodes} if graph is not None else set())), ("identities", "Identities", _identities(scope, tl))]
     else:
         sections.append(("glance", "At a glance", '<p class="note">No events matched the indicators.</p>'))
     sections.append(("coverage", "What the logs cannot show", _coverage(scope)))

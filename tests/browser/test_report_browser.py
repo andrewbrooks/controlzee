@@ -187,3 +187,13 @@ def test_on_paper_nothing_is_wider_than_an_a4_page(browser, fixtures, tmp_path, 
     page.goto(page_file.as_uri())
     page.evaluate("document.querySelectorAll('details').forEach(d => d.open = true)")
     assert page.evaluate("document.documentElement.scrollWidth") <= 796
+
+
+def test_a_zoomed_graph_follows_the_window_when_it_is_resized(browser, fixtures, tmp_path):
+    page, errors = _open(browser, fixtures, tmp_path)
+    page.click("[data-gzoom=in]")
+    page.click("[data-gzoom=in]")
+    page.set_viewport_size({"width": 1100, "height": 900})
+    page.wait_for_timeout(200)
+    expected = page.evaluate("Math.round(Math.max(1000, document.querySelector('.gwrap').clientWidth) * 1.5625)")
+    assert abs(int(page.eval_on_selector("svg.graph", "e => e.getAttribute('width')")) - expected) <= 2 and errors == []

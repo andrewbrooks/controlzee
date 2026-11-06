@@ -123,3 +123,15 @@ def test_the_three_kinds_of_badge_differ_in_fill_border_and_icon(fixtures):
     page = build_html(scope_of(fixtures, "02_role_chain")).decode()
     for icon, words in (("\u25b6", "respond can do this"), ("\u25b2", "respond can do this, with --allow-disruptive"), ("\u270b", "manual")):
         assert f'<span aria-hidden="true">{icon}</span> {words}' in page
+
+
+def test_one_credential_is_not_called_credentials(fixtures):
+    one = _case_text(build_html(scope_of(fixtures, "05_weak_ioc")))  # followed exactly one credential
+    assert "1 credential followed" in one and "1 credentials" not in one
+    many = _case_text(build_html(scope_of(fixtures, "02_role_chain")))
+    assert "5 credentials followed" in many
+
+
+def _case_text(page: bytes) -> str:
+    block = re.search(r'<dl class="case">(.*?)</dl>', page.decode(), re.S).group(1)
+    return re.sub(r"<[^>]+>", " ", block)
