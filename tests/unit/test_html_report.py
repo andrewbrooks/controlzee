@@ -208,3 +208,36 @@ def test_every_mark_of_the_timeline_links_to_its_row_in_the_call_table(fixtures)
     rows = re.findall(r'<tr id="(call-\d+)"', page)
     assert len(set(rows)) == len(rows) and {t for _, t in marks} <= set(rows)  # check_inert also holds every data-target to an id
     check_inert(page.encode())
+
+
+# ---- the figures at the top
+
+def _tiles(page: bytes) -> dict[str, str]:
+    """Label of each tile to the section it links to."""
+    return {m[1]: m[0] for m in re.findall(r'<a class="card[^"]*" href="#([\w-]+)"><div class="n">[^<]*</div><div class="l">([^<]*)</div>', page.decode())}
+
+
+def test_every_tile_links_to_a_section_that_exists(fixtures):
+    for scenario in SCENARIOS:
+        page = build_html(scope_of(fixtures, scenario))
+        a = check_inert(page)  # every href is an id on the page
+        assert len(_tiles(page)) >= 5 and "plan steps" in _tiles(page)
+        assert set(_tiles(page).values()) <= set(a.ids)
+
+
+@pytest.mark.parametrize(("scenario", "tile"), [("01_leaked_key", "full control granted"), ("04_log_tampering", "logging changes"),
+                                                ("02_role_chain", "accounts without logs"), ("06_lambda", "secrets read")])
+def test_a_tile_that_needs_attention_appears_only_when_its_count_is_not_zero(fixtures, scenario, tile):
+    assert tile in _tiles(build_html(scope_of(fixtures, scenario)))
+    assert tile not in _tiles(build_html(scope_of(fixtures, "05_weak_ioc")))
+
+
+def test_an_attention_tile_says_so_in_words_and_shape_not_only_colour(fixtures):
+    page = build_html(scope_of(fixtures, "01_leaked_key")).decode()
+    assert 'class="card alert"' in page and "full control granted" in page and r'content:"\25B2"' in CSS
+
+
+def test_the_tile_for_the_timeline_falls_back_to_calls_when_there_is_no_timeline(fixtures):
+    scope = scope_of(fixtures, "05_weak_ioc")
+    page = build_html(scope)
+    assert ("swimlanes" in _tiles(page).values()) == (b'<section id="swimlanes">' in page)

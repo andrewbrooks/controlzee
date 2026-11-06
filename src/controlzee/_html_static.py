@@ -37,12 +37,15 @@ h1{font-size:30px;margin:28px 0 4px}h2{font-size:20px;margin:0 0 12px;padding-bo
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0}
 .card{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow)}
 .card .n{font-size:26px;font-weight:700;line-height:1.15}.card .l{color:var(--mut);font-size:12.5px}
+a.card{display:block;color:inherit;text-decoration:none}a.card:hover{border-color:var(--accent);text-decoration:none}a.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.card.alert{border-color:var(--danger);border-left-width:5px}.card.alert .n{color:var(--danger)}.card.alert .n::before{content:"\\25B2";font-size:15px;margin-right:6px;vertical-align:3px}
 .callout{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;background:var(--bg2);padding:14px 18px}
 .callout .lead{font-size:16px;margin:0 0 8px}.points{margin:8px 0;padding:0;list-style:none}
 .points li{padding:5px 0 5px 22px;position:relative}.points li::before{content:"";position:absolute;left:4px;top:13px;width:9px;height:9px;border-radius:50%;background:var(--danger)}
 .points li.info::before{background:var(--accent)}.points strong{font-weight:650}
 .first{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}.first ol{margin:6px 0 0;padding-left:22px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+svg.tactic-bar{margin-top:14px}
 .chip{display:inline-block;white-space:nowrap;padding:2px 9px;border-radius:999px;font-size:12px;color:#fff;background:var(--c,var(--c-other))}
 .chip.t-credential-access,.chip.t-persistence-x{color:#1f2328}
 button.chip{border:0;font:inherit;font-size:12px;cursor:pointer}button.chip.off{opacity:.35;text-decoration:line-through}

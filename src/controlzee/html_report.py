@@ -68,18 +68,31 @@ def _tactic_key(tactic: str) -> str:
 
 # ---- sections
 
-def _cards(scope: Scope, tl: Timeline, plan: Plan) -> str:
+def _cards(scope: Scope, tl: Timeline, plan: Plan, lanes: bool) -> str:
+    """The figures at the top, each a link to the section that backs it. A tile that needs attention (full control granted, secrets
+    read, logging changed, accounts without logs) exists only when its count is not zero, and says so in words as well as colour."""
     s = scope.summary
     first, last = s.first_event_time, s.last_event_time
     minutes = (parse_time_us(last) - parse_time_us(first)) // 60_000_000 if first and last else 0
-    cards = [(str(s.events_in_scope), "events in scope", f"{s.by_confidence.get('strong', 0)} strong, {s.by_confidence.get('weak', 0)} weak"),
-             (str(len(tl.actors)), "identities", f"{len(scope.taint.identities)} credentials followed"),
-             ("<1" if minutes < 1 else str(minutes), "minute" if minutes == 1 else "minutes", f"{h(first or '')[:10]}"),
-             (str(len(tl.exposure.accounts)), "account" if len(tl.exposure.accounts) == 1 else "accounts", ""),
-             (str(len(plan.actions)), "plan steps", f"{sum(1 for a in plan.actions if a.operations)} can be run by respond")]
+    x, cov = tl.exposure, scope.coverage
+    # (number, label, detail, section it links to, needs attention)
+    cards = [(str(s.events_in_scope), "events in scope", f"{s.by_confidence.get('strong', 0)} strong, {s.by_confidence.get('weak', 0)} weak", "calls", False),
+             (str(len(tl.actors)), "identities", f"{len(scope.taint.identities)} credentials followed", "identities", False),
+             ("<1" if minutes < 1 else str(minutes), "minute" if minutes == 1 else "minutes", f"{h(first or '')[:10]}", "swimlanes" if lanes else "calls", False),
+             (str(len(x.accounts)), "account" if len(x.accounts) == 1 else "accounts", "", "exposure", False),
+             (str(len(plan.actions)), "plan steps", f"{sum(1 for a in plan.actions if a.operations)} can be run by respond", "plan", False)]
+    if x.admin_granted:
+        cards.append((str(sum(1 for p in x.privilege_changes if p.admin)), "full control granted", "permission changes", "exposure", True))
+    if x.credentials_read:
+        cards.append((str(len(x.credentials_read)), "secrets read", "treat as known", "exposure", True))
+    if (tampered := sum(1 for t in cov.tampering if t.in_scope)):
+        cards.append((str(tampered), "logging changes", "by the attacker", "coverage", True))
+    if cov.unlogged_accounts:
+        cards.append((str(len(cov.unlogged_accounts)), "accounts without logs", "reached, unseen", "coverage", True))
     return '<div class="cards">' + "".join(
-        f'<div class="card"><div class="n">{h(n)}</div><div class="l">{h(label)}</div>' + (f'<div class="l">{d}</div>' if d else "") + "</div>"
-        for n, label, d in cards) + "</div>"
+        f'<a class="card{" alert" if alert else ""}" href="#{target}"><div class="n">{h(n)}</div><div class="l">{h(label)}</div>'
+        + (f'<div class="l">{d}</div>' if d else "") + "</a>"
+        for n, label, d, target, alert in cards) + "</div>"
 
 
 def _glance(scope: Scope, tl: Timeline, plan: Plan) -> str:
@@ -267,7 +280,8 @@ def build_html(scope: Scope) -> bytes:
     plan = Plan.model_validate(build_plan(scope))
     sections: list[tuple[str, str, str]] = []
     if scope.summary.events_in_scope:
-        sections.append(("glance", "At a glance", _cards(scope, tl, plan) + _glance(scope, tl, plan)))
+        lanes = timeline_svg(scope, tl, _call_ids(tl))
+        sections.append(("glance", "At a glance", _cards(scope, tl, plan, bool(lanes)) + _glance(scope, tl, plan)))
         graph = build_graph(scope)
         if graph is not None:
             anchors = {a.label: _identity_anchor(i) for i, a in enumerate(tl.actors[:MAX_NODES])}
@@ -276,7 +290,6 @@ def build_html(scope: Scope) -> bytes:
                     "handed over but never used in these logs.")
             sections.append(("path", "How the attacker moved", f'<p class="note">{note}</p><div class="scroll">{attack_svg(graph, anchors)}</div>'
                              + (f'<p class="note">{graph.hidden} more identities acted and are not drawn.</p>' if graph.hidden else "")))
-        lanes = timeline_svg(scope, tl, _call_ids(tl))
         if lanes:
             legend = "".join(f'<span><i class="{tactic_class(_tactic_key(t.tactic))}"></i>{h(t.tactic)}</span>' for t in tl.tactics)
             sections.append(("swimlanes", "Timeline", '<p class="note">One lane per identity, one dot per call, coloured by tactic. A ring: found by following the attacker. '
