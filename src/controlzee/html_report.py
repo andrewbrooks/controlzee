@@ -24,10 +24,12 @@ from controlzee.model.plan import Plan, PlanAction
 from controlzee.model.scope import Scope
 from controlzee.model.timeline import Timeline
 from controlzee.plan import PHASES, build_plan
+from controlzee.planlink import steps_by_actor
+from controlzee.shellwrap import wrap
 from controlzee.story import MAX_MOMENTS, Moment, build_moments
 from controlzee.timeline import build_timeline
 from controlzee.timeutil import parse_time_us
-from controlzee.visual import build_graph, glance_points, h, headline
+from controlzee.visual import Graph, build_graph, glance_points, h, headline
 
 _LOGO = ('<svg class="logo" viewBox="0 0 26 22" role="img" aria-label="Ctrl+Z keycap"><rect class="key" x="1" y="1" width="24" height="20" rx="4"/>'
          '<path class="glyph" d="M5.5 11 L8.5 7.5 L11.5 11"/><path class="glyph" d="M14.5 7 H20.5 L14.5 15 H20.5"/></svg>')
@@ -109,17 +111,22 @@ def _case_header(scope: Scope, tl: Timeline, plan: Plan) -> str:
     return '<dl class="case">' + "".join(f'<div><dt>{h(k)}</dt><dd>{v}' + (f'<span class="sub">{h(d)}</span>' if d else "") + "</dd></div>" for k, v, d in rows) + "</dl>"
 
 
+def _do_first(plan: Plan) -> str:
+    contain = [a for a in plan.actions if a.phase == "contain"]
+    if not contain:
+        return ""
+    items = "".join(f'<li><a href="#step-{h(a.id)}">{h(a.id)}</a> {h(a.title)}</li>' for a in contain[:5])
+    more = f'<p class="note">and {len(contain) - 5} more containment steps, in <a href="#plan">the response plan</a></p>' if len(contain) > 5 else ""
+    return (f'<div class="dofirst"><h3>Do first <span class="note">({_n(len(contain), "containment step", "containment steps")})</span></h3>'
+            f'<ol>{items}</ol>{more}</div>')
+
+
 def _glance(scope: Scope, tl: Timeline, plan: Plan) -> str:
     accounts = ", ".join(_m(a) for a in tl.exposure.accounts)
-    out = [f'<div class="callout"><p class="lead">{headline(scope, tl, accounts)}</p>']
+    out = [_do_first(plan), f'<div class="callout"><p class="lead">{headline(scope, tl, accounts)}</p>']
     points = glance_points(scope, tl)
     out.append('<ul class="points">' + "".join(f'<li class="{sev}"><strong>{h(strong)}</strong>{h(rest)}</li>' for strong, rest, sev in points)
                + "</ul>" if points else '<p class="note">Nothing in the exposure stands out beyond the timeline.</p>')
-    contain = [a for a in plan.actions if a.phase == "contain"]
-    if contain:
-        items = "".join(f'<li><a href="#step-{h(a.id)}">{h(a.id)}</a> {h(a.title)}</li>' for a in contain[:5])
-        more = f'<p class="note">and {len(contain) - 5} more containment steps</p>' if len(contain) > 5 else ""
-        out.append(f'<div class="first"><strong>Do first</strong> ({_n(len(contain), "containment step", "containment steps")})<ol>{items}</ol>{more}</div>')
     weak = sum(1 for e in scope.events if e.confidence.value == "weak")
     if weak:
         out.append(f'<p class="note">{_n(weak, "event is", "events are")} in scope on weak evidence only: confirm them before acting on them.</p>')
@@ -177,6 +184,22 @@ def _sequence(moments: list[Moment], call_ids: dict[str, str]) -> str:
     return ('<p class="note">The key moments in time order, times in UTC. Click one to see its call. '
             'A triangle: something that needs attention.</p>'
             f'<ol class="log" aria-label="Key moments in time order">{"".join(items)}</ol>')
+
+
+def _arrows(g: Graph, numbers: dict[str, int]) -> str:
+    """What each arrow of the graph is, as a list under it: the number of the step in the sequence of events that issued it (a dash when it
+    is not one of the steps shown), the call, who made it and what it handed over. The same facts as the picture, in text."""
+    rows: list[tuple[int | None, str, str, str]] = []
+    for k, (a, b, call) in enumerate(g.edges):
+        rows.append((numbers.get(g.edge_ids[k]) if k < len(g.edge_ids) else None, call, g.nodes[a].label, g.nodes[b].label))
+    for k, (src, what, call) in enumerate(g.unused):
+        rows.append((numbers.get(g.unused_ids[k]) if k < len(g.unused_ids) else None, call, g.nodes[src].label, what))
+    for k, (src, acct, call) in enumerate(g.ghosts):
+        rows.append((numbers.get(g.ghost_ids[k]) if k < len(g.ghost_ids) else None, call, g.nodes[src].label, f"{acct} (no logs)"))
+    rows.sort(key=lambda r: (r[0] is None, r[0] or 0))
+    return ('<ul class="arrows" aria-label="The arrows of the picture">' + "".join(
+        f'<li><span class="no">{n if n is not None else "&ndash;"}</span> {_m(call, 60)} <span class="mg">from</span> {_m(src, 60)} '
+        f'<span class="mg">to</span> {_m(dst, 60)}</li>' for n, call, src, dst in rows) + "</ul>")
 
 
 def _identity_anchor(i: int) -> str:
@@ -294,31 +317,52 @@ def _evidence(ids: list[str], scope: Scope) -> str:
                  _table(["When (UTC)", "Who", "Call", "Target", "Result", "Event (click to copy)"], cells, mono=(0, 1, 2, 3)), open_=False)
 
 
-def _step(a: PlanAction, scope: Scope) -> str:
-    runs = ('<span class="badge run">respond can do this</span>' if a.operations and not a.on_request and not a.disruptive else
-            '<span class="badge run">respond can do this, when named with --steps</span>' if a.operations and a.on_request else
-            '<span class="badge danger">respond can do this, with --allow-disruptive</span>' if a.operations else '<span class="badge">manual</span>')
+def _command(c: str) -> tuple[str, str]:
+    """A command for the page and for the Copy button: laid out over lines (see shellwrap), escaped line by line."""
+    lines = wrap(c).split("\n")
+    return "\n".join(h(x, 4000) for x in lines), "&#10;".join(h(x, 4000) for x in lines)
+
+
+def _step(a: PlanAction, scope: Scope, identities: dict[str, str]) -> str:
+    """`identities` maps the labels of the identities this step is about to the ids of their blocks."""
+    runs = ('<span class="badge run"><span aria-hidden="true">\u25b6</span> respond can do this</span>' if a.operations and not a.on_request and not a.disruptive else
+            '<span class="badge run"><span aria-hidden="true">\u25b6</span> respond can do this, when named with --steps</span>' if a.operations and a.on_request else
+            '<span class="badge danger"><span aria-hidden="true">\u25b2</span> respond can do this, with --allow-disruptive</span>' if a.operations else
+            '<span class="badge"><span aria-hidden="true">\u270b</span> manual</span>')
     weak = ' <span class="badge">weak evidence: confirm first</span>' if a.confidence.value == "weak" else ""
-    out = [f'<article class="step" id="step-{h(a.id)}"><div class="step-head"><input type="checkbox" data-step="{h(a.id)}" aria-label="Done: {h(a.id)}">'
+    nodes = f' data-nodes="{h(" ".join(identities.values()), 300)}"' if identities else ""
+    out = [f'<article class="step" id="step-{h(a.id)}" data-phase="{h(a.phase)}"{nodes}><div class="step-head"><input type="checkbox" data-step="{h(a.id)}" aria-label="Done: {h(a.id)}">'
            f'<span class="sid">{h(a.id)}</span><h3>{h(a.title)}</h3>{runs}{weak}</div>',
            f'<p class="target">{h(a.target, 300)}</p><p class="why">{h(a.why, 600)}</p>']
+    if identities:
+        out.append('<p class="concerns">About the identity ' + ", ".join(f'<a href="#{h(i)}">{_m(label, 80)}</a>' for label, i in identities.items())
+                   + " in the picture above.</p>")
     if a.caution:
         out.append(f'<p class="caution"><strong>Caution:</strong> {h(a.caution, 600)}</p>')
     if a.commands:
-        text = "\n".join(h(c, 4000) for c in a.commands)
-        out.append(f'<div class="cmd"><pre><code>{text}</code></pre><button data-copy="{"&#10;".join(h(c, 4000) for c in a.commands)}">Copy</button></div>')
+        shown = [_command(c) for c in a.commands]
+        out.append(f'<div class="cmd"><pre><code>{chr(10).join(t for t, _ in shown)}</code></pre>'
+                   f'<button data-copy="{"&#10;".join(c for _, c in shown)}">Copy</button></div>')
     out.append(_evidence(a.evidence, scope) if a.evidence else "")
     out.append("</article>")
     return "".join(out)
 
 
-def _plan(plan: Plan, scope: Scope) -> str:
-    out = ['<div class="progress"><progress id="progress" value="0" max="1"></progress><span class="note" id="progress-label"></span></div>',
+def _plan(plan: Plan, scope: Scope, identities: dict[str, dict[str, str]]) -> str:
+    """The response plan: a phase bar that stays in view and shows how far each phase is, then the steps by phase."""
+    phases = [(phase, [a for a in plan.actions if a.phase == phase]) for phase in PHASES]
+    phases = [(phase, steps) for phase, steps in phases if steps]
+    bar = ('<nav class="phasebar" aria-label="Plan phases">' + '<span class="arr" aria-hidden="true">\u2192</span>'.join(
+        f'<a href="#phase-{phase}" data-phase="{phase}"><span class="pt">{_PHASE_TITLES[phase]}</span> '
+        f'<span class="pc">{_n(len(steps), "step", "steps")}</span><progress class="pbar" value="0" max="{len(steps)}"></progress></a>'
+        for phase, steps in phases) + "</nav>")
+    out = ['<div class="progress"><progress id="progress" value="0" max="1"></progress><span class="note" id="progress-label"></span></div>', bar,
            '<ul class="note">' + "".join(f"<li>{h(n, 400)}</li>" for n in plan.notes) + "</ul>"]
-    for phase in PHASES:
-        steps = [a for a in plan.actions if a.phase == phase]
-        if steps:
-            out.append(f'<h3 class="phase-title">{_PHASE_TITLES[phase]}</h3>' + "".join(_step(a, scope) for a in steps))
+    if any(identities.values()):
+        out.append('<p class="note">Hover over or tab to a step that is about an identity in the picture of how the attacker moved, and that identity '
+                   "is outlined there; hover over an identity to see the steps about it.</p>")
+    for phase, steps in phases:
+        out.append(f'<h3 class="phase-title" id="phase-{phase}">{_PHASE_TITLES[phase]}</h3>' + "".join(_step(a, scope, identities.get(a.id, {})) for a in steps))
     return "".join(out)
 
 
@@ -346,22 +390,33 @@ def build_html(scope: Scope) -> bytes:
     sections: list[tuple[str, str, str]] = []
     if scope.summary.events_in_scope:
         lanes = timeline_svg(scope, tl, _call_ids(tl))
+        moments = build_moments(scope, tl)
+        numbers = {eid: i + 1 for i, m in enumerate(moments[:MAX_MOMENTS]) for eid in m.event_ids}  # arrows and the sequence share their numbers
+        anchors = {a.label: _identity_anchor(i) for i, a in enumerate(tl.actors[:MAX_NODES])}
+        by_step = steps_by_actor(plan, tl.actors[:MAX_NODES])
+        about = {sid: {label: anchors[label] for label in labels if label in anchors} for sid, labels in by_step.items()}
+        steps_of: dict[str, list[str]] = {}
+        for sid, labels in by_step.items():
+            for label in labels:
+                steps_of.setdefault(label, []).append(sid)
         sections.append(("glance", "At a glance", _case_header(scope, tl, plan) + _glance(scope, tl, plan)))
         graph = build_graph(scope)
         if graph is not None:
-            anchors = {a.label: _identity_anchor(i) for i, a in enumerate(tl.actors[:MAX_NODES])}
-            note = ("Each arrow is a credential or principal one identity created or obtained for another, labelled with the call that issued it. "
+            note = ("Each arrow is a credential or principal one identity created or obtained for another. Its number is the step of the "
+                    "sequence of events that issued it, and the list under the picture says what it is. "
                     "Click an identity to jump to its details. A double outline: matched an indicator. A single grey outline: found only by following the attacker. Dashed: "
                     "handed over but never used in these logs. The lines inside an identity are what it changed, deleted or read, by kind "
                     "(a triangle: it was given full control; a star: it read secrets). Dotted: an account that was reached but sent no logs, "
                     "so what happened there is unknown. Drag the lower edge of the picture to make it taller; with scripts on, zoom with the "
                     "buttons or Ctrl+wheel.")
+            drawn = attack_svg(graph, anchors, numbers, {label: " ".join(ids) for label, ids in steps_of.items()})
             sections.append(("path", "How the attacker moved", f'<p class="note">{note}</p><div class="gbox"><div class="g-zoom">'
                              '<button type="button" data-gzoom="in" aria-label="Zoom in">+</button>'
                              '<button type="button" data-gzoom="out" aria-label="Zoom out">&minus;</button>'
-                             f'<button type="button" data-gzoom="reset">Reset</button></div><div class="gwrap">{attack_svg(graph, anchors)}</div></div>'
+                             f'<button type="button" data-gzoom="reset">Reset</button></div><div class="gwrap">{drawn}</div></div>'
+                             + _arrows(graph, numbers)
                              + (f'<p class="note">{graph.hidden} more identities acted and are not drawn.</p>' if graph.hidden else "")))
-        story = _sequence(build_moments(scope, tl), _call_ids(tl))
+        story = _sequence(moments, _call_ids(tl))
         if story:
             sections.append(("sequence", "Sequence of events", story))
         if lanes:
@@ -374,12 +429,12 @@ def build_html(scope: Scope) -> bytes:
                              f'</p><div class="scroll tl-wrap"><div class="tl-zoom"><button type="button" data-zoom="in" aria-label="Zoom in">+</button>'
                              '<button type="button" data-zoom="out" aria-label="Zoom out">&minus;</button>'
                              f'<button type="button" data-zoom="reset">Reset</button></div>{lanes}</div><div class="legend">{legend}</div>'))
-        sections.append(("identities", "Identities", _identities(scope, tl)))
+        sections += [("plan", "Response plan", _plan(plan, scope, about)), ("identities", "Identities", _identities(scope, tl))]
     else:
         sections.append(("glance", "At a glance", '<p class="note">No events matched the indicators.</p>'))
-    sections += [("coverage", "What the logs cannot show", _coverage(scope))]
+    sections.append(("coverage", "What the logs cannot show", _coverage(scope)))
     if scope.summary.events_in_scope:
-        sections += [("calls", "Calls", _calls(tl)), ("exposure", "Exposure", _exposure(tl)), ("plan", "Response plan", _plan(plan, scope))]
+        sections += [("exposure", "Exposure", _exposure(tl)), ("calls", "Calls", _calls(tl))]
     sections.append(("appendix", "Appendix", _appendix(scope)))
     nav = "".join(f'<a href="#{i}">{_NAV[i]}</a>' for i, _, _ in sections)
     body = "".join(f'<section id="{i}"><h2>{h(t)}</h2>{content}</section>' for i, t, content in sections)

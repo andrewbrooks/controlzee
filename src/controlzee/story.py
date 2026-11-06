@@ -39,6 +39,7 @@ class Moment:
     event_id: str  # of the first call: where the ribbon links to
     hot: bool  # something that needs attention: full control, logging changed, secrets read, instance credentials used elsewhere
     first: bool = False  # also the first call that matched an indicator
+    event_ids: tuple[str, ...] = ()  # every call of the group, so an arrow of the graph can name the step that issued it
 
 
 def _issued_title(scope: Scope) -> dict[str, str]:
@@ -56,7 +57,7 @@ def _raw(scope: Scope, tl: Timeline) -> list[Moment]:
     def add(kind: Kind, title: str, detail: str, ev_id: str, hot: bool) -> None:
         ev = by_id[ev_id]
         t = parse_time_us(ev.event_time)
-        m = Moment(kind, title, detail, actor_label(ev.user_identity), ev.event_time, t, t, 1, ev_id, hot)
+        m = Moment(kind, title, detail, actor_label(ev.user_identity), ev.event_time, t, t, 1, ev_id, hot, event_ids=(ev_id,))
         if ev_id not in found or _RANK[kind] < _RANK[found[ev_id].kind]:
             found[ev_id] = m
 
@@ -97,7 +98,7 @@ def build_moments(scope: Scope, tl: Timeline) -> list[Moment]:
         i = last_of.get(key)
         if i is not None and m.t_us - grouped[i].end_us <= GROUP_SECONDS * 1_000_000 and m.kind != "start":
             g = grouped[i]
-            grouped[i] = Moment(**{**g.__dict__, "end_us": m.t_us, "count": g.count + 1})
+            grouped[i] = Moment(**{**g.__dict__, "end_us": m.t_us, "count": g.count + 1, "event_ids": (*g.event_ids, *m.event_ids)})
         else:
             last_of[key] = len(grouped)
             grouped.append(m)

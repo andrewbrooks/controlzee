@@ -50,6 +50,9 @@ class Graph:
     unused: list[tuple[int, str, str]]  # (from node, what, call): handed over and never used in these logs
     hidden: int  # identities that acted but are not drawn
     ghosts: tuple[tuple[int, str, str], ...] = ()  # (from node, "account 123456789012", call): reached, and no logs came from it
+    edge_ids: tuple[str, ...] = ()  # the event that issued each edge, unused item and ghost, in the order of the three lists
+    unused_ids: tuple[str, ...] = ()
+    ghost_ids: tuple[str, ...] = ()
 
 
 def build_graph(scope: Scope) -> Graph | None:
@@ -69,6 +72,7 @@ def build_graph(scope: Scope) -> Graph | None:
             seeds.add(a)
     edges: list[tuple[str, str, str]] = []  # (from, to, call), first appearance order
     unused: list[tuple[str, str, str]] = []  # (issuer, what, call)
+    edge_event: dict[tuple[str, str, str], str] = {}  # the event that issued each
     for t in scope.taint.identities:
         if t.issued_by not in by_id:
             continue
@@ -81,24 +85,30 @@ def build_graph(scope: Scope) -> Graph | None:
         for u in users:
             if u != issuer and (issuer, u, call) not in edges:
                 edges.append((issuer, u, call))
+                edge_event[(issuer, u, call)] = t.issued_by
         if not users:
             what = f"new {KIND_NAMES.get(t.kind, 'credential')} ...{t.value[-4:]} (unused)"
             if (issuer, what, call) not in unused:
                 unused.append((issuer, what, call))
+                edge_event[(issuer, what, call)] = t.issued_by
     shown = order[:MAX_NODES]
     index = {a: i for i, a in enumerate(shown)}
     kept_edges = [(index[a], index[b], c) for a, b, c in edges if a in index and b in index]
+    edge_ids = tuple(edge_event[(a, b, c)] for a, b, c in edges if a in index and b in index)
     kept_unused = [(index[a], what, c) for a, what, c in unused if a in index]
+    unused_ids = tuple(edge_event[(a, what, c)] for a, what, c in unused if a in index)
     if not kept_edges and not kept_unused:
         return None
     touched = touched_by_actor(scope)
     ghosts: list[tuple[int, str, str]] = []
+    ghost_ids: list[str] = []
     for gone in scope.coverage.unlogged_accounts:  # the chain does not end there: the logs just stop
         for eid in gone.event_ids[:1]:
             if eid in by_id and label_of[eid] in index:
                 ghosts.append((index[label_of[eid]], f"account {gone.account}", "AssumeRole"))
+                ghost_ids.append(eid)
     return Graph(nodes=[Node(a, calls[a], a in seeds, tuple(touched.get(a, ()))) for a in shown], edges=kept_edges, unused=kept_unused,
-                 hidden=len(order) - len(shown), ghosts=tuple(ghosts))
+                 hidden=len(order) - len(shown), ghosts=tuple(ghosts), edge_ids=edge_ids, unused_ids=unused_ids, ghost_ids=tuple(ghost_ids))
 
 
 def attack_path(scope: Scope) -> list[str]:

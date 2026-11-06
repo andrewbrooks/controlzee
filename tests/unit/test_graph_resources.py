@@ -88,7 +88,7 @@ def test_an_account_reached_without_logs_is_drawn_so_the_chain_does_not_seem_to_
 
 def test_the_picture_says_in_its_label_what_it_holds():
     svg = attack_svg(graph(Node("user/a", 3, True, (touch(),)), Node("user/b", 1, False, (touch(), touch(kind="secret")))), {})
-    assert 'aria-label="How the attacker moved: 2 identities, 3 kinds of resource touched"' in svg and 'role="img"' in svg
+    assert 'aria-label="How the attacker moved: 2 identities, 1 arrow, 3 kinds of resource touched"' in svg and 'role="img"' in svg
 
 
 HOSTILE = ['"><script>alert(1)</script>', "' onmouseover='alert(1)", "<img src=x onerror=alert(1)>", "A" * 5000]
@@ -99,7 +99,7 @@ def test_hostile_resource_and_account_names_are_inert(evil):
     nodes = (Node(evil, 3, True, (touch(kind=evil, names=(evil, evil), count=2, flag="admin"),)), Node("user/b", 1, False))
     svg = attack_svg(graph(*nodes, ghosts=((0, f"account {evil}", "AssumeRole"),)), {evil: "identity-0"})
     parsed = audit(svg.encode())  # what the browser would make of it: only our own tags, and no attribute that runs anything
-    assert set(parsed.tags) <= {"svg", "defs", "marker", "path", "rect", "text", "g", "title"}
+    assert set(parsed.tags) <= {"svg", "defs", "marker", "path", "rect", "text", "g", "title", "circle"}
     assert not [k for _t, k, _v in parsed.attrs if k.startswith("on") or k == "style"]
     assert len(svg) < 20_000  # long text is cut, not copied whole
 
