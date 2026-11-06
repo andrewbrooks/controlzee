@@ -158,3 +158,32 @@ def test_a_graph_of_four_columns_has_no_sideways_scroll_in_its_box_at_two_window
         assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
         size = page.eval_on_selector(".node .name", "e => parseFloat(getComputedStyle(e).fontSize) * e.getScreenCTM().a")
         assert size >= 12, (width, size)  # the node names are drawn at 12 pixels or more
+
+
+def test_the_header_is_two_rows_and_the_phase_bar_sits_right_under_it(browser, fixtures, tmp_path):
+    for width in (1280, 1568):
+        page_file = tmp_path / "report.html"
+        page_file.write_bytes(build_html(scope_of(fixtures, "02_role_chain")))
+        page = browser.new_context(viewport={"width": width, "height": 900}).new_page()
+        page.goto(page_file.as_uri())
+        header = page.eval_on_selector("header.top", "e => e.getBoundingClientRect().height")
+        assert 60 < header < 90
+        assert abs(float(page.eval_on_selector(".phasebar", "e => parseFloat(getComputedStyle(e).top)")) - header) <= 1.5
+        labels = page.eval_on_selector_all("header.top nav a", "els => els.map(e => e.textContent)")
+        heads = page.eval_on_selector_all("main > section > h2", "els => els.map(e => e.textContent)")
+        assert labels == heads
+        assert page.eval_on_selector("header.top nav", "e => e.scrollWidth <= e.clientWidth + 1")  # every label is in view
+        page.click("header.top nav a[href='#calls']")
+        page.wait_for_timeout(300)
+        assert page.eval_on_selector("#calls h2", "e => e.getBoundingClientRect().top") >= header - 1  # the heading is not under the header
+
+
+@pytest.mark.parametrize("scenario", SCENARIOS)
+def test_on_paper_nothing_is_wider_than_an_a4_page(browser, fixtures, tmp_path, scenario):
+    page_file = tmp_path / "report.html"
+    page_file.write_bytes(build_html(scope_of(fixtures, scenario)))
+    page = browser.new_context(viewport={"width": 794, "height": 1123}).new_page()
+    page.emulate_media(media="print")
+    page.goto(page_file.as_uri())
+    page.evaluate("document.querySelectorAll('details').forEach(d => d.open = true)")
+    assert page.evaluate("document.documentElement.scrollWidth") <= 796

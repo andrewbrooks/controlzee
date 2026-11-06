@@ -29,14 +29,11 @@ from controlzee.shellwrap import wrap
 from controlzee.story import MAX_MOMENTS, Moment, build_moments
 from controlzee.timeline import build_timeline
 from controlzee.timeutil import parse_time_us
-from controlzee.visual import Graph, build_graph, glance_points, h, headline
+from controlzee.visual import Graph, build_graph, glance_points, h, headline, mid
 
 _LOGO = ('<svg class="logo" viewBox="0 0 26 22" role="img" aria-label="Ctrl+Z keycap"><rect class="key" x="1" y="1" width="24" height="20" rx="4"/>'
          '<path class="glyph" d="M5.5 11 L8.5 7.5 L11.5 11"/><path class="glyph" d="M14.5 7 H20.5 L14.5 15 H20.5"/></svg>')
 _PHASE_TITLES = {"contain": "Contain", "investigate": "Investigate", "eradicate": "Eradicate", "recover": "Recover"}
-_NAV = {"glance": "At a glance", "path": "Attack path", "swimlanes": "Timeline", "identities": "Identities", "coverage": "Coverage",
-        "sequence": "Sequence of events", "calls": "Calls", "exposure": "Exposure", "plan": "Plan", "appendix": "Appendix"}
-
 
 def _n(count: int, one: str, many: str) -> str:
     return f"{count} {one if count == 1 else many}"
@@ -44,6 +41,11 @@ def _n(count: int, one: str, many: str) -> str:
 
 def _hash(text: str) -> str:
     return "sha256-" + base64.b64encode(hashlib.sha256(text.encode("utf-8")).digest()).decode("ascii")
+
+
+def _who(text: str, n: int = 34) -> str:
+    """An identity on one line: cut from the middle when it is long, with the whole of it in the tooltip."""
+    return f'<span class="who" title="{h(text, 300)}">{h(mid(text[:300], n))}</span>'
 
 
 def _m(text: object, limit: int = 120) -> str:
@@ -265,19 +267,26 @@ def _calls(tl: Timeline) -> str:
                '<span class="note" id="count"></span></div><div class="chips">'
                + "".join(f'<button class="chip {tactic_class(t.tactic)}" data-tactic="{_tactic_key(t.tactic)}">{h(t.tactic)}</button>' for t in tl.tactics)
                + "</div>")
+    days = {t[:10] for e in tl.entries for t in (e.time, e.end) if t}
+    one_day = len(days) == 1
+
+    def when(t: str | None) -> str:
+        return (t or "")[11:19] if one_day else t or ""
+
     rows = []
     for e in tl.entries:
         if e.kind == "gap":
-            rows.append(f'<tr class="gap"><td class="nowrap">{h(e.time)}</td><td colspan="6">gap until {h(e.end)}: {h(e.note or "", 400)}</td></tr>')
+            rows.append(f'<tr class="gap"><td class="nowrap">{h(when(e.time))}</td><td colspan="6">gap until {h(when(e.end))}: {h(e.note or "", 400)}</td></tr>')
             continue
         found = "seed" if e.origin == "seed" and not e.via else ("followed" if e.origin == "propagated" else "seed, followed")
         tactic = e.tactic or "other"
         tk = _tactic_key(tactic)
         rid = f' id="{ids[e.event_id]}"' if e.event_id in ids else ""
-        rows.append(f'<tr{rid} data-tactic="{tk}"><td class="nowrap mono">{h(e.time)}</td><td class="mono">{h(e.actor, 80)}</td><td class="mono">{h(e.action)}</td>'
+        rows.append(f'<tr{rid} data-tactic="{tk}"><td class="nowrap mono">{h(when(e.time))}</td><td class="mono actor">{_who(e.actor or "", 25)}</td><td class="mono">{h(e.action)}</td>'
                     f'<td class="mono">{h("; ".join(e.targets), 300)}</td><td>{h(e.outcome)}</td><td>{_chip(tk, tactic)}</td>'
                     f'<td>{h(found)} ({h(e.confidence.value if e.confidence else "")})</td></tr>')
-    table = ('<div class="scroll"><table id="call-table"><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Target</th><th>Result</th><th>Tactic</th>'
+    caption = f"<caption>All times are UTC, on {h(next(iter(days)))}.</caption>" if one_day else "<caption>All times are UTC.</caption>"
+    table = (f'<div class="scroll"><table id="call-table">{caption}<thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Target</th><th>Result</th><th>Tactic</th>'
              "<th>Found by</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>")
     return toolbar + _fold(f"Every in-scope call, in order ({len(tl.entries)})", table, open_=len(tl.entries) <= 25)
 
@@ -312,7 +321,7 @@ def _evidence(ids: list[str], scope: Scope) -> str:
         code = f'<code class="id" data-copy="{h(r.ids[0], 200)}" title="Click to copy the full event ID" tabindex="0">{h(r.ids[0][:8])}</code>'
         if len(r.ids) > 1:
             code += f' <code class="id" data-copy="{"&#10;".join(h(i, 200) for i in r.ids)}" title="Click to copy all {len(r.ids)} event IDs">+{len(r.ids) - 1}</code>'
-        cells.append([h(r.when), h(r.who, 80), h(r.call) + (f" ×{r.count}" if r.count > 1 else ""), h(r.target, 160), h(r.result), code])
+        cells.append([h(r.when), _who(r.who), h(r.call) + (f" ×{r.count}" if r.count > 1 else ""), h(r.target, 160), h(r.result), code])
     return _fold(f"Evidence from {_n(sum(len(r.ids) for r in rows), 'call', 'calls')}",
                  _table(["When (UTC)", "Who", "Call", "Target", "Result", "Event (click to copy)"], cells, mono=(0, 1, 2, 3)), open_=False)
 
@@ -436,7 +445,7 @@ def build_html(scope: Scope) -> bytes:
     if scope.summary.events_in_scope:
         sections += [("exposure", "Exposure", _exposure(tl)), ("calls", "Calls", _calls(tl))]
     sections.append(("appendix", "Appendix", _appendix(scope)))
-    nav = "".join(f'<a href="#{i}">{_NAV[i]}</a>' for i, _, _ in sections)
+    nav = "".join(f'<a href="#{i}">{h(t)}</a>' for i, t, _ in sections)
     body = "".join(f'<section id="{i}"><h2>{h(t)}</h2>{content}</section>' for i, t, content in sections)
     csp = (f"default-src 'none'; style-src '{_hash(CSS)}'; script-src '{_hash(JS)}'; img-src data:; base-uri 'none'; form-action 'none'")
     page = (

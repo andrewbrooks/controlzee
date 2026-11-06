@@ -200,6 +200,11 @@ def at_a_glance(scope: Scope, tl: Timeline, plan: Plan, md: Callable[..., str]) 
 # ---- what each identity was: a collapsible block per identity
 
 
+def mid(text: str, n: int) -> str:
+    """Cut from the middle, so the end that tells similar names apart ("...-olc-2f39", "...-olc-77ab") stays."""
+    return text if len(text) <= n else text[: (n - 1) * 3 // 5] + "\u2026" + text[len(text) - (n - 1 - (n - 1) * 3 // 5):]
+
+
 def h(value: object, limit: int = 120) -> str:
     """Untrusted text for HTML (the summary line of a <details>, where Markdown is not read): control characters replaced,
     length capped, every markup character turned into an entity."""

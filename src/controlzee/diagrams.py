@@ -16,6 +16,7 @@ from controlzee.model.timeline import Timeline
 from controlzee.timeline import actor_label
 from controlzee.timeutil import format_time_us, parse_time_us
 from controlzee.visual import Graph, Node, h
+from controlzee.visual import mid as _mid
 
 _TACTICS: Final = frozenset(TACTIC_ORDER)
 
@@ -48,11 +49,6 @@ CHIP_CHARS: Final = 28
 _VERB: Final = {"write": "changed", "delete": "deleted", "read": "read"}
 _MARK: Final = {"admin": "\u25b2 ", "secret": "\u2605 "}  # a shape as well as a colour: the reader may not see red
 BADGE_R: Final = 12
-
-
-def _mid(text: str, n: int) -> str:
-    """Cut from the middle, so the end that tells similar names apart ("...-olc-2f39", "...-olc-77ab") stays."""
-    return text if len(text) <= n else text[: (n - 1) * 3 // 5] + "\u2026" + text[len(text) - (n - 1 - (n - 1) * 3 // 5):]
 
 
 def _short(name: str) -> str:

@@ -27,7 +27,7 @@ runner = CliRunner(env={"COLUMNS": "400"})
 
 TAGS = {"html", "head", "meta", "title", "style", "script", "body", "header", "nav", "main", "section", "article", "footer", "h1", "h2", "h3",
         "p", "div", "span", "a", "button", "input", "ul", "ol", "li", "table", "thead", "tbody", "tr", "th", "td", "details", "summary", "pre",
-        "code", "strong", "i", "progress", "svg", "g", "rect", "path", "text", "defs", "marker", "line", "circle", "dl", "dt", "dd"}
+        "code", "strong", "i", "progress", "svg", "g", "rect", "path", "text", "defs", "marker", "line", "circle", "dl", "dt", "dd", "caption"}
 ATTRS = {"lang", "charset", "name", "content", "http-equiv", "class", "id", "href", "type", "value", "max", "checked", "placeholder", "aria-label",
          "role", "tabindex", "title", "open", "colspan", "viewbox", "d", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "width", "height", "rx",
          "text-anchor", "marker-end", "refx", "refy", "markerwidth", "markerheight", "orient", "preserveaspectratio", "transform"}
