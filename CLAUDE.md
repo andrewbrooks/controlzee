@@ -16,7 +16,7 @@ uv run python -m tests.builders.build_fixtures --check   # committed fixtures ma
 uv run python -m tests.builders.build_fixtures            # regenerate fixtures after editing tests/builders/
 uv run python -m controlzee.schemas                       # regenerate schemas/ after changing a model
 UPDATE_GOLDENS=1 uv run pytest tests/unit/test_scope_scenarios.py tests/unit/test_derived.py   # rewrite goldens, then review the git diff
-UPDATE_GOLDENS=1 uv run pytest tests/unit/test_demo.py                                   # rewrite the hosted demo page, docs/demo/index.html
+uv run python -m tests.builders.build_demo [--check]                                   # rewrite the demo site GitHub Pages serves (docs/index.html, docs/examples/); CI runs it as a test
 ```
 
 ## Architecture
