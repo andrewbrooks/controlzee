@@ -167,3 +167,9 @@ def test_on_paper_the_graph_shrinks_to_the_page_the_zoom_buttons_go_and_the_box_
     printing = CSS.split("@media print")[1]
     assert ".g-zoom{display:none" in printing and "height:auto !important" in printing and "resize:none" in printing
     assert "width:100% !important;min-width:0 !important" in printing and ".gbox{width:auto" in printing
+
+
+def test_without_a_graph_a_step_does_not_point_at_a_picture_that_is_not_there(fixtures):
+    page = build_html(scope_of(fixtures, "04_log_tampering")).decode()
+    assert 'class="graph' not in page and "in the picture" not in page and "data-nodes=" not in page and "Hover over or tab" not in page
+    assert re.search(r'<p class="concerns">About the identity <a href="#identity-0"><code class="ident">[^<]*</code></a>\.</p>', page)  # still a link to its details

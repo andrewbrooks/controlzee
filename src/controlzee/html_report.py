@@ -323,20 +323,20 @@ def _command(c: str) -> tuple[str, str]:
     return "\n".join(h(x, 4000) for x in lines), "&#10;".join(h(x, 4000) for x in lines)
 
 
-def _step(a: PlanAction, scope: Scope, identities: dict[str, str]) -> str:
-    """`identities` maps the labels of the identities this step is about to the ids of their blocks."""
+def _step(a: PlanAction, scope: Scope, identities: dict[str, str], pictured: bool) -> str:
+    """`identities` maps the labels of the identities this step is about to the ids of their blocks; `pictured`: the graph is on the page."""
     runs = ('<span class="badge run"><span aria-hidden="true">\u25b6</span> respond can do this</span>' if a.operations and not a.on_request and not a.disruptive else
             '<span class="badge run"><span aria-hidden="true">\u25b6</span> respond can do this, when named with --steps</span>' if a.operations and a.on_request else
             '<span class="badge danger"><span aria-hidden="true">\u25b2</span> respond can do this, with --allow-disruptive</span>' if a.operations else
             '<span class="badge"><span aria-hidden="true">\u270b</span> manual</span>')
     weak = ' <span class="badge">weak evidence: confirm first</span>' if a.confidence.value == "weak" else ""
-    nodes = f' data-nodes="{h(" ".join(identities.values()), 300)}"' if identities else ""
+    nodes = f' data-nodes="{h(" ".join(identities.values()), 300)}"' if identities and pictured else ""
     out = [f'<article class="step" id="step-{h(a.id)}" data-phase="{h(a.phase)}"{nodes}><div class="step-head"><input type="checkbox" data-step="{h(a.id)}" aria-label="Done: {h(a.id)}">'
            f'<span class="sid">{h(a.id)}</span><h3>{h(a.title)}</h3>{runs}{weak}</div>',
            f'<p class="target">{h(a.target, 300)}</p><p class="why">{h(a.why, 600)}</p>']
     if identities:
         out.append('<p class="concerns">About the identity ' + ", ".join(f'<a href="#{h(i)}">{_m(label, 80)}</a>' for label, i in identities.items())
-                   + " in the picture above.</p>")
+                   + (" in the picture above.</p>" if pictured else ".</p>"))
     if a.caution:
         out.append(f'<p class="caution"><strong>Caution:</strong> {h(a.caution, 600)}</p>')
     if a.commands:
@@ -348,7 +348,7 @@ def _step(a: PlanAction, scope: Scope, identities: dict[str, str]) -> str:
     return "".join(out)
 
 
-def _plan(plan: Plan, scope: Scope, identities: dict[str, dict[str, str]]) -> str:
+def _plan(plan: Plan, scope: Scope, identities: dict[str, dict[str, str]], pictured: bool) -> str:
     """The response plan: a phase bar that stays in view and shows how far each phase is, then the steps by phase."""
     phases = [(phase, [a for a in plan.actions if a.phase == phase]) for phase in PHASES]
     phases = [(phase, steps) for phase, steps in phases if steps]
@@ -358,11 +358,11 @@ def _plan(plan: Plan, scope: Scope, identities: dict[str, dict[str, str]]) -> st
         for phase, steps in phases) + "</nav>")
     out = ['<div class="progress"><progress id="progress" value="0" max="1"></progress><span class="note" id="progress-label"></span></div>', bar,
            '<ul class="note">' + "".join(f"<li>{h(n, 400)}</li>" for n in plan.notes) + "</ul>"]
-    if any(identities.values()):
+    if pictured and any(identities.values()):
         out.append('<p class="note">Hover over or tab to a step that is about an identity in the picture of how the attacker moved, and that identity '
                    "is outlined there; hover over an identity to see the steps about it.</p>")
     for phase, steps in phases:
-        out.append(f'<h3 class="phase-title" id="phase-{phase}">{_PHASE_TITLES[phase]}</h3>' + "".join(_step(a, scope, identities.get(a.id, {})) for a in steps))
+        out.append(f'<h3 class="phase-title" id="phase-{phase}">{_PHASE_TITLES[phase]}</h3>' + "".join(_step(a, scope, identities.get(a.id, {}), pictured) for a in steps))
     return "".join(out)
 
 
@@ -429,7 +429,7 @@ def build_html(scope: Scope) -> bytes:
                              f'</p><div class="scroll tl-wrap"><div class="tl-zoom"><button type="button" data-zoom="in" aria-label="Zoom in">+</button>'
                              '<button type="button" data-zoom="out" aria-label="Zoom out">&minus;</button>'
                              f'<button type="button" data-zoom="reset">Reset</button></div>{lanes}</div><div class="legend">{legend}</div>'))
-        sections += [("plan", "Response plan", _plan(plan, scope, about)), ("identities", "Identities", _identities(scope, tl))]
+        sections += [("plan", "Response plan", _plan(plan, scope, about, graph is not None)), ("identities", "Identities", _identities(scope, tl))]
     else:
         sections.append(("glance", "At a glance", '<p class="note">No events matched the indicators.</p>'))
     sections.append(("coverage", "What the logs cannot show", _coverage(scope)))
