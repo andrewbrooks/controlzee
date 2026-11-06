@@ -41,3 +41,16 @@ def test_page_works_in_both_themes_with_and_without_script(browser, fixtures, tm
     assert all(page.locator(f"[id='{h}']").count() == 1 for h in hrefs)
     assert errors == []
     ctx.close()
+
+
+def test_a_click_on_a_moment_opens_and_highlights_its_row_in_the_calls(browser, fixtures, tmp_path):
+    page_file = tmp_path / "report.html"
+    page_file.write_bytes(build_html(scope_of(fixtures, "01_leaked_key")))
+    page = browser.new_context().new_page()
+    page.goto(page_file.as_uri())
+    link = page.locator(".ribbon a").last
+    row_id = link.get_attribute("href")[1:]
+    link.click()
+    row = page.locator(f"tr[id='{row_id}']")
+    assert row.is_visible()
+    page.wait_for_selector(f"tr[id='{row_id}'].hit")

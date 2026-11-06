@@ -24,6 +24,7 @@ from controlzee.model.plan import Plan, PlanAction
 from controlzee.model.scope import Scope
 from controlzee.model.timeline import Timeline
 from controlzee.plan import PHASES, build_plan
+from controlzee.story import MAX_MOMENTS, Moment, build_moments
 from controlzee.timeline import build_timeline
 from controlzee.timeutil import parse_time_us
 from controlzee.visual import build_graph, glance_points, h, headline
@@ -112,6 +113,44 @@ def _glance(scope: Scope, tl: Timeline, plan: Plan) -> str:
     out.append("</div>")
     chips = "".join(_chip(_tactic_key(t.tactic), f"{t.tactic} ×{t.events}") for t in tl.tactics)
     return "".join(out) + tactic_bar_svg(tl) + f'<div class="chips">{chips}</div>'
+
+
+_MARKS = {"start": "\u25cf", "issued": "\u25c6", "privilege": "\u25b2", "tamper": "\u25a0", "secrets": "\u2605", "instance": "\u2726"}
+
+
+def _after(seconds: int) -> str:
+    if seconds < 1:
+        return "in the same second"
+    if seconds < 60:
+        return f"{seconds} s later"
+    if seconds < 3600:
+        return f"{seconds // 60} min later"
+    return f"{seconds // 3600} h {seconds % 3600 // 60} min later"
+
+
+def _story(moments: list[Moment], call_ids: dict[str, str]) -> str:
+    """"How it unfolded": the key moments in time order as plain links to their rows in Calls, with the time since the previous one.
+    Each has a shape and a word as well as a colour, and the ones that need attention say so in a border. Empty when there is no story."""
+    if not moments:
+        return ""
+    shown = moments[:MAX_MOMENTS]
+    items = []
+    for i, m in enumerate(shown):
+        prev = shown[i - 1] if i else None
+        title = h(m.title, 80) + (f' <span class="mn">&times;{m.count}</span>' if m.count > 1 else "")
+        body = (f'<span class="mk" aria-hidden="true">{_MARKS[m.kind]}</span><span class="mt">{title}</span>'
+                f'<span class="md">{h(m.detail, 140)}</span><span class="mw">{h(m.time[11:19])} UTC &middot; {h(m.actor, 60)}</span>')
+        body += f'<span class="mg">{_after((m.t_us - prev.end_us) // 1_000_000)}</span>' if prev else '<span class="mg">start</span>'
+        if m.first:
+            body += '<span class="mg">first call that matched an indicator</span>'
+        row = call_ids.get(m.event_id)
+        inner = f'<a href="#{row}">{body}</a>' if row else f"<span>{body}</span>"
+        items.append(f'<li class="m m-{m.kind}{" hot" if m.hot else ""}">{inner}</li>')
+    if len(moments) > len(shown):
+        items.append(f'<li class="m more"><a href="#calls">+{len(moments) - len(shown)} more moments: see Calls</a></li>')
+    return ('<h3 class="sub">How it unfolded</h3><p class="note">The key moments in time order. Click one to see its call. '
+            'A heavy border: something that needs attention.</p>'
+            f'<ol class="ribbon" aria-label="Key moments in time order">{"".join(items)}</ol>')
 
 
 def _identity_anchor(i: int) -> str:
@@ -281,7 +320,8 @@ def build_html(scope: Scope) -> bytes:
     sections: list[tuple[str, str, str]] = []
     if scope.summary.events_in_scope:
         lanes = timeline_svg(scope, tl, _call_ids(tl))
-        sections.append(("glance", "At a glance", _cards(scope, tl, plan, bool(lanes)) + _glance(scope, tl, plan)))
+        sections.append(("glance", "At a glance", _cards(scope, tl, plan, bool(lanes)) + _glance(scope, tl, plan)
+                         + _story(build_moments(scope, tl), _call_ids(tl))))
         graph = build_graph(scope)
         if graph is not None:
             anchors = {a.label: _identity_anchor(i) for i, a in enumerate(tl.actors[:MAX_NODES])}

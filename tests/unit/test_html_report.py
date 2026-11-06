@@ -142,6 +142,8 @@ def _hostile_scope(tmp_path):
     logs.add(at("2026-10-20T12:05:00Z"), "s3.amazonaws.com", "ListBuckets", iam_user(EVIL, "AKIAIOSFODNN7HOSTL2"))
     logs.add(at("2026-10-20T12:06:00Z"), "secretsmanager.amazonaws.com", "GetSecretValue", iam_user(EVIL, "AKIAIOSFODNN7HOSTL2"),
              request={"secretId": EVIL})
+    logs.add(at("2026-10-20T12:07:00Z"), "iam.amazonaws.com", "AttachUserPolicy", iam_user(EVIL, "AKIAIOSFODNN7HOSTL2"),
+             request={"userName": EVIL, "policyArn": "arn:aws:iam::aws:policy/AdministratorAccess"})
     (tmp_path / "logs").mkdir()
     (tmp_path / "logs" / "x.json").write_bytes(orjson.dumps({"Records": logs.records}))
     return build_scope([tmp_path / "logs"], assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7HOSTIL"]))]), ScopeOptions(workers=1)).scope
