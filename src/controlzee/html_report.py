@@ -18,7 +18,7 @@ from collections.abc import Iterable
 from controlzee import __version__
 from controlzee._html_static import CSS, JS
 from controlzee.classify import TACTIC_ORDER
-from controlzee.diagrams import attack_svg, tactic_bar_svg, tactic_class, timeline_svg
+from controlzee.diagrams import attack_svg, killchain_svg, marker_svg, tactic_class, timeline_svg
 from controlzee.facts import MAX_NODES, Issued, collect_identities, evidence_rows
 from controlzee.model.plan import Plan, PlanAction
 from controlzee.model.scope import Scope
@@ -33,7 +33,7 @@ _LOGO = ('<svg class="logo" viewBox="0 0 26 22" role="img" aria-label="Ctrl+Z ke
          '<path class="glyph" d="M5.5 11 L8.5 7.5 L11.5 11"/><path class="glyph" d="M14.5 7 H20.5 L14.5 15 H20.5"/></svg>')
 _PHASE_TITLES = {"contain": "Contain", "investigate": "Investigate", "eradicate": "Eradicate", "recover": "Recover"}
 _NAV = {"glance": "At a glance", "path": "Attack path", "swimlanes": "Timeline", "identities": "Identities", "coverage": "Coverage",
-        "calls": "Calls", "exposure": "Exposure", "plan": "Plan", "appendix": "Appendix"}
+        "sequence": "Sequence of events", "calls": "Calls", "exposure": "Exposure", "plan": "Plan", "appendix": "Appendix"}
 
 
 def _n(count: int, one: str, many: str) -> str:
@@ -77,31 +77,36 @@ def _tactic_key(tactic: str) -> str:
 
 # ---- sections
 
-def _cards(scope: Scope, tl: Timeline, plan: Plan, lanes: bool) -> str:
-    """The figures at the top, each a link to the section that backs it. A tile that needs attention (full control granted, secrets
-    read, logging changed, accounts without logs) exists only when its count is not zero, and says so in words as well as colour."""
+def _took(seconds: int) -> str:
+    if seconds < 60:
+        return "under a minute"
+    if seconds < 3600:
+        return f"{seconds // 60} min"
+    return f"{seconds // 3600} h {seconds % 3600 // 60:02d} min"
+
+
+def _case_header(scope: Scope, tl: Timeline, plan: Plan) -> str:
+    """The facts of the case as a definition list: when, where, who, how much, what to do. An account that was reached and sent no
+    logs is flagged where the account is named."""
     s = scope.summary
-    first, last = s.first_event_time, s.last_event_time
-    minutes = (parse_time_us(last) - parse_time_us(first)) // 60_000_000 if first and last else 0
-    x, cov = tl.exposure, scope.coverage
-    # (number, label, detail, section it links to, needs attention)
-    cards = [(str(s.events_in_scope), "events in scope", f"{s.by_confidence.get('strong', 0)} strong, {s.by_confidence.get('weak', 0)} weak", "calls", False),
-             (str(len(tl.actors)), "identities", f"{len(scope.taint.identities)} credentials followed", "identities", False),
-             ("<1" if minutes < 1 else str(minutes), "minute" if minutes == 1 else "minutes", f"{h(first or '')[:10]}", "swimlanes" if lanes else "calls", False),
-             (str(len(x.accounts)), "account" if len(x.accounts) == 1 else "accounts", "", "exposure", False),
-             (str(len(plan.actions)), "plan steps", f"{sum(1 for a in plan.actions if a.operations)} can be run by respond", "plan", False)]
-    if x.admin_granted:
-        cards.append((str(sum(1 for p in x.privilege_changes if p.admin)), "full control granted", "permission changes", "exposure", True))
-    if x.credentials_read:
-        cards.append((str(len(x.credentials_read)), "secrets read", "treat as known", "exposure", True))
-    if (tampered := sum(1 for t in cov.tampering if t.in_scope)):
-        cards.append((str(tampered), "logging changes", "by the attacker", "coverage", True))
-    if cov.unlogged_accounts:
-        cards.append((str(len(cov.unlogged_accounts)), "accounts without logs", "reached, unseen", "coverage", True))
-    return '<div class="cards">' + "".join(
-        f'<a class="card{" alert" if alert else ""}" href="#{target}"><div class="n">{h(n)}</div><div class="l">{h(label)}</div>'
-        + (f'<div class="l">{d}</div>' if d else "") + "</a>"
-        for n, label, d, target, alert in cards) + "</div>"
+    first, last = s.first_event_time or "", s.last_event_time or ""
+    unlogged = {u.account for u in scope.coverage.unlogged_accounts}
+    if first and last:
+        same_day = first[:10] == last[:10]
+        window = (f"{_m(first[:10])}, {_m(first[11:19])} to {_m(last[11:19])} UTC" if same_day
+                  else f"{_m(first[:10] + ' ' + first[11:19])} to {_m(last[:10] + ' ' + last[11:19])} UTC")
+        took = _took((parse_time_us(last) - parse_time_us(first)) // 1_000_000)
+    else:
+        window, took = "not known", ""
+    accounts = ", ".join(_m(a) + (' <a class="flag" href="#coverage"><span aria-hidden="true">\u25b2</span> no logs from it</a>' if a in unlogged else "")
+                         for a in tl.exposure.accounts)
+    runnable = sum(1 for a in plan.actions if a.operations)
+    rows = [("Incident window", window, took),
+            ("Accounts", accounts or "none named", ""),
+            ("Identities", f'<a href="#identities">{len(tl.actors)}</a>', f"{len(scope.taint.identities)} credentials followed"),
+            ("Events in scope", f'<a href="#calls">{s.events_in_scope}</a>', f"{s.by_confidence.get('strong', 0)} strong, {s.by_confidence.get('weak', 0)} weak"),
+            ("Plan steps", f'<a href="#plan">{len(plan.actions)}</a>', f"{runnable} can be run by respond")]
+    return '<dl class="case">' + "".join(f'<div><dt>{h(k)}</dt><dd>{v}' + (f'<span class="sub">{h(d)}</span>' if d else "") + "</dd></div>" for k, v, d in rows) + "</dl>"
 
 
 def _glance(scope: Scope, tl: Timeline, plan: Plan) -> str:
@@ -119,11 +124,20 @@ def _glance(scope: Scope, tl: Timeline, plan: Plan) -> str:
     if weak:
         out.append(f'<p class="note">{_n(weak, "event is", "events are")} in scope on weak evidence only: confirm them before acting on them.</p>')
     out.append("</div>")
-    chips = "".join(_chip(_tactic_key(t.tactic), f"{t.tactic} ×{t.events}") for t in tl.tactics)
-    return "".join(out) + tactic_bar_svg(tl) + f'<div class="chips">{chips}</div>'
+    return "".join(out) + _kill_chain(tl)
 
 
-_MARKS = {"start": "\u25cf", "issued": "\u25c6", "privilege": "\u25b2", "tamper": "\u25a0", "secrets": "\u2605", "instance": "\u2726"}
+def _kill_chain(tl: Timeline) -> str:
+    strip = killchain_svg(tl)
+    if not strip:
+        return ""
+    other = next((t for t in tl.tactics if t.tactic == "other"), None)
+    extra = f' {_n(other.events + other.failed, "call is", "calls are")} not in any of these tactics.' if other else ""
+    return (f'<h3 class="sub">Tactics used</h3><p class="note">The ATT&amp;CK tactics controlzee can tell apart, in the framework\'s order, with the number of '
+            f'calls under each. Filled: used. Hollow: not seen.{extra}</p>{strip}')
+
+
+_MARKS = {"start": "\u25cf", "issued": "\u25c6", "privilege": "\u2191", "tamper": "\u2298", "secrets": "\u2605", "instance": "\u2726"}
 
 
 def _after(seconds: int) -> str:
@@ -136,29 +150,33 @@ def _after(seconds: int) -> str:
     return f"{seconds // 3600} h {seconds % 3600 // 60} min later"
 
 
-def _story(moments: list[Moment], call_ids: dict[str, str]) -> str:
-    """"How it unfolded": the key moments in time order as plain links to their rows in Calls, with the time since the previous one.
-    Each has a shape and a word as well as a colour, and the ones that need attention say so in a border. Empty when there is no story."""
+def _sequence(moments: list[Moment], call_ids: dict[str, str]) -> str:
+    """"Sequence of events": the key moments as a numbered log, time in the left gutter, then what happened, the call and who made it,
+    then the time since the previous one. Each is a plain link to its row in Calls. A moment that needs attention has an icon and the
+    attention colour, and the icon comes with words for those who cannot see it. Empty when there is no story."""
     if not moments:
         return ""
     shown = moments[:MAX_MOMENTS]
+    many_days = shown[0].time[:10] != shown[-1].time[:10]
     items = []
     for i, m in enumerate(shown):
         prev = shown[i - 1] if i else None
-        title = h(m.title, 80) + (f' <span class="mn">&times;{m.count}</span>' if m.count > 1 else "")
-        body = (f'<span class="mk" aria-hidden="true">{_MARKS[m.kind]}</span><span class="mt">{title}</span>'
-                f'<span class="md">{h(m.detail, 140)}</span><span class="mw">{h(m.time[11:19])} UTC &middot; {h(m.actor, 60)}</span>')
-        body += f'<span class="mg">{_after((m.t_us - prev.end_us) // 1_000_000)}</span>' if prev else '<span class="mg">start</span>'
-        if m.first:
-            body += '<span class="mg">first call that matched an indicator</span>'
+        flag = '<span class="flag"><span aria-hidden="true">\u25b2</span><span class="vh">Needs attention: </span></span> ' if m.hot else ""
+        count = f' <span class="mn">&times;{m.count}</span>' if m.count > 1 else ""
+        first = ' <span class="mg">(the first call that matched an indicator)</span>' if m.first else ""
+        when = f"{m.time[5:10]} {m.time[11:19]}" if many_days else m.time[11:19]
+        body = (f'<span class="ev-t">{h(when)}</span><span class="ev-n" aria-hidden="true">{i + 1}</span>'
+                f'<span class="ev-m"><span class="ev-i" aria-hidden="true">{_MARKS[m.kind]}</span>{flag}<strong>{h(m.title, 80)}</strong>{count}{first} '
+                f'{_m(m.detail, 140)} <span class="mg">by</span> {_m(m.actor, 60)}</span>'
+                f'<span class="ev-r">{_after((m.t_us - prev.end_us) // 1_000_000) if prev else "start"}</span>')
         row = call_ids.get(m.event_id)
-        inner = f'<a href="#{row}">{body}</a>' if row else f"<span>{body}</span>"
-        items.append(f'<li class="m m-{m.kind}{" hot" if m.hot else ""}">{inner}</li>')
+        inner = f'<a href="#{row}">{body}</a>' if row else f'<span class="row">{body}</span>'
+        items.append(f'<li class="ev{" hot" if m.hot else ""}">{inner}</li>')
     if len(moments) > len(shown):
-        items.append(f'<li class="m more"><a href="#calls">+{len(moments) - len(shown)} more moments: see Calls</a></li>')
-    return ('<h3 class="sub">How it unfolded</h3><p class="note">The key moments in time order. Click one to see its call. '
-            'A heavy border: something that needs attention.</p>'
-            f'<ol class="ribbon" aria-label="Key moments in time order">{"".join(items)}</ol>')
+        items.append(f'<li class="ev more"><a href="#calls">+{len(moments) - len(shown)} more moments: see Calls</a></li>')
+    return ('<p class="note">The key moments in time order, times in UTC. Click one to see its call. '
+            'A triangle: something that needs attention.</p>'
+            f'<ol class="log" aria-label="Key moments in time order">{"".join(items)}</ol>')
 
 
 def _identity_anchor(i: int) -> str:
@@ -328,8 +346,7 @@ def build_html(scope: Scope) -> bytes:
     sections: list[tuple[str, str, str]] = []
     if scope.summary.events_in_scope:
         lanes = timeline_svg(scope, tl, _call_ids(tl))
-        sections.append(("glance", "At a glance", _cards(scope, tl, plan, bool(lanes)) + _glance(scope, tl, plan)
-                         + _story(build_moments(scope, tl), _call_ids(tl))))
+        sections.append(("glance", "At a glance", _case_header(scope, tl, plan) + _glance(scope, tl, plan)))
         graph = build_graph(scope)
         if graph is not None:
             anchors = {a.label: _identity_anchor(i) for i, a in enumerate(tl.actors[:MAX_NODES])}
@@ -337,14 +354,23 @@ def build_html(scope: Scope) -> bytes:
                     "Click an identity to jump to its details. A double outline: matched an indicator. A single grey outline: found only by following the attacker. Dashed: "
                     "handed over but never used in these logs. The lines inside an identity are what it changed, deleted or read, by kind "
                     "(a triangle: it was given full control; a star: it read secrets). Dotted: an account that was reached but sent no logs, "
-                    "so what happened there is unknown.")
-            sections.append(("path", "How the attacker moved", f'<p class="note">{note}</p><div class="scroll">{attack_svg(graph, anchors)}</div>'
+                    "so what happened there is unknown. Drag the lower edge of the picture to make it taller; with scripts on, zoom with the "
+                    "buttons or Ctrl+wheel.")
+            sections.append(("path", "How the attacker moved", f'<p class="note">{note}</p><div class="gbox"><div class="g-zoom">'
+                             '<button type="button" data-gzoom="in" aria-label="Zoom in">+</button>'
+                             '<button type="button" data-gzoom="out" aria-label="Zoom out">&minus;</button>'
+                             f'<button type="button" data-gzoom="reset">Reset</button></div><div class="gwrap">{attack_svg(graph, anchors)}</div></div>'
                              + (f'<p class="note">{graph.hidden} more identities acted and are not drawn.</p>' if graph.hidden else "")))
+        story = _sequence(build_moments(scope, tl), _call_ids(tl))
+        if story:
+            sections.append(("sequence", "Sequence of events", story))
         if lanes:
-            legend = "".join(f'<span><i class="{tactic_class(_tactic_key(t.tactic))}"></i>{h(t.tactic)}</span>' for t in tl.tactics)
-            sections.append(("swimlanes", "Timeline", '<p class="note">One lane per identity, one dot per call, coloured by tactic. A ring: found by following the attacker. '
-                             "A cross: the call failed. A shaded band: the logs were silent. A red diamond: the attacker changed logging or detection. "
-                             "Click a dot to jump to its row in Calls; zoom with the buttons, Ctrl+wheel or a double click, and drag to pan."
+            legend = "".join(f'<span>{marker_svg(_tactic_key(t.tactic))}{h(t.tactic)}</span>' for t in tl.tactics)
+            sections.append(("swimlanes", "Timeline", '<p class="note">One lane per identity, one mark per call; the shape and colour say which tactic. '
+                             "A dark outline: found by following the attacker. A hollow mark: the call failed. A shaded band: the logs were silent. "
+                             "A red diamond: the attacker changed logging or detection. A narrow break in the axis: a long stretch with no activity, "
+                             "cut short and labelled with its length. "
+                             "Click a mark to jump to its row in Calls; zoom with the buttons, Ctrl+wheel or a double click, and drag to pan."
                              f'</p><div class="scroll tl-wrap"><div class="tl-zoom"><button type="button" data-zoom="in" aria-label="Zoom in">+</button>'
                              '<button type="button" data-zoom="out" aria-label="Zoom out">&minus;</button>'
                              f'<button type="button" data-zoom="reset">Reset</button></div>{lanes}</div><div class="legend">{legend}</div>'))

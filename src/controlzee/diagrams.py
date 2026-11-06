@@ -179,6 +179,43 @@ def attack_svg(g: Graph, anchors: dict[str, str]) -> str:
 
 GUTTER, PLOT_W, PAD_R, TOP, LANE_H, AXIS_H = 220, 860, 24, 30, 38, 46
 _DODGE: Final = (0, -7, 7, -14, 14)
+PAD_L: Final = 8  # room left of the plot, so a mark on the first tick is not cut in half by the plot's clip
+
+# A stretch with no activity is cut short on the axis when it is at least this long AND at least this share of the whole incident:
+# the floor keeps a 5-minute pause in a 10-minute incident (50 % of it) from being cut, the share keeps a short pause in a
+# week-long incident from being cut. Of the 16 test inputs, exactly the three with a pause of 1 to 3 hours qualify.
+BREAK_MIN_US: Final = 15 * 60_000_000
+BREAK_SHARE: Final = 0.20
+BREAK_FRAC: Final = 0.04  # the width of a cut, as a share of the axis
+
+# One silhouette for each tactic, so that colour is not the only way to tell them apart. Centred on 0 0, about 10 units across.
+_SHAPES: Final = {
+    "circle": "M-4.5 0a4.5 4.5 0 1 0 9 0a4.5 4.5 0 1 0 -9 0z",
+    "square": "M-4 -4h8v8h-8z",
+    "diamond": "M0 -5.6L5.6 0L0 5.6L-5.6 0z",
+    "up": "M0 -5L5 4L-5 4z",
+    "down": "M0 5L5 -4L-5 -4z",
+    "hexagon": "M-5 0L-2.5 -4.3L2.5 -4.3L5 0L2.5 4.3L-2.5 4.3z",
+    "plus": "M-1.8 -5h3.6v3.2h3.2v3.6h-3.2v3.2h-3.6v-3.2h-3.2v-3.6h3.2z",
+    "star": "M0 -6L1.6 -1.6L6 0L1.6 1.6L0 6L-1.6 1.6L-6 0L-1.6 -1.6z",
+    "pentagon": "M0 -5L4.8 -1.5L3 4.2L-3 4.2L-4.8 -1.5z",
+    "pennant": "M-4 -5L5 0L-4 5z",
+    "bar": "M-5.5 -2.4h11v4.8h-11z",
+    "cross": "M-4 -4L-2 -4L0 -1.5L2 -4L4 -4L4 -2L1.5 0L4 2L4 4L2 4L0 1.5L-2 4L-4 4L-4 2L-1.5 0L-4 -2z",
+}
+_TACTIC_SHAPE: Final = {"initial-access": "down", "execution": "up", "persistence": "square", "privilege-escalation": "diamond",
+                        "defense-evasion": "hexagon", "credential-access": "plus", "discovery": "circle", "lateral-movement": "pennant",
+                        "collection": "pentagon", "exfiltration": "bar", "impact": "star", "other": "cross"}
+
+
+def marker_path(tactic: str) -> str:
+    return _SHAPES[_TACTIC_SHAPE[tactic if tactic in _TACTICS else "other"]]
+
+
+def marker_svg(tactic: str) -> str:
+    """The tactic's mark, small, for a legend."""
+    return (f'<svg class="mk {tactic_class(tactic)}" viewBox="-7 -7 14 14" width="14" height="14" role="img" aria-label="{h(tactic)} marker">'
+            f'<path d="{marker_path(tactic)}"/></svg>')
 
 
 def _tick(us: int, span_us: int) -> str:
@@ -188,16 +225,29 @@ def _tick(us: int, span_us: int) -> str:
     return iso[11:19] if span_us < 86_400_000_000 else iso[11:16]
 
 
-PAD_L: Final = 8  # room left of the plot, so a mark on the first tick is not cut in half by the plot's clip
+def _length(us: int) -> str:
+    minutes = us // 60_000_000
+    if minutes < 60:
+        return f"{minutes} min"
+    hours, minutes = divmod(minutes, 60)
+    if hours < 24:
+        return f"{hours} h {minutes:02d} min"
+    return f"{hours // 24} d {hours % 24} h"
+
+
+def _breaks(offsets: list[int], span: int) -> list[tuple[int, int]]:
+    """The stretches (start, end, as microseconds after the first call) between two calls of any identity that are long enough to cut."""
+    return [(a, b) for a, b in zip(offsets, offsets[1:], strict=False) if b - a >= BREAK_MIN_US and b - a >= BREAK_SHARE * span]
 
 
 def timeline_svg(scope: Scope, tl: Timeline, rows: dict[str, str] | None = None) -> str:
-    """A lane for each identity, time left to right, a mark for each call (a cross if it failed, a ring if it was found by
-    following the attacker), the log silences shaded and the attacker's logging changes marked.
+    """A lane for each identity, time left to right, a mark for each call (a shape for its tactic; hollow if it failed; outlined if it was
+    found by following the attacker), the log silences shaded and the attacker's logging changes marked. A long stretch with no
+    activity is cut short and labelled with its length.
 
-    The plot is a nested <svg>, which clips what is zoomed out of view. Every mark carries its time (`data-t`, microseconds
-    after the first call) so the page script can move it when the reader zooms or pans, and `data-target`, the id of its row in
-    the call table (from `rows`, event id to row id), so a click can take the reader there."""
+    The plot is a nested <svg>, which clips what is zoomed out of view. Every mark carries its place on the axis (`data-t`, in
+    microseconds of the axis as drawn, cuts included) so the page script can move it when the reader zooms or pans, and
+    `data-target`, the id of its row in the call table (from `rows`, event id to row id), so a click can take the reader there."""
     rows = rows or {}
     actors = tl.actors[:MAX_NODES]
     lane = {a.label: i for i, a in enumerate(actors)}
@@ -207,18 +257,49 @@ def timeline_svg(scope: Scope, tl: Timeline, rows: dict[str, str] | None = None)
     t0 = min(t for t, _ in events)
     t1 = max(t for t, _ in events)
     span = max(t1 - t0, 1)
-    width, height = GUTTER + PLOT_W + PAD_R, TOP + len(actors) * LANE_H + AXIS_H
+    cuts = _breaks(sorted({t - t0 for t, _ in events}), t1 - t0)
+    kept = (t1 - t0) - sum(e - s for s, e in cuts)
+    axis = round(kept / (1 - len(cuts) * BREAK_FRAC)) if cuts else (t1 - t0)  # length of the axis as drawn
+    cut_w = round(axis * BREAK_FRAC) if cuts else 0
+    starts: list[int] = []  # where each cut begins on the axis as drawn
+    removed = 0
+    for cs, ce in cuts:
+        starts.append(cs - removed)
+        removed += (ce - cs) - cut_w
 
-    def x(t: int) -> float:
-        return GUTTER + (t - t0) / span * PLOT_W if t1 > t0 else GUTTER + PLOT_W / 2
+    def v(off: int) -> int:
+        """A time (microseconds after the first call) to its place on the axis as drawn."""
+        gone = 0
+        for (cs, ce), vs in zip(cuts, starts, strict=True):
+            if off <= cs:
+                break
+            if off < ce:
+                return vs + round((off - cs) / (ce - cs) * cut_w)
+            gone += (ce - cs) - cut_w
+        return off - gone
 
-    label = f"Timeline: {_plural(len(events), 'call', 'calls')} by {_plural(len(actors), 'identity', 'identities')}"
-    out = [f'<svg class="timeline" viewBox="0 0 {width} {height}" data-t0="{t0}" data-span="{t1 - t0}" data-gutter="{GUTTER}" '
-           f'data-plot="{PLOT_W}" role="img" aria-label="{h(label)}">']
+
+    def x(vt: float) -> float:
+        return GUTTER + vt / axis * PLOT_W if axis > 0 else GUTTER + PLOT_W / 2
+
+    lab_row: list[int] = []  # labels of cuts that sit close together go on a second row, so they do not overprint
+    reach = [-1e9, -1e9]
+    for vs in starts:
+        cx = x(vs + cut_w / 2)
+        lr = 0 if cx - reach[0] >= 175 else 1
+        reach[lr] = cx
+        lab_row.append(lr)
+    width, height = GUTTER + PLOT_W + PAD_R, TOP + len(actors) * LANE_H + AXIS_H + (14 if 1 in lab_row else 0)
+
+    label = f"Timeline: {_plural(len(events), 'call', 'calls')} by {_plural(len(actors), 'identity', 'identities')}" \
+        + (f", {_plural(len(cuts), 'long stretch', 'long stretches')} with no activity cut short" if cuts else "")
+    breaks_attr = f' data-breaks="{";".join(f"{vs},{cut_w},{ce - cs}" for (cs, ce), vs in zip(cuts, starts, strict=True))}"' if cuts else ""
+    out = [f'<svg class="timeline" viewBox="0 0 {width} {height}" data-t0="{t0}" data-span="{max(axis, 1)}" data-real="{t1 - t0}"{breaks_attr} '
+           f'data-gutter="{GUTTER}" data-plot="{PLOT_W}" role="img" aria-label="{h(label)}">']
     for i, a in enumerate(actors):
         y = TOP + i * LANE_H
         out.append(f'<rect class="lane{" alt" if i % 2 else ""}" x="0" y="{y}" width="{width}" height="{LANE_H}"/>')
-        out.append(f'<text class="lane-label" x="12" y="{_f(y + LANE_H / 2 + 4)}"><title>{h(a.label, 200)}</title>{h(_cut(a.label, 30))}</text>')
+        out.append(f'<text class="lane-label" x="12" y="{_f(y + LANE_H / 2 + 4)}"><title>{h(a.label, 200)}</title>{h(_mid(a.label, 28))}</text>')
     base = TOP + len(actors) * LANE_H
     out.append(f'<line class="axis" x1="{GUTTER}" y1="{base}" x2="{GUTTER + PLOT_W}" y2="{base}"/>')
     out.append(f'<g class="sb"><rect class="sb-track" x="{GUTTER}" y="3" width="{PLOT_W}" height="8" rx="4"/>'
@@ -229,59 +310,86 @@ def timeline_svg(scope: Scope, tl: Timeline, rows: dict[str, str] | None = None)
         gs, ge = parse_time_us(g.start), parse_time_us(g.end)
         if ge < t0 or gs > t1:
             continue
-        gx1, gx2 = x(max(gs, t0)), x(min(ge, t1))
+        va, vb = v(max(gs, t0) - t0), v(min(ge, t1) - t0)
+        gx1, gx2 = x(va), x(vb)
         out.append(f'<g class="gap"><title>{h(f"No events for {g.minutes} minutes ({g.region})", 120)}</title>'
-                   f'<rect data-t="{max(gs, t0) - t0}" data-t2="{min(ge, t1) - t0}" x="{_f(gx1)}" y="{TOP}" width="{_f(max(gx2 - gx1, 2))}" '
+                   f'<rect data-t="{va}" data-t2="{vb}" x="{_f(gx1)}" y="{TOP}" width="{_f(max(gx2 - gx1, 2))}" '
                    f'height="{len(actors) * LANE_H}"/></g>')
+    labels: list[str] = []
+    for (cs, ce), vs, lrow in zip(cuts, starts, lab_row, strict=True):  # a long stretch with no activity, cut short
+        silent = sum(max(0, min(parse_time_us(g.end) - t0, ce) - max(parse_time_us(g.start) - t0, cs)) for g in scope.coverage.gaps)
+        text = f"{_length(ce - cs)}, " + ("logs silent" if silent * 2 >= ce - cs else "no activity")
+        out.append(f'<g class="brk"><title>{h(f"{text}: {format_time_us(t0 + cs)} to {format_time_us(t0 + ce)}", 160)}</title>'
+                   f'<rect data-t="{vs + cut_w // 6}" data-t2="{vs + cut_w - cut_w // 6}" x="{_f(x(vs + cut_w // 6))}" y="{TOP}" width="{_f(x(vs + cut_w - cut_w // 6) - x(vs + cut_w // 6))}" '
+                   f'height="{len(actors) * LANE_H}"/></g>')
+        ly = base + 34 + 14 * lrow
+        anchor = "end" if x(vs + cut_w / 2) + len(text) * 3.2 > width - 4 else "middle"  # a label that would run off the edge ends at the break
+        labels.append(f'<g class="brk-lab" data-t="{vs + cut_w // 2}" data-y="{ly}" transform="translate({_f(x(vs + cut_w / 2))} {ly})">'
+                      f'<text text-anchor="{anchor}">{h(text)}</text></g>')
     placed: dict[int, list[tuple[float, int]]] = {}
     for t, s in sorted(events, key=lambda e: (e[0], e[1].event.event_id)):
         ev = s.event
         i = lane[actor_label(ev.user_identity)]
-        cx = x(t)
+        vt = v(t - t0)
+        cx = x(vt)
         taken = placed.setdefault(i, [])
         off = next((o for o in _DODGE if not any(abs(px - cx) < 8 and po == o for px, po in taken)), _DODGE[-1])
         taken.append((cx, off))
         cy = TOP + i * LANE_H + LANE_H / 2 + off
-        targets = "; ".join(f"{k} {v}" for k, v in resources(ev))
-        what = " · ".join(part for part in (ev.event_time, action(ev), targets, ev.error_code or "ok") if part)
+        targets = "; ".join(f"{k} {val}" for k, val in resources(ev))
+        what = " \u00b7 ".join(part for part in (ev.event_time, action(ev), targets, ev.error_code or "ok") if part)
         row = f' data-target="{h(rows[ev.event_id])}"' if ev.event_id in rows else ""
         cls = f"{tactic_class(tactic(ev))}{' prop' if s.origin == 'propagated' else ''}{' fail' if ev.error_code else ''}{' link' if row else ''}"
-        shape = ('<circle class="hit" r="8"/><path d="M-4 -4 L4 4 M-4 4 L4 -4"/>' if ev.error_code else '<circle class="body" r="4.5"/>')
-        out.append(f'<g class="dot {cls}" data-t="{t - t0}" data-y="{_f(cy)}"{row} transform="translate({_f(cx)} {_f(cy)})">'
-                   f'<title>{h(what, 240)}</title>{shape}</g>')
+        out.append(f'<g class="dot {cls}" data-t="{vt}" data-y="{_f(cy)}"{row} transform="translate({_f(cx)} {_f(cy)})">'
+                   f'<title>{h(what, 240)}</title><circle class="hit" r="8"/><path class="body" d="{marker_path(tactic(ev))}"/></g>')
     for tm in (t for t in scope.coverage.tampering if t.in_scope):  # the attacker changed logging or detection
         tt = max(min(parse_time_us(tm.event_time), t1), t0)
-        out.append(f'<g class="tamper" data-t="{tt - t0}" data-y="0" transform="translate({_f(x(tt))} 0)">'
-                   f'<title>{h(f"{tm.event_time} · {tm.event_name}: {tm.effect}", 200)}</title>'
+        out.append(f'<g class="tamper" data-t="{v(tt - t0)}" data-y="0" transform="translate({_f(x(v(tt - t0)))} 0)">'
+                   f'<title>{h(f"{tm.event_time} \u00b7 {tm.event_name}: {tm.effect}", 200)}</title>'
                    f'<path d="M0 {TOP - 16} l5 8 l-5 8 l-5 -8 z"/></g>')
+    out.extend(labels)
     out.append('<g class="ticks">')
     for k in range(6):
-        tt = t0 + span * k // 5
-        tx = x(tt) if t1 > t0 else GUTTER + PLOT_W / 2
+        vt = axis * k // 5
+        if any(vs < vt < vs + cut_w for vs in starts):  # inside a cut: no time to name
+            continue
+        real = vt + sum((ce - cs) - cut_w for (cs, ce), vs in zip(cuts, starts, strict=True) if vs + cut_w <= vt)
+        tx = x(vt) if t1 > t0 else GUTTER + PLOT_W / 2
         anchor = "start" if k == 0 else "end" if k == 5 else "middle"
         out.append(f'<line class="tick" x1="{_f(tx)}" y1="{base}" x2="{_f(tx)}" y2="{base + 5}"/>'
-                   f'<text class="tick-label" x="{_f(tx)}" y="{base + 20}" text-anchor="{anchor}">{h(_tick(tt, span))}</text>')
+                   f'<text class="tick-label" x="{_f(tx)}" y="{base + 20}" text-anchor="{anchor}">{h(_tick(t0 + real, span))}</text>')
         if t1 == t0:
             break
     out.append("</g></svg>")
-    out.append(f'<text class="axis-note" x="{GUTTER}" y="{base + 38}">UTC · {h(format_time_us(t0)[:10])}</text>')
+    out.append(f'<text class="axis-note" x="{GUTTER}" y="{base + 38}">UTC \u00b7 {h(format_time_us(t0)[:10])}</text>')
     out.append("</svg>")
     return "".join(out)
 
 
-# ---- the tactic mix
+# ---- the kill chain
 
-def tactic_bar_svg(tl: Timeline) -> str:
-    """One bar split by tactic, each part as wide as its share of the calls."""
-    total = sum(t.events for t in tl.tactics)
-    if not total:
+_KILL_CHAIN: Final = tuple(t for t in TACTIC_ORDER if t != "other")
+
+
+def killchain_svg(tl: Timeline) -> str:
+    """The ATT&CK tactics controlzee can tell apart, in the framework's order, with the number of calls under each: the ones the attacker
+    used are filled, the rest hollow. Empty when no call falls under any of them."""
+    seen = {t.tactic: t for t in tl.tactics}
+    if not any(t in seen for t in _KILL_CHAIN):
         return ""
-    out = ['<svg class="tactic-bar" viewBox="0 0 1000 18" role="img" aria-label="Calls by tactic" preserveAspectRatio="none">']
-    left = 0.0
-    for t in tl.tactics:
-        w = 1000 * t.events / total
-        out.append(f'<rect class="{tactic_class(t.tactic)}" x="{_f(left)}" y="0" width="{_f(max(w - 2, 1))}" height="18" rx="3">'
-                   f'<title>{h(t.tactic + ": " + _plural(t.events, "call", "calls"))}</title></rect>')
-        left += w
+    cell = 100
+    parts = [f"{t} {seen[t].events + seen[t].failed}" for t in _KILL_CHAIN if t in seen]
+    out = [f'<svg class="killchain" viewBox="0 0 {cell * len(_KILL_CHAIN)} 92" role="img" aria-label="{h("Tactics used, in ATT&CK order: " + ", ".join(parts))}">']
+    for i, t in enumerate(_KILL_CHAIN):
+        hit = seen.get(t)
+        x0 = i * cell
+        words = t.split("-")
+        count = hit.events + hit.failed if hit else 0
+        tip = f"{t}: {_plural(count, 'call', 'calls')}" + (f", {hit.failed} failed" if hit and hit.failed else "") if hit else f"{t}: not seen"
+        out.append(f'<g class="kc {"kc-hit " + tactic_class(t) if hit else "kc-miss"}"><title>{h(tip)}</title>'
+                   f'<rect class="kc-band" x="{x0 + 3}" y="4" width="{cell - 6}" height="14" rx="3"/>'
+                   f'<text class="kc-name" x="{x0 + cell / 2}" y="38" text-anchor="middle">{h(words[0].capitalize())}</text>'
+                   f'<text class="kc-name" x="{x0 + cell / 2}" y="53" text-anchor="middle">{h(" ".join(words[1:]))}</text>'
+                   f'<text class="kc-n" x="{x0 + cell / 2}" y="78" text-anchor="middle">{count}</text></g>')
     out.append("</svg>")
     return "".join(out)

@@ -47,9 +47,37 @@ def test_a_click_on_a_moment_opens_and_highlights_its_row_in_the_calls(browser, 
     page_file.write_bytes(build_html(scope_of(fixtures, "01_leaked_key")))
     page = browser.new_context().new_page()
     page.goto(page_file.as_uri())
-    link = page.locator(".ribbon a").last
+    link = page.locator(".log a").last
     row_id = link.get_attribute("href")[1:]
     link.click()
     row = page.locator(f"tr[id='{row_id}']")
     assert row.is_visible()
     page.wait_for_selector(f"tr[id='{row_id}'].hit")
+
+
+def test_the_graph_resizes_vertically_only_and_zooms(browser, fixtures, tmp_path):
+    page_file = tmp_path / "report.html"
+    page_file.write_bytes(build_html(scope_of(fixtures, "02_role_chain")))
+    page = browser.new_context(viewport={"width": 1280, "height": 900}).new_page()
+    page.goto(page_file.as_uri())
+    assert page.eval_on_selector(".gwrap", "e => getComputedStyle(e).resize") == "vertical"
+    before = page.eval_on_selector("svg.graph", "e => e.getBoundingClientRect().width")
+    page.click("[data-gzoom=in]")
+    after = page.eval_on_selector("svg.graph", "e => e.getBoundingClientRect().width")
+    assert after > before
+    page.click("[data-gzoom=reset]")
+    assert abs(page.eval_on_selector("svg.graph", "e => e.getBoundingClientRect().width") - before) < 2
+    assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
+
+
+def test_a_cut_axis_still_zooms_and_names_times(browser, fixtures, tmp_path):
+    page_file = tmp_path / "report.html"
+    page_file.write_bytes(build_html(scope_of(fixtures, "02_role_chain")))
+    page = browser.new_context(viewport={"width": 1280, "height": 900}).new_page()
+    errors: list[str] = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.goto(page_file.as_uri())
+    page.click("[data-zoom=in]")
+    page.click("[data-zoom=in]")
+    labels = page.eval_on_selector_all("svg.timeline .tick-label", "els => els.map(e => e.textContent)")
+    assert labels and all(":" in x for x in labels) and errors == []
