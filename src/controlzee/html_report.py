@@ -2,7 +2,7 @@
 
 What it adds to the Markdown: a diagram of how the attacker moved and a swimlane timeline (both plain SVG), click to
 copy event ids and commands, a filter on the call table, a checklist that remembers what was done, expand all, and a
-light or dark theme. It reads fine without its script.
+light, printable styling. It reads fine without its script.
 
 Logs are hostile input. Every value from them goes through `visual.h` (control characters replaced, length capped, every
 markup character an entity), class names come from fixed lists, ids from counters, and the page carries a Content
@@ -29,6 +29,8 @@ from controlzee.timeline import build_timeline
 from controlzee.timeutil import parse_time_us
 from controlzee.visual import build_graph, glance_points, h, headline
 
+_LOGO = ('<svg class="logo" viewBox="0 0 26 22" role="img" aria-label="Ctrl+Z keycap"><rect class="key" x="1" y="1" width="24" height="20" rx="4"/>'
+         '<path class="glyph" d="M5.5 11 L8.5 7.5 L11.5 11"/><path class="glyph" d="M14.5 7 H20.5 L14.5 15 H20.5"/></svg>')
 _PHASE_TITLES = {"contain": "Contain", "investigate": "Investigate", "eradicate": "Eradicate", "recover": "Recover"}
 _NAV = {"glance": "At a glance", "path": "Attack path", "swimlanes": "Timeline", "identities": "Identities", "coverage": "Coverage",
         "calls": "Calls", "exposure": "Exposure", "plan": "Plan", "appendix": "Appendix"}
@@ -42,8 +44,14 @@ def _hash(text: str) -> str:
     return "sha256-" + base64.b64encode(hashlib.sha256(text.encode("utf-8")).digest()).decode("ascii")
 
 
-def _table(header: list[str], rows: Iterable[list[str]], *, cls: str = "", head: bool = True) -> str:
-    body = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
+def _m(text: object, limit: int = 120) -> str:
+    """An identifier (ARN, key id, account, API call) in monospace."""
+    return f'<code class="ident">{h(text, limit)}</code>'
+
+
+def _table(header: list[str], rows: Iterable[list[str]], *, cls: str = "", head: bool = True, mono: tuple[int, ...] = ()) -> str:
+    """`mono` lists the columns that hold identifiers, set in monospace."""
+    body = "".join("<tr>" + "".join(f'<td class="mono">{c}</td>' if i in mono else f"<td>{c}</td>" for i, c in enumerate(r)) + "</tr>" for r in rows)
     thead = "<thead><tr>" + "".join(f"<th>{c}</th>" for c in header) + "</tr></thead>" if head else ""
     attr = f' class="{cls}"' if cls else ""
     return f'<div class="scroll"><table{attr}>{thead}<tbody>{body}</tbody></table></div>'
@@ -97,7 +105,7 @@ def _cards(scope: Scope, tl: Timeline, plan: Plan, lanes: bool) -> str:
 
 
 def _glance(scope: Scope, tl: Timeline, plan: Plan) -> str:
-    accounts = ", ".join(h(a) for a in tl.exposure.accounts)
+    accounts = ", ".join(_m(a) for a in tl.exposure.accounts)
     out = [f'<div class="callout"><p class="lead">{headline(scope, tl, accounts)}</p>']
     points = glance_points(scope, tl)
     out.append('<ul class="points">' + "".join(f'<li class="{sev}"><strong>{h(strong)}</strong>{h(rest)}</li>' for strong, rest, sev in points)
@@ -158,7 +166,7 @@ def _identity_anchor(i: int) -> str:
 
 
 def _issued(i: Issued) -> str:
-    when = f"The call <code>{h(i.rule)}</code>, made by <strong>{h(i.by)}</strong> at {h(i.time)}" + (f" from {h(i.ip)}" if i.ip else "") + "."
+    when = f"The call <code>{h(i.rule)}</code>, made by <strong class='m-id'>{h(i.by)}</strong> at {h(i.time)}" + (f" from {_m(i.ip)}" if i.ip else "") + "."
     return f"<p><strong>How it came about.</strong> {when}</p>" + (_kv(i.params) if i.params else '<p class="note">No parameters were logged for it.</p>')
 
 
@@ -168,7 +176,7 @@ def _identities(scope: Scope, tl: Timeline) -> str:
            "were logged) and what it did. Secrets are never shown, and environment variables show their names only.</p>"]
     for i, f in enumerate(identities):
         kind = "matched an indicator" if f.matched else "followed"
-        title = (f'<strong>{h(f.label)}</strong> <span class="badge">{_n(f.calls, "call", "calls")}</span> <span class="badge">{kind}</span>'
+        title = (f'<strong class="m-id">{h(f.label)}</strong> <span class="badge">{_n(f.calls, "call", "calls")}</span> <span class="badge">{kind}</span>'
                  + (f' <span class="badge">{h(f.what)}</span>' if f.what else ""))
         body = _kv(f.who)
         if f.matched:
@@ -176,7 +184,7 @@ def _identities(scope: Scope, tl: Timeline) -> str:
         body += "".join(_issued(x) for x in f.issued)
         body += f"<p><strong>What it did</strong> ({_n(f.calls, 'call', 'calls')})</p>" + _table(
             ["Time", "Call", "Target", "Result", "Parameters (writes)"],
-            [[h(d.time), h(d.call), h(d.target, 200), h(d.result), h(d.params, 240)] for d in f.did])
+            [[h(d.time), h(d.call), h(d.target, 200), h(d.result), h(d.params, 240)] for d in f.did], mono=(0, 1, 2, 4))
         if f.more:
             body += f'<p class="note">{f.more} more calls are in the call table.</p>'
         out.append(_fold(title, body, open_=False, id_=_identity_anchor(i)))
@@ -193,11 +201,11 @@ def _coverage(scope: Scope) -> str:
     if cov.gaps:
         out.append(_fold(f"Silences during the incident ({len(cov.gaps)})", _table(
             ["Account", "Region", "From", "To", "Minutes", "Possible cause"],
-            [[h(g.account), h(g.region), h(g.start), h(g.end), str(g.minutes), h(g.possible_cause or "")] for g in cov.gaps]), open_=len(cov.gaps) <= 5))
+            [[h(g.account), h(g.region), h(g.start), h(g.end), str(g.minutes), h(g.possible_cause or "")] for g in cov.gaps], mono=(0, 1, 2, 3, 5)), open_=len(cov.gaps) <= 5))
     if cov.tampering:
         body = _table(["Time", "Call", "Effect", "By", "Result", "Attacker"],
                       [[h(t.event_time), h(f"{t.event_source.split('.', 1)[0]}:{t.event_name}"), h(t.effect), h(t.principal or ""),
-                        h(t.error_code or "ok"), "yes" if t.in_scope else "no"] for t in cov.tampering])
+                        h(t.error_code or "ok"), "yes" if t.in_scope else "no"] for t in cov.tampering], mono=(0, 1, 3))
         if cov.tampering_total > len(cov.tampering):
             body += f'<p class="note">{cov.tampering_total - len(cov.tampering)} more are counted in scope.json but not listed.</p>'
         out.append(_fold(f"Logging and detection changes, all actors ({len(cov.tampering)})", body, open_=len(cov.tampering) <= 5))
@@ -225,8 +233,8 @@ def _calls(tl: Timeline) -> str:
         tactic = e.tactic or "other"
         tk = _tactic_key(tactic)
         rid = f' id="{ids[e.event_id]}"' if e.event_id in ids else ""
-        rows.append(f'<tr{rid} data-tactic="{tk}"><td class="nowrap">{h(e.time)}</td><td>{h(e.actor, 80)}</td><td>{h(e.action)}</td>'
-                    f'<td>{h("; ".join(e.targets), 300)}</td><td>{h(e.outcome)}</td><td>{_chip(tk, tactic)}</td>'
+        rows.append(f'<tr{rid} data-tactic="{tk}"><td class="nowrap mono">{h(e.time)}</td><td class="mono">{h(e.actor, 80)}</td><td class="mono">{h(e.action)}</td>'
+                    f'<td class="mono">{h("; ".join(e.targets), 300)}</td><td>{h(e.outcome)}</td><td>{_chip(tk, tactic)}</td>'
                     f'<td>{h(found)} ({h(e.confidence.value if e.confidence else "")})</td></tr>')
     table = ('<div class="scroll"><table id="call-table"><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Target</th><th>Result</th><th>Tactic</th>'
              "<th>Found by</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>")
@@ -240,17 +248,17 @@ def _exposure(tl: Timeline) -> str:
         out.append(_fold(f"Permission changes ({len(x.privilege_changes)})", _table(
             ["Time", "Change", "Principal", "Policy", "Full control", "Result"],
             [[h(p.time), h(p.action), h(p.principal), h(p.policy or ""), "<strong>yes</strong>" if p.admin else "no", h(p.outcome)]
-             for p in x.privilege_changes]), open_=len(x.privilege_changes) <= 8))
+             for p in x.privilege_changes], mono=(0, 1, 2, 3)), open_=len(x.privilege_changes) <= 8))
     if x.instance_role_use:
         out.append("<p><strong>Instance role credentials used from more than one address</strong> (an instance calls from its own address):</p>" + _table(
             ["Instance", "Region", "Address", "Calls", "First seen", "Actions"],
             [[h(u.instance), h(u.region), h(a.address), str(a.events), h(a.first_event_time), h(", ".join(a.actions), 300)]
-             for u in x.instance_role_use for a in u.addresses]))
+             for u in x.instance_role_use for a in u.addresses], mono=(0, 1, 2, 4, 5)))
     if x.resources:
         out.append(_fold(f"Resources touched ({len(x.resources)})", _table(
             ["Service", "Type", "Name", "Access", "Calls", "Refused", "Actions"],
             [[h(r.service), h(r.type), h(r.name, 300), h(r.access), str(r.events), str(r.failed), h(", ".join(r.actions), 300)]
-             for r in x.resources]), open_=len(x.resources) <= 8))
+             for r in x.resources], mono=(2, 6)), open_=len(x.resources) <= 8))
     return "".join(out) or '<p class="note">No resources were named in the in-scope calls.</p>'
 
 
@@ -265,7 +273,7 @@ def _evidence(ids: list[str], scope: Scope) -> str:
             code += f' <code class="id" data-copy="{"&#10;".join(h(i, 200) for i in r.ids)}" title="Click to copy all {len(r.ids)} event IDs">+{len(r.ids) - 1}</code>'
         cells.append([h(r.when), h(r.who, 80), h(r.call) + (f" ×{r.count}" if r.count > 1 else ""), h(r.target, 160), h(r.result), code])
     return _fold(f"Evidence from {_n(sum(len(r.ids) for r in rows), 'call', 'calls')}",
-                 _table(["When (UTC)", "Who", "Call", "Target", "Result", "Event (click to copy)"], cells), open_=False)
+                 _table(["When (UTC)", "Who", "Call", "Target", "Result", "Event (click to copy)"], cells, mono=(0, 1, 2, 3)), open_=False)
 
 
 def _step(a: PlanAction, scope: Scope) -> str:
@@ -299,13 +307,13 @@ def _plan(plan: Plan, scope: Scope) -> str:
 def _appendix(scope: Scope) -> str:
     i = scope.inputs
     body = ["<p><strong>Indicators</strong></p>" + _table(["Name", "Kind", "Value", "Match"],
-            [[h(x.name), h(x.kind.value), h(x.value, 300), h(x.match)] for x in scope.seeds.indicators]),
+            [[h(x.name), h(x.kind.value), h(x.value, 300), h(x.match)] for x in scope.seeds.indicators], mono=(2,)),
             f"<p>Expression: <code>{h(scope.seeds.expression, 600)}</code></p>"]
     if scope.seeds.window:
         body.append(f"<p>Window: {h(scope.seeds.window.start or 'open')} to {h(scope.seeds.window.end or 'open')}</p>")
     if scope.taint.identities:
         body.append("<p><strong>Followed identities</strong></p>" + _table(["Kind", "Value", "Issued by", "At", "Events", "Confidence"],
-                    [[h(t.kind), h(t.value), h(t.rule), h(t.issued_at), str(t.events), h(t.confidence.value)] for t in scope.taint.identities]))
+                    [[h(t.kind), h(t.value), h(t.rule), h(t.issued_at), str(t.events), h(t.confidence.value)] for t in scope.taint.identities], mono=(1, 2, 3)))
     body.append(f'<p class="note">Inputs: {i.event_count} events from {i.ingested_files} files ({i.error_files} unreadable, {i.skipped_files} skipped), '
                 f'{h(i.first_event_time or "")} to {h(i.last_event_time or "")}; accounts {", ".join(h(a) for a in i.accounts)}; '
                 f'manifest sha256 <code>{h(i.manifest_sha256)}</code>.</p>')
@@ -326,7 +334,7 @@ def build_html(scope: Scope) -> bytes:
         if graph is not None:
             anchors = {a.label: _identity_anchor(i) for i, a in enumerate(tl.actors[:MAX_NODES])}
             note = ("Each arrow is a credential or principal one identity created or obtained for another, labelled with the call that issued it. "
-                    "Click an identity to jump to its details. Red: matched an indicator. Blue: found only by following the attacker. Dashed: "
+                    "Click an identity to jump to its details. A double outline: matched an indicator. A single grey outline: found only by following the attacker. Dashed: "
                     "handed over but never used in these logs. The lines inside an identity are what it changed, deleted or read, by kind "
                     "(a triangle: it was given full control; a star: it read secrets). Dotted: an account that was reached but sent no logs, "
                     "so what happened there is unknown.")
@@ -354,8 +362,8 @@ def build_html(scope: Scope) -> bytes:
         f'<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f'<meta http-equiv="Content-Security-Policy" content="{csp}">\n<title>Incident report · controlzee</title>\n<style>{CSS}</style></head>\n'
         f'<body data-scope="{h(scope.scope_sha256[:16])}">\n'
-        f'<header class="top"><div class="brand">control<span>zee</span></div><nav>{nav}</nav><div class="tools">'
-        '<button id="expand">Expand all</button><button id="collapse">Collapse all</button><button id="theme">Theme</button></div></header>\n'
+        f'<header class="top"><div class="brand">{_LOGO}<span class="word">control<span>zee</span></span></div><nav>{nav}</nav><div class="tools">'
+        '<button id="expand">Expand all</button><button id="collapse">Collapse all</button></div></header>\n'
         f'<main><h1>Incident report</h1><p class="meta">Generated by controlzee {h(__version__)} from scope {h(scope.scope_sha256[:12])}. All times UTC. '
         f'Everything here is derived from that scope.json; regenerate it rather than editing it.</p>\n{body}\n'
         f'<footer><div>scope {h(scope.scope_sha256)}</div><div>timeline {h(tl.timeline_sha256)}</div><div>plan {h(plan.plan_sha256)}</div></footer></main>\n'

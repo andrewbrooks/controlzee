@@ -1,6 +1,6 @@
 """The HTML report in a real browser (dev only: skipped when Playwright or its browser is not installed).
 
-Checks what the unit tests cannot: the script runs without errors in both themes, and the page still has its sections and
+Checks what the unit tests cannot: the script runs without errors, and the page still has its sections and
 working in-page links with JavaScript switched off.
 """
 import pytest
@@ -24,12 +24,11 @@ def browser():
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS)
-@pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("js", [True, False])
-def test_page_works_in_both_themes_with_and_without_script(browser, fixtures, tmp_path, scenario, scheme, js):
+def test_page_works_with_and_without_script(browser, fixtures, tmp_path, scenario, js):
     page_file = tmp_path / "report.html"
     page_file.write_bytes(build_html(scope_of(fixtures, scenario)))
-    ctx = browser.new_context(color_scheme=scheme, java_script_enabled=js)
+    ctx = browser.new_context(color_scheme="light", java_script_enabled=js)
     page = ctx.new_page()
     errors: list[str] = []
     page.on("pageerror", lambda e: errors.append(str(e)))

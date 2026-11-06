@@ -153,6 +153,8 @@ def attack_svg(g: Graph, anchors: dict[str, str]) -> str:
                    f'<rect class="box" x="{_f(x)}" y="{_f(y)}" width="{NODE_W}" height="{height(key)}" rx="10"/>'
                    f'<text class="name" x="{_f(x + 14)}" y="{_f(y + 22)}">{h(_cut(name, 32))}</text>'
                    f'<text class="sub" x="{_f(x + 14)}" y="{_f(y + 40)}">{h(sub)}</text>')
+        if css == "seed":  # a second outline: "matched an indicator" is a shape, not a colour
+            out.append(f'<rect class="rim" x="{_f(x - 4)}" y="{_f(y - 4)}" width="{NODE_W + 8}" height="{height(key) + 8}" rx="13"/>')
         cy = y + NODE_H + 2
         for t in chips:
             out.append(f'<g class="rc{" hot" if t.flag else ""}"><rect x="{_f(x + 10)}" y="{_f(cy)}" width="{NODE_W - 20}" height="{CHIP_H}" rx="5"/>'
