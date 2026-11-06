@@ -10,12 +10,12 @@ from __future__ import annotations
 from typing import Final
 
 from controlzee.classify import TACTIC_ORDER, action, resources, tactic
-from controlzee.facts import MAX_NODES
+from controlzee.facts import MAX_NODES, MAX_TOUCHED, Touch
 from controlzee.model.scope import Scope
 from controlzee.model.timeline import Timeline
 from controlzee.timeline import actor_label
 from controlzee.timeutil import format_time_us, parse_time_us
-from controlzee.visual import Graph, h
+from controlzee.visual import Graph, Node, h
 
 _TACTICS: Final = frozenset(TACTIC_ORDER)
 
@@ -38,12 +38,48 @@ def _plural(n: int, one: str, many: str) -> str:
 
 # ---- how the attacker moved
 
-NODE_W, NODE_H, COL_GAP, ROW_GAP, PAD = 240, 54, 120, 20, 24
+NODE_W, NODE_H, COL_GAP, ROW_GAP, PAD = 260, 54, 150, 20, 24
+CHIP_H, CHIP_GAP = 18, 4
+_VERB: Final = {"write": "changed", "delete": "deleted", "read": "read"}
+_MARK: Final = {"admin": "\u25b2 ", "secret": "\u2605 "}  # a shape as well as a colour: the reader may not see red
+
+
+def _mid(text: str, n: int) -> str:
+    """Cut from the middle, so the end that tells similar names apart ("...-olc-2f39", "...-olc-77ab") stays."""
+    return text if len(text) <= n else text[: (n - 1) * 3 // 5] + "\u2026" + text[len(text) - (n - 1 - (n - 1) * 3 // 5):]
+
+
+def _short(name: str) -> str:
+    """An ARN by its last part ("ReadOnlyAccess" for a policy's ARN): the whole of it is in the tooltip and the tables."""
+    parts = name.split(":", 5)
+    if not name.startswith("arn:") or len(parts) < 6:
+        return name
+    last = parts[5].split("/")[-1].removeprefix("function:")  # "function:billing-report:$LATEST" is the function and a version
+    return last.split(":")[0] or name
+
+
+def touch_text(t: Touch) -> str:
+    """"changed role support-audit", "read secret x40", with a shape in front when it needs attention."""
+    what = ", ".join(_short(n) for n in t.names) if t.count <= len(t.names) else f"\u00d7{t.count}"
+    return f"{_MARK.get(t.flag, '')}{_VERB.get(t.access, t.access)} {t.kind} {what}"
+
+
+def _chips(nd: Node) -> tuple[list[Touch], int]:
+    """The resource chips drawn on an identity and how many kinds are left out."""
+    return list(nd.touched[:MAX_TOUCHED]), max(len(nd.touched) - MAX_TOUCHED, 0)
+
+
+def _node_height(nd: Node | None) -> int:
+    if nd is None or not nd.touched:
+        return NODE_H
+    shown, more = _chips(nd)
+    return NODE_H + 4 + (len(shown) + (1 if more else 0)) * (CHIP_H + CHIP_GAP)
 
 
 def attack_svg(g: Graph, anchors: dict[str, str]) -> str:
-    """The graph, left to right: seeds first, then what they handed over. `anchors` maps an identity's label to the id of its
-    block further down the page, so a node can take the reader there."""
+    """The graph, left to right: seeds first, then what they handed over. Each identity lists what it changed or read (by kind, the
+    ones that need attention first), and an account that was reached but sent no logs is drawn dashed, so the chain does not seem to
+    end where the logs do. `anchors` maps an identity's label to the id of its block further down the page."""
     n = len(g.nodes)
     layer = [0] * n
     for _ in range(n):  # longest path from a seed; bounded, so a cycle cannot loop
@@ -59,27 +95,39 @@ def attack_svg(g: Graph, anchors: dict[str, str]) -> str:
         columns.setdefault(layer[i], []).append(("n", i))
     for k, (src, _what, _call) in enumerate(g.unused):
         columns.setdefault(layer[src] + 1, []).append(("u", k))
-    rows = max(len(c) for c in columns.values())
+    for k, (src, _what, _call) in enumerate(g.ghosts):
+        columns.setdefault(layer[src] + 1, []).append(("g", k))
+
+    def height(key: tuple[str, int]) -> int:
+        return _node_height(g.nodes[key[1]] if key[0] == "n" else None)
+
+    def col_height(items: list[tuple[str, int]]) -> int:
+        return sum(height(k) for k in items) + (len(items) - 1) * ROW_GAP
+
+    tallest = max(col_height(c) for c in columns.values())
     width = PAD * 2 + (max(columns) + 1) * NODE_W + max(columns) * COL_GAP
-    height = PAD * 2 + rows * NODE_H + (rows - 1) * ROW_GAP
+    total = PAD * 2 + tallest
     pos: dict[tuple[str, int], tuple[float, float]] = {}
     for col, items in columns.items():
-        top = PAD + (rows - len(items)) * (NODE_H + ROW_GAP) / 2
-        for r, item in enumerate(items):
-            pos[item] = (PAD + col * (NODE_W + COL_GAP), top + r * (NODE_H + ROW_GAP))
-    label = f"How the attacker moved: {_plural(n, 'identity', 'identities')}"
-    out = [f'<svg class="graph" width="{int(width)}" viewBox="0 0 {int(width)} {int(height)}" role="img" aria-label="{h(label)}">',
+        y = PAD + (tallest - col_height(items)) / 2
+        for item in items:
+            pos[item] = (PAD + col * (NODE_W + COL_GAP), y)
+            y += height(item) + ROW_GAP
+    groups = sum(len(nd.touched) for nd in g.nodes)
+    label = f"How the attacker moved: {_plural(n, 'identity', 'identities')}" + (f", {_plural(groups, 'kind', 'kinds')} of resource touched" if groups else "") \
+        + (f", {_plural(len(g.ghosts), 'account', 'accounts')} reached without logs" if g.ghosts else "")
+    out = [f'<svg class="graph" width="{int(width)}" viewBox="0 0 {int(width)} {int(total)}" role="img" aria-label="{h(label)}">',
            '<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
            '<path class="arrowhead" d="M0 0 L10 5 L0 10 z"/></marker></defs>']
 
     def edge(src: tuple[str, int], dst: tuple[str, int], call: str, dashed: bool) -> None:
         (x1, y1), (x2, y2) = pos[src], pos[dst]
-        if x2 > x1:
+        if x2 > x1:  # arrows meet the header of a node, not the middle of its chips
             sx, sy, ex, ey = x1 + NODE_W, y1 + NODE_H / 2, x2, y2 + NODE_H / 2
             mid = (sx + ex) / 2
             d = f"M{_f(sx)} {_f(sy)} C{_f(mid)} {_f(sy)} {_f(mid)} {_f(ey)} {_f(ex)} {_f(ey)}"
         else:  # same column or backwards: leave the bottom, arrive at the top
-            sx, sy, ex, ey = x1 + NODE_W / 2, y1 + NODE_H, x2 + NODE_W / 2, y2
+            sx, sy, ex, ey = x1 + NODE_W / 2, y1 + height(src), x2 + NODE_W / 2, y2
             d = f"M{_f(sx)} {_f(sy)} C{_f(sx)} {_f(sy + 40)} {_f(ex)} {_f(ey - 40)} {_f(ex)} {_f(ey)}"
         text = _cut(call, 26)
         w = len(text) * 6.6 + 12
@@ -92,20 +140,35 @@ def attack_svg(g: Graph, anchors: dict[str, str]) -> str:
         edge(("n", a), ("n", b), call, False)
     for k, (src, _what, call) in enumerate(g.unused):
         edge(("n", src), ("u", k), call, True)
+    for k, (src, _acct, call) in enumerate(g.ghosts):
+        edge(("n", src), ("g", k), call, True)
 
-    def node(key: tuple[str, int], css: str, title: str, name: str, sub: str, target: str | None) -> None:
+    def node(key: tuple[str, int], css: str, title: str, name: str, sub: str, target: str | None, nd: Node | None = None) -> None:
         x, y = pos[key]
         link = f' data-target="{h(target)}" tabindex="0" role="link"' if target else ""
-        out.append(f'<g class="node {css}{" link" if target else ""}"{link}><title>{h(title, 200)}</title>'
-                   f'<rect class="box" x="{_f(x)}" y="{_f(y)}" width="{NODE_W}" height="{NODE_H}" rx="10"/>'
+        chips, more = _chips(nd) if nd is not None else ([], 0)
+        every = "; ".join(touch_text(t) for t in nd.touched) if nd is not None else ""
+        full = f"{title}. Touched: {every}" if every else title
+        out.append(f'<g class="node {css}{" link" if target else ""}"{link}><title>{h(full, 600)}</title>'
+                   f'<rect class="box" x="{_f(x)}" y="{_f(y)}" width="{NODE_W}" height="{height(key)}" rx="10"/>'
                    f'<text class="name" x="{_f(x + 14)}" y="{_f(y + 22)}">{h(_cut(name, 32))}</text>'
-                   f'<text class="sub" x="{_f(x + 14)}" y="{_f(y + 40)}">{h(sub)}</text></g>')
+                   f'<text class="sub" x="{_f(x + 14)}" y="{_f(y + 40)}">{h(sub)}</text>')
+        cy = y + NODE_H + 2
+        for t in chips:
+            out.append(f'<g class="rc{" hot" if t.flag else ""}"><rect x="{_f(x + 10)}" y="{_f(cy)}" width="{NODE_W - 20}" height="{CHIP_H}" rx="5"/>'
+                       f'<text x="{_f(x + 18)}" y="{_f(cy + 13)}">{h(_mid(touch_text(t), 38))}</text></g>')
+            cy += CHIP_H + CHIP_GAP
+        if more:
+            out.append(f'<text class="rc-more" x="{_f(x + 18)}" y="{_f(cy + 13)}">{h(f"+{more} more kinds of resource")}</text>')
+        out.append("</g>")
 
     for i, nd in enumerate(g.nodes):
-        node(("n", i), "seed" if nd.seed else "followed", f"{nd.label} · {_plural(nd.calls, 'call', 'calls')}", nd.label,
-             f"{_plural(nd.calls, 'call', 'calls')} · {'matched an indicator' if nd.seed else 'followed'}", anchors.get(nd.label))
+        node(("n", i), "seed" if nd.seed else "followed", f"{nd.label} \u00b7 {_plural(nd.calls, 'call', 'calls')}", nd.label,
+             f"{_plural(nd.calls, 'call', 'calls')} \u00b7 {'matched an indicator' if nd.seed else 'followed'}", anchors.get(nd.label), nd)
     for k, (_src, what, _call) in enumerate(g.unused):
         node(("u", k), "unused", what, what.removesuffix(" (unused)"), "handed over, never used", None)
+    for k, (_src, acct, _call) in enumerate(g.ghosts):
+        node(("g", k), "ghost", f"{acct}: reached, no logs came from it, so what happened there is unknown", acct, "reached, but no logs: unknown", None)
     out.append("</svg>")
     return "".join(out)
 

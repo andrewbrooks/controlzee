@@ -78,6 +78,8 @@ svg.graph,svg.timeline{background:var(--bg2);border:1px solid var(--line);border
 svg text{font-family:system-ui,sans-serif;fill:var(--fg)}
 .node .box{stroke-width:1.5}.node.seed .box{fill:var(--seed-fill);stroke:var(--seed-stroke)}.node.followed .box{fill:var(--fol-fill);stroke:var(--fol-stroke)}
 .node.unused .box{fill:var(--un-fill);stroke:var(--un-stroke);stroke-dasharray:5 4}.node .name{font-size:13px;font-weight:600}.node .sub{font-size:11px;fill:var(--mut)}
+.node.ghost .box{fill:transparent;stroke:var(--warn);stroke-dasharray:2 4;stroke-width:2}
+.rc rect{fill:var(--bg);stroke:var(--line)}.rc text{font-size:11px}.rc.hot rect{stroke:var(--danger);stroke-width:2}.rc.hot text{font-weight:650}.rc-more{font-size:11px;fill:var(--mut)}
 .node.link{cursor:pointer}.node.link:hover .box{stroke-width:3}
 .edge{fill:none;stroke:var(--mut);stroke-width:1.6}.edge.dashed{stroke-dasharray:5 4}.arrowhead{fill:var(--mut)}
 .edge-label-bg{fill:var(--bg);stroke:var(--line)}.edge-label{font-size:11px}

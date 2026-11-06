@@ -327,7 +327,9 @@ def build_html(scope: Scope) -> bytes:
             anchors = {a.label: _identity_anchor(i) for i, a in enumerate(tl.actors[:MAX_NODES])}
             note = ("Each arrow is a credential or principal one identity created or obtained for another, labelled with the call that issued it. "
                     "Click an identity to jump to its details. Red: matched an indicator. Blue: found only by following the attacker. Dashed: "
-                    "handed over but never used in these logs.")
+                    "handed over but never used in these logs. The lines inside an identity are what it changed, deleted or read, by kind "
+                    "(a triangle: it was given full control; a star: it read secrets). Dotted: an account that was reached but sent no logs, "
+                    "so what happened there is unknown.")
             sections.append(("path", "How the attacker moved", f'<p class="note">{note}</p><div class="scroll">{attack_svg(graph, anchors)}</div>'
                              + (f'<p class="note">{graph.hidden} more identities acted and are not drawn.</p>' if graph.hidden else "")))
         if lanes:

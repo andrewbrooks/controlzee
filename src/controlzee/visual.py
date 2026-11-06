@@ -12,7 +12,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from controlzee.facts import KIND_NAMES, MAX_NODES, Issued, collect_identities
+from controlzee.facts import KIND_NAMES, MAX_NODES, Issued, Touch, collect_identities, touched_by_actor
 from controlzee.model.common import Confidence
 from controlzee.model.plan import Plan
 from controlzee.model.scope import Scope
@@ -38,6 +38,7 @@ class Node:
     label: str  # as the logs name the identity
     calls: int
     seed: bool  # matched an indicator, as opposed to being found by following the attacker
+    touched: tuple[Touch, ...] = ()  # what it changed or read (the HTML report draws it; the Markdown diagram does not)
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,7 @@ class Graph:
     edges: list[tuple[int, int, str]]  # (from node, to node, the call that issued what was handed over)
     unused: list[tuple[int, str, str]]  # (from node, what, call): handed over and never used in these logs
     hidden: int  # identities that acted but are not drawn
+    ghosts: tuple[tuple[int, str, str], ...] = ()  # (from node, "account 123456789012", call): reached, and no logs came from it
 
 
 def build_graph(scope: Scope) -> Graph | None:
@@ -89,8 +91,14 @@ def build_graph(scope: Scope) -> Graph | None:
     kept_unused = [(index[a], what, c) for a, what, c in unused if a in index]
     if not kept_edges and not kept_unused:
         return None
-    return Graph(nodes=[Node(a, calls[a], a in seeds) for a in shown], edges=kept_edges, unused=kept_unused,
-                 hidden=len(order) - len(shown))
+    touched = touched_by_actor(scope)
+    ghosts: list[tuple[int, str, str]] = []
+    for gone in scope.coverage.unlogged_accounts:  # the chain does not end there: the logs just stop
+        for eid in gone.event_ids[:1]:
+            if eid in by_id and label_of[eid] in index:
+                ghosts.append((index[label_of[eid]], f"account {gone.account}", "AssumeRole"))
+    return Graph(nodes=[Node(a, calls[a], a in seeds, tuple(touched.get(a, ()))) for a in shown], edges=kept_edges, unused=kept_unused,
+                 hidden=len(order) - len(shown), ghosts=tuple(ghosts))
 
 
 def attack_path(scope: Scope) -> list[str]:

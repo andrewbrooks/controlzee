@@ -10,14 +10,16 @@ from dataclasses import dataclass
 from typing import Final
 
 from controlzee import params
-from controlzee.classify import action, resources
+from controlzee.classify import access, action, resources, tactic
 from controlzee.model.event import Event
 from controlzee.model.scope import Scope
 from controlzee.model.timeline import Timeline
-from controlzee.timeline import actor_label
+from controlzee.timeline import actor_label, privilege_change
 
 MAX_NODES: Final = 30  # a picture of more than this is not a picture
 MAX_CALLS: Final = 15  # calls listed per identity
+MAX_TOUCHED: Final = 4  # kinds of resource shown on an identity in the picture; the rest are counted
+_SECRET_KINDS: Final = ("secret", "parameter", "parameter path")
 KIND_NAMES: Final = {"access_key_id": "access key", "principal_id": "user", "role_id": "role", "instance_id": "instance",
                      "function_name": "function"}
 
@@ -131,3 +133,44 @@ def evidence_rows(ids: list[str], scope: Scope) -> tuple[list[EvidenceRow], list
     rows = [EvidenceRow(when=first[k].replace("T", " "), who=k[0], call=k[1], count=len(v), target=k[2], result=k[3], ids=v)
             for k, v in groups.items()]
     return rows, [i for i in ids if i in by_id]
+
+
+@dataclass(frozen=True)
+class Touch:
+    """What one identity did to one kind of resource: "changed 5 roles", "read 40 secrets"."""
+
+    kind: str  # the resource type, "role", "secret"
+    access: str  # "read", "write" or "delete"
+    count: int  # distinct resources of that kind
+    names: tuple[str, ...]  # the first two, in the order they were touched
+    flag: str  # "admin" (it was given full control), "secret" (a secret or parameter value was read), or ""
+
+
+_ACCESS_ORDER: Final = {"write": 0, "delete": 0, "read": 1}
+
+
+def touched_by_actor(scope: Scope) -> dict[str, list[Touch]]:
+    """For each identity, the resources its successful calls changed, deleted or read, grouped by kind and access, the ones that need
+    attention first. Role assumptions are left out (they are the arrows of the graph) and so are failed calls."""
+    names: dict[str, dict[tuple[str, str], list[str]]] = {}
+    flags: dict[str, dict[tuple[str, str], str]] = {}
+    for s in scope.events:
+        ev = s.event
+        acc = access(ev)
+        if ev.error_code is not None or acc == "assume":
+            continue
+        who = actor_label(ev.user_identity)
+        pc = privilege_change(ev)
+        for kind, name in resources(ev):
+            group = names.setdefault(who, {}).setdefault((kind, acc), [])
+            if name not in group:
+                group.append(name)
+            if pc is not None and pc.admin and pc.principal == f"{kind} {name}":
+                flags.setdefault(who, {})[(kind, acc)] = "admin"
+            elif acc == "read" and tactic(ev) == "credential-access" and kind in _SECRET_KINDS:
+                flags.setdefault(who, {}).setdefault((kind, acc), "secret")
+    out: dict[str, list[Touch]] = {}
+    for who, groups in names.items():
+        touches = [Touch(kind, acc, len(found), tuple(found[:2]), flags.get(who, {}).get((kind, acc), "")) for (kind, acc), found in groups.items()]
+        out[who] = sorted(touches, key=lambda t: (not t.flag, _ACCESS_ORDER.get(t.access, 2), -t.count, t.kind, t.access))
+    return out
