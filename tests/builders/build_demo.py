@@ -46,14 +46,6 @@ EXAMPLES = (
             "A user launches an instance and creates a new user; the instance's role then reads a secret.",
             ("The secret read is starred in the graph and is one step in the sequence of events.",
              "Two long pauses are cut from the timeline.")),
-    Example("01_leaked_key", "fixtures", "A leaked key and a backdoor",
-            "A leaked deploy key creates a backdoor user and gives it full administrative access.",
-            ("Full control is flagged in the case header and under what stands out.",
-             "The plan deactivates both keys first, then undoes the grant.")),
-    Example("06_lambda", "fixtures", "A function that reads a secret",
-            "A key creates a Lambda function whose role reads a secret, and changes the code of another function.",
-            ("Both function roles read the same secret, starred in the graph.",
-             "The plan deletes the function the attacker created and asks a person to review the one they changed.")),
     Example("05_weak_ioc", "fixtures", "Weak evidence",
             "All that is known is a shared NAT address and the user agent curl. Both are weak, so the search is limited to a one-hour window.",
             ("Every event is marked weak, and the report says to confirm them before acting.",)),
@@ -66,9 +58,6 @@ EXAMPLES = (
             "An attacker lists and reads 20 secrets in under a minute.",
             ("The reads are grouped into one step in the sequence of events instead of 60 rows.",
              "What stands out says to treat the values as known to the attacker, and the plan rotates the secrets.")),
-    Example("ssm-retrieve-securestring-parameters", "captured", "Parameters read",
-            "An attacker reads 42 SecureString parameters in under a minute.",
-            ("A single identity and nothing issued: no graph, and the report is mostly the evidence and the plan.",)),
 )
 
 _CSS = """

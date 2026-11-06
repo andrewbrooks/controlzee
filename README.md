@@ -5,8 +5,8 @@ did, and provides output that can be parsed by other tools and humans.
 
 Named for CTRL+Z, but most of the time the right answer is rebuild, not undo.
 
-**[See example reports](https://andrewbrooks.github.io/controlzee/)**: nine incidents, from a leaked key to switched-off logging, as live HTML
-reports. Six are built from made-up logs and three from sanitized real CloudTrail.
+**[See example reports](https://andrewbrooks.github.io/controlzee/)**: six incidents, from a chain of roles to switched-off logging, as live HTML
+reports. Four are built from made-up logs and two from sanitized real CloudTrail.
 
 > **Proof of concept (alpha).** Read the [status](#status) before pointing it at an account that matters. `respond`
 > changes IAM and other AWS resources; only part of it has been run against a real account.
@@ -207,7 +207,7 @@ Each output cites the scope it came from; the same scope always gives the same b
   Steps with operations can be carried out by `controlzee respond` (see above); the rest are for a person. A value from
   the logs reaches a command only if it has the documented form for its kind, and is shell-quoted; otherwise the step is
   manual and says why.
-- **`report`**: `--format md` (the default) or `--format html`. HTML is one self-contained page ([nine live examples](https://andrewbrooks.github.io/controlzee/), from made-up and sanitized logs) with the diagrams drawn,
+- **`report`**: `--format md` (the default) or `--format html`. HTML is one self-contained page ([six live examples](https://andrewbrooks.github.io/controlzee/), from made-up and sanitized logs) with the diagrams drawn,
   click-to-copy for event ids and commands, a filter on the calls, a checklist that remembers what was done and expand all; it
   is light only, prints, and needs no network. It is laid out as a case file: the facts of the case, what to do first, how the
   attacker moved (a graph whose arrows are numbered like the steps of the sequence of events, and whose identities list what

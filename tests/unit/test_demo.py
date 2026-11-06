@@ -73,13 +73,10 @@ CLAIMS = {
     "02_role_chain": ["2 h 40 min, no activity", "444455556666", 'class="node ghost"', 'id="step-A03" data-phase="contain" data-nodes='],
     "04_log_tampering": ["2 h 27 min, logs silent", "Logging or detection changed", "Restart AWS Config recording", "Turn the trail back on"],
     "03_instance_role": ["Secrets read", "1 h 48 min, no activity", "1 h 00 min, no activity", "★ read secret prod/db"],
-    "01_leaked_key": ["Full administrative access was granted", "Undo a permission change"],
-    "06_lambda": ["★ read secret prod/db", "Review a Lambda function the attacker changed", "Delete a Lambda function the attacker created"],
     "05_weak_ioc": ["on weak evidence only: confirm them before acting on them"],
     "ec2-steal-instance-credentials": ["Instance role used from another address", "Cut an attacker&#x27;s instance off from its role",
                                        "Stop an attacker&#x27;s instance", "Terminate an attacker&#x27;s instance"],
     "secretsmanager-retrieve-secrets": ["Secrets read", "&times;60", "treat the values as known to the attacker", "Rotate the 20 secrets"],
-    "ssm-retrieve-securestring-parameters": ["Change the 42 parameters"],
 }
 
 
@@ -95,7 +92,7 @@ def test_what_a_card_says_to_look_at_is_in_the_report(built, name):
 
 
 def test_the_cards_that_say_there_is_no_graph_are_right_and_the_others_have_one(built):
-    no_graph = {"04_log_tampering", "ssm-retrieve-securestring-parameters"}
+    no_graph = {"04_log_tampering"}
     for e in EXAMPLES:
         has = 'class="graph' in built[Path("examples") / f"{e.name}.html"].decode()
         assert has == (e.name not in no_graph), e.name
