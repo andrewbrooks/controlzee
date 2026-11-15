@@ -7,13 +7,16 @@ fixtures do not cover, taint or coverage cases the rules miss, and results of th
 ## Setup and checks
 
 ```
-uv sync
-uv run pytest -q
-uv run ruff check . && uv run mypy src
-uv run python -m tests.builders.build_fixtures --check
+make setup    # uv sync --locked, and enables the pre-commit hook
+make check    # lint and format check, mypy, fixtures check, tests
+make help     # every task, including format, secrets, audit-deps and build
 ```
 
-CI runs the same four. Read the "Invariants to preserve" in [CLAUDE.md](CLAUDE.md) before changing output: artifacts
+CI runs `make check` plus a secret scan of the full history and a dependency audit. The pre-commit hook scans staged
+changes for secrets (`gitleaks`) and checks lint and formatting. The fake AWS key ids in the tests are allowed by exact
+path in `.gitleaks.toml`; a new secret-shaped string anywhere else fails the scan, so add the file there with a reason.
+
+Read the "Invariants to preserve" in [CLAUDE.md](CLAUDE.md) before changing output: artifacts
 must stay byte-identical for the same inputs, log content is hostile, and nothing may change AWS without an approved dry
 run.
 
