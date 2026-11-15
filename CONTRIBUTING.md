@@ -12,7 +12,7 @@ make check    # lint and format check, mypy, fixtures check, tests
 make help     # every task, including format, secrets, audit-deps and build
 ```
 
-CI runs `make check` plus a secret scan of the full history and a dependency audit. The pre-commit hook scans staged
+CI runs the same checks as `make check`, plus a secret scan of the full history and a dependency audit. The pre-commit hook scans staged
 changes for secrets (`gitleaks`) and checks lint and formatting. The fake AWS key ids in the tests are allowed by exact
 path in `.gitleaks.toml`; a new secret-shaped string anywhere else fails the scan, so add the file there with a reason.
 
