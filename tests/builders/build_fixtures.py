@@ -1,11 +1,14 @@
 """Write the committed scenario fixtures: `uv run python -m tests.builders.build_fixtures [--check]`.
 
---check rebuilds into a temporary directory and fails if the committed files differ (used by the test suite).
+--check rebuilds into a temporary directory and fails if the committed files differ (used by the test suite). Gzipped
+files are compared by their decompressed content: the compressed bytes depend on the Python and zlib version, and only
+the content is what the tests read.
 """
 
 from __future__ import annotations
 
 import filecmp
+import gzip
 import shutil
 import sys
 import tempfile
@@ -33,6 +36,13 @@ def build(root: Path) -> None:
         make().write(logs_dir, per_file=12, gzip_every=gzip_every)
 
 
+def same_content(left: Path, right: Path) -> bool:
+    """True if the two files hold the same bytes; for `.gz` files, the same bytes once decompressed."""
+    if left.suffix == ".gz":
+        return gzip.decompress(left.read_bytes()) == gzip.decompress(right.read_bytes())
+    return filecmp.cmp(left, right, shallow=False)
+
+
 def differences(a: Path, b: Path) -> list[str]:
     out: list[str] = []
     for name in SCENARIOS:
@@ -46,7 +56,7 @@ def differences(a: Path, b: Path) -> list[str]:
         if lf != rf:
             out.append(f"{name}: file lists differ")
             continue
-        out += [f"{name}/{rel}" for rel in lf if not filecmp.cmp(left / rel, right / rel, shallow=False)]
+        out += [f"{name}/{rel}" for rel in lf if not same_content(left / rel, right / rel)]
     return out
 
 
