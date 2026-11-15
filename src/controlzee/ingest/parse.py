@@ -1,4 +1,5 @@
 """Fast pass over one CloudTrail file: bytes in, index rows out. Runs inside worker processes."""
+
 from __future__ import annotations
 
 import gc
@@ -74,11 +75,26 @@ def row_of(rec: Any, file_index: int, record_index: int, table: dict[str, str]) 
     ro = rec.get("readOnly")
     acct = s(rec.get("recipientAccountId")) or s(ui.get("accountId")) or ""
     return (
-        eid, ts, etime, s(source) or "", s(name) or "", s(rec.get("awsRegion")) or "", acct,
-        ro if ro.__class__ is bool else None, s(rec.get("sourceIPAddress")), s(rec.get("userAgent")),
-        s(rec.get("errorCode")), s(ui.get("type")), s(ui.get("arn")), s(ui.get("principalId")),
-        s(ui.get("accessKeyId")), s(iss.get("arn")) if isinstance(iss, dict) else None,
-        s(ui.get("sourceIdentity")), issued_by(rec, source, name), file_index, record_index,
+        eid,
+        ts,
+        etime,
+        s(source) or "",
+        s(name) or "",
+        s(rec.get("awsRegion")) or "",
+        acct,
+        ro if ro.__class__ is bool else None,
+        s(rec.get("sourceIPAddress")),
+        s(rec.get("userAgent")),
+        s(rec.get("errorCode")),
+        s(ui.get("type")),
+        s(ui.get("arn")),
+        s(ui.get("principalId")),
+        s(ui.get("accessKeyId")),
+        s(iss.get("arn")) if isinstance(iss, dict) else None,
+        s(ui.get("sourceIdentity")),
+        issued_by(rec, source, name),
+        file_index,
+        record_index,
     )
 
 
@@ -87,8 +103,16 @@ class FileResult:
 
     __slots__ = ("data_events", "entry", "malformed", "rows", "samples")
 
-    def __init__(self, entry: FileEntry, rows: list[Row], malformed: int, samples: list[str], data_events: int = 0) -> None:
-        self.entry, self.rows, self.malformed, self.samples, self.data_events = entry, rows, malformed, samples, data_events
+    def __init__(
+        self, entry: FileEntry, rows: list[Row], malformed: int, samples: list[str], data_events: int = 0
+    ) -> None:
+        self.entry, self.rows, self.malformed, self.samples, self.data_events = (
+            entry,
+            rows,
+            malformed,
+            samples,
+            data_events,
+        )
 
 
 def index_file(file_index: int, source: Source, max_bytes: int) -> FileResult:

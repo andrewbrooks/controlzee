@@ -1,4 +1,5 @@
 """timeline, plan and report: built from a scope alone, deterministic, and safe with hostile log content."""
+
 import json
 import re
 import shlex
@@ -23,7 +24,9 @@ from tests.builders.cloudtrail import HIDDEN, LogSet, at, iam_user
 
 def scope_of(fixtures, scenario):
     root = fixtures / scenario
-    return build_scope([root / "logs"], assemble([load_iocs_file(root / "iocs.yaml")]), ScopeOptions(workers=1)).scope
+    return build_scope(
+        [root / "logs"], assemble([load_iocs_file(root / "iocs.yaml")]), ScopeOptions(workers=1)
+    ).scope
 
 
 def timeline_of(scope):
@@ -35,65 +38,134 @@ def plan_of(scope):
 
 
 def ev(source, name, *, read_only=None, request=None, response=None, error=None):
-    return Event(event_id="e", event_time="2026-10-20T12:00:00Z", event_source=source, event_name=name, aws_region="us-east-1",
-                 recipient_account_id="111122223333", read_only=read_only, user_identity=UserIdentity(), request_parameters=request,
-                 response_elements=response, error_code=error, source=SourceRef(input="x.json", record=0))
+    return Event(
+        event_id="e",
+        event_time="2026-10-20T12:00:00Z",
+        event_source=source,
+        event_name=name,
+        aws_region="us-east-1",
+        recipient_account_id="111122223333",
+        read_only=read_only,
+        user_identity=UserIdentity(),
+        request_parameters=request,
+        response_elements=response,
+        error_code=error,
+        source=SourceRef(input="x.json", record=0),
+    )
 
 
 # ---- classification
 
+
 def test_changing_an_instances_user_data_is_execution_but_other_attribute_changes_are_not():
-    assert tactic(ev("ec2.amazonaws.com", "ModifyInstanceAttribute", read_only=False, request={"userData": "<sensitiveDataRemoved>"})) == "execution"
-    assert tactic(ev("ec2.amazonaws.com", "ModifyInstanceAttribute", read_only=False, request={"disableApiTermination": {"value": True}})) == "other"
+    assert (
+        tactic(
+            ev(
+                "ec2.amazonaws.com",
+                "ModifyInstanceAttribute",
+                read_only=False,
+                request={"userData": "<sensitiveDataRemoved>"},
+            )
+        )
+        == "execution"
+    )
+    assert (
+        tactic(
+            ev(
+                "ec2.amazonaws.com",
+                "ModifyInstanceAttribute",
+                read_only=False,
+                request={"disableApiTermination": {"value": True}},
+            )
+        )
+        == "other"
+    )
     assert tactic(ev("ec2.amazonaws.com", "StopInstances", read_only=False)) == "impact"
 
 
-@pytest.mark.parametrize("source,name,read_only,expected", [
-    ("iam.amazonaws.com", "CreateAccessKey", False, "persistence"), ("iam.amazonaws.com", "AttachUserPolicy", False, "privilege-escalation"),
-    ("cloudtrail.amazonaws.com", "StopLogging", False, "defense-evasion"), ("sts.amazonaws.com", "AssumeRole", True, "lateral-movement"),
-    ("secretsmanager.amazonaws.com", "GetSecretValue", True, "credential-access"), ("s3.amazonaws.com", "ListBuckets", True, "discovery"),
-    ("lambda.amazonaws.com", "CreateFunction20150331", False, "persistence"), ("ec2.amazonaws.com", "TerminateInstances", False, "impact"),
-    ("s3.amazonaws.com", "PutBucketPolicy", False, "exfiltration"), ("ec2.amazonaws.com", "CreateTags", False, "other"),
-    ("ec2.amazonaws.com", "DescribeVpcs", None, "discovery"),
-])
+@pytest.mark.parametrize(
+    "source,name,read_only,expected",
+    [
+        ("iam.amazonaws.com", "CreateAccessKey", False, "persistence"),
+        ("iam.amazonaws.com", "AttachUserPolicy", False, "privilege-escalation"),
+        ("cloudtrail.amazonaws.com", "StopLogging", False, "defense-evasion"),
+        ("sts.amazonaws.com", "AssumeRole", True, "lateral-movement"),
+        ("secretsmanager.amazonaws.com", "GetSecretValue", True, "credential-access"),
+        ("s3.amazonaws.com", "ListBuckets", True, "discovery"),
+        ("lambda.amazonaws.com", "CreateFunction20150331", False, "persistence"),
+        ("ec2.amazonaws.com", "TerminateInstances", False, "impact"),
+        ("s3.amazonaws.com", "PutBucketPolicy", False, "exfiltration"),
+        ("ec2.amazonaws.com", "CreateTags", False, "other"),
+        ("ec2.amazonaws.com", "DescribeVpcs", None, "discovery"),
+    ],
+)
 def test_tactics(source, name, read_only, expected):
     assert tactic(ev(source, name, read_only=read_only)) == expected
 
 
 def test_actions_access_and_resources():
     lam = ev("lambda.amazonaws.com", "UpdateFunctionCode20150331v2", request={"functionName": "f"})
-    assert action(lam) == "lambda:UpdateFunctionCode" and resources(lam) == [("function", "f")] and access(lam) == "write"
+    assert (
+        action(lam) == "lambda:UpdateFunctionCode"
+        and resources(lam) == [("function", "f")]
+        and access(lam) == "write"
+    )
     obj = ev("s3.amazonaws.com", "GetObject", read_only=True, request={"bucketName": "b", "key": "k/1"})
     assert resources(obj) == [("object", "b/k/1")] and access(obj) == "read"
-    run = ev("ec2.amazonaws.com", "RunInstances", response={"instancesSet": {"items": [{"instanceId": "i-1"}, "junk"]}})
+    run = ev(
+        "ec2.amazonaws.com",
+        "RunInstances",
+        response={"instancesSet": {"items": [{"instanceId": "i-1"}, "junk"]}},
+    )
     assert resources(run) == [("instance", "i-1")]
     assert resources(ev("ec2.amazonaws.com", "RunInstances", response={"instancesSet": ["odd"]})) == []
     assert access(ev("iam.amazonaws.com", "DeleteUser", request={"userName": "u"})) == "delete"
-    assert access(ev("sts.amazonaws.com", "AssumeRole", request={"roleArn": "arn:aws:iam::1:role/r"})) == "assume"
+    assert (
+        access(ev("sts.amazonaws.com", "AssumeRole", request={"roleArn": "arn:aws:iam::1:role/r"}))
+        == "assume"
+    )
     # a parameter the table does not know is not a resource, whatever it is called
     assert resources(ev("iam.amazonaws.com", "CreateUser", request={"bucketName": "not-iam"})) == []
 
 
 # ---- the scenarios
 
+
 def test_scenario_01_timeline_and_plan(fixtures):
     scope = scope_of(fixtures, "01_leaked_key")
     tl = timeline_of(scope)
     assert [a.label for a in tl.actors] == ["user/ci-deploy", "user/backdoor-svc"]
-    assert tl.exposure.admin_granted and tl.exposure.privilege_changes[0].policy == "arn:aws:iam::aws:policy/AdministratorAccess"
+    assert (
+        tl.exposure.admin_granted
+        and tl.exposure.privilege_changes[0].policy == "arn:aws:iam::aws:policy/AdministratorAccess"
+    )
     assert [t.tactic for t in tl.tactics] == ["persistence", "privilege-escalation", "discovery"]
     plan = plan_of(scope)
     assert [(a.phase, a.title) for a in plan.actions] == [
-        ("contain", "Deactivate an access key the attacker used"), ("contain", "Deactivate an access key the attacker used"),
-        ("investigate", "Look for object-level access elsewhere"), ("eradicate", "Undo a permission change"),
+        ("contain", "Deactivate an access key the attacker used"),
+        ("contain", "Deactivate an access key the attacker used"),
+        ("investigate", "Look for object-level access elsewhere"),
+        ("eradicate", "Undo a permission change"),
         ("eradicate", "Delete a user the attacker created"),
-        ("recover", "Give the key's owner a new key, then delete the old one")]
+        ("recover", "Give the key's owner a new key, then delete the old one"),
+    ]
     undo = plan.actions[3]
-    assert [(o.op, o.args["user"]) for o in undo.operations] == [("detach_user_policy", "backdoor-svc")] and not undo.disruptive
+    assert [(o.op, o.args["user"]) for o in undo.operations] == [
+        ("detach_user_policy", "backdoor-svc")
+    ] and not undo.disruptive
     delete = plan.actions[4]
-    assert [(o.op, o.args) for o in delete.operations] == [("delete_user", {"user": "backdoor-svc"})] and delete.disruptive
+    assert [(o.op, o.args) for o in delete.operations] == [
+        ("delete_user", {"user": "backdoor-svc"})
+    ] and delete.disruptive
     assert delete.commands[-1] == "aws iam delete-user --user-name backdoor-svc"
-    assert [a.operations == [] for a in plan.actions] == [False, False, True, False, False, True]  # investigate and the new key are manual
+    assert [a.operations == [] for a in plan.actions] == [
+        False,
+        False,
+        True,
+        False,
+        False,
+        True,
+    ]  # investigate and the new key are manual
 
 
 def test_scenario_02_plan_reaches_into_the_unlogged_account(fixtures):
@@ -101,7 +173,9 @@ def test_scenario_02_plan_reaches_into_the_unlogged_account(fixtures):
     reach = next(a for a in plan.actions if a.title == "Get the logs of an account the attacker reached")
     assert reach.target == "account 444455556666" and "--access-key ASIAIOSFODNN7PRODMT" in reach.commands[0]
     assert {a.target for a in plan.actions if a.title == "Revoke the role's active sessions"} == {
-        "role ops-admin (account 111122223333)", "role support-audit (account 111122223333)"}
+        "role ops-admin (account 111122223333)",
+        "role support-audit (account 111122223333)",
+    }
 
 
 def test_scenario_03_everything_is_weak_and_the_secret_is_rotated(fixtures):
@@ -109,7 +183,9 @@ def test_scenario_03_everything_is_weak_and_the_secret_is_rotated(fixtures):
     plan = plan_of(scope)
     assert {a.confidence.value for a in plan.actions if a.evidence} == {"weak"}
     assert any("confirm them before acting" in n for n in plan.notes)
-    assert "aws secretsmanager rotate-secret --region us-east-1 --secret-id prod/db" in [c for a in plan.actions for c in a.commands]
+    assert "aws secretsmanager rotate-secret --region us-east-1 --secret-id prod/db" in [
+        c for a in plan.actions for c in a.commands
+    ]
     assert timeline_of(scope).exposure.credentials_read == ["secret prod/db"]
 
 
@@ -118,23 +194,32 @@ def test_scenario_04_gap_sits_in_the_timeline_and_logging_is_restored(fixtures):
     tl = timeline_of(scope)
     gap = next(e for e in tl.entries if e.kind == "gap")
     stop = next(e for e in tl.entries if e.action == "cloudtrail:StopLogging")
-    assert tl.entries.index(gap) == tl.entries.index(stop) + 1 and "cloudtrail:StopLogging" in (gap.note or "")
+    assert tl.entries.index(gap) == tl.entries.index(stop) + 1 and "cloudtrail:StopLogging" in (
+        gap.note or ""
+    )
     titles = [a.title for a in plan_of(scope).actions]
     assert "Turn the trail back on" in titles and "Restart AWS Config recording" in titles
     assert "Re-enable GuardDuty" not in titles  # the attempt was refused
 
 
-def test_scenario_06_plan_deletes_the_created_function_reviews_the_changed_one_and_classifies_identity_center(fixtures):
+def test_scenario_06_plan_deletes_the_created_function_reviews_the_changed_one_and_classifies_identity_center(
+    fixtures,
+):
     plan = plan_of(scope_of(fixtures, "06_lambda"))
     steps = {a.title: a for a in plan.actions if "Lambda function" in a.title}
     created = steps["Delete a Lambda function the attacker created"]
     assert created.target == "function exfil-fn (us-east-1)" and created.disruptive
-    assert [(o.op, o.args, o.region) for o in created.operations] == [("delete_lambda_function", {"function": "exfil-fn"}, "us-east-1")]
+    assert [(o.op, o.args, o.region) for o in created.operations] == [
+        ("delete_lambda_function", {"function": "exfil-fn"}, "us-east-1")
+    ]
     assert created.commands[-1] == "aws lambda delete-function --region us-east-1 --function-name exfil-fn"
     changed = steps["Review a Lambda function the attacker changed"]
     assert changed.target == "function billing-report (us-east-1)" and "redeploy" in (changed.caution or "")
-    for service, name, expected in (("sso", "CreateAccountAssignment", "persistence"), ("identitystore", "CreateUser", "persistence"),
-                                    ("sso", "PutInlinePolicyToPermissionSet", "privilege-escalation")):
+    for service, name, expected in (
+        ("sso", "CreateAccountAssignment", "persistence"),
+        ("identitystore", "CreateUser", "persistence"),
+        ("sso", "PutInlinePolicyToPermissionSet", "privilege-escalation"),
+    ):
         assert tactic(ev(f"{service}.amazonaws.com", name, read_only=False)) == expected
 
 
@@ -162,27 +247,60 @@ def test_hostile_values_cannot_break_out_of_the_report_or_the_commands(tmp_path)
     logs = LogSet()
     attacker = iam_user("ci", "AKIAIOSFODNN7HOSTIL")
     t = at("2026-10-20T12:00:00Z")
-    logs.add(t, "iam.amazonaws.com", "CreateUser", attacker, ua=EVIL, request={"userName": EVIL},
-             response={"user": {"userName": EVIL, "userId": "AIDAHOSTILE00000001"}})
-    logs.add(t, "iam.amazonaws.com", "CreateAccessKey", attacker, request={"userName": EVIL},
-             response={"accessKey": {"userName": EVIL, "accessKeyId": "AKIAIOSFODNN7HOSTL2", "secretAccessKey": HIDDEN}})
-    logs.add(t, "secretsmanager.amazonaws.com", "GetSecretValue", attacker, request={"secretId": "ok/name"}, region=EVIL)
+    logs.add(
+        t,
+        "iam.amazonaws.com",
+        "CreateUser",
+        attacker,
+        ua=EVIL,
+        request={"userName": EVIL},
+        response={"user": {"userName": EVIL, "userId": "AIDAHOSTILE00000001"}},
+    )
+    logs.add(
+        t,
+        "iam.amazonaws.com",
+        "CreateAccessKey",
+        attacker,
+        request={"userName": EVIL},
+        response={
+            "accessKey": {"userName": EVIL, "accessKeyId": "AKIAIOSFODNN7HOSTL2", "secretAccessKey": HIDDEN}
+        },
+    )
+    logs.add(
+        t,
+        "secretsmanager.amazonaws.com",
+        "GetSecretValue",
+        attacker,
+        request={"secretId": "ok/name"},
+        region=EVIL,
+    )
     (tmp_path / "logs").mkdir()
-    (tmp_path / "logs" / "x.json").write_bytes(orjson.dumps({"Records": logs.records}))  # one flat file: the region is not a path
-    scope = build_scope([tmp_path / "logs"], assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7HOSTIL"]))]),
-                        ScopeOptions(workers=1)).scope
-    report = "\n".join(ln for ln in build_report(scope).decode().splitlines() if not ln.startswith("**Jump to:**"))  # our own links
+    (tmp_path / "logs" / "x.json").write_bytes(
+        orjson.dumps({"Records": logs.records})
+    )  # one flat file: the region is not a path
+    scope = build_scope(
+        [tmp_path / "logs"],
+        assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7HOSTIL"]))]),
+        ScopeOptions(workers=1),
+    ).scope
+    report = "\n".join(
+        ln for ln in build_report(scope).decode().splitlines() if not ln.startswith("**Jump to:**")
+    )  # our own links
     # markup only ever appears escaped: no tag, no link, no command substitution, no autolink
     for raw in (r"(?<!\\)<img", r"(?<!\\)\]\(", r"(?<!\\)\$\(", r"http://"):
         assert not re.search(raw, report), raw
-    rows = [ln for ln in report.split("## Timeline")[1].split("##")[0].splitlines() if ln.startswith("| 2026")]
+    rows = [
+        ln for ln in report.split("## Timeline")[1].split("##")[0].splitlines() if ln.startswith("| 2026")
+    ]
     assert all(len(re.split(r"(?<!\\)\|", r)) == 9 for r in rows)
     # the odd user name never reaches a command: those steps become manual
     plan = plan_of(scope)
     commands = [c for a in plan.actions for c in a.commands]
     assert commands and all("rm -rf" not in c and "<img" not in c for c in commands)
     manual = [a for a in plan.actions if a.target.startswith(("user x|", "access key AKIAIOSFODNN7HOSTL2"))]
-    assert manual and all(not a.commands and "does not have the expected form" in (a.caution or "") for a in manual)
+    assert manual and all(
+        not a.commands and "does not have the expected form" in (a.caution or "") for a in manual
+    )
     # and an odd region likewise
     assert all(not a.commands for a in plan.actions if a.title == "Rotate a secret the attacker read")
     for c in commands:
@@ -196,6 +314,7 @@ def test_md_escapes_markup():
 
 # ---- loading a scope
 
+
 def _write(path, doc):
     path.write_bytes(canonical.dumps(doc))
     return path
@@ -208,7 +327,9 @@ def test_load_scope_refuses_edited_foreign_and_broken_files(fixtures, tmp_path):
     with pytest.raises(ArtifactError, match="changed after it was written"):
         load_scope(_write(tmp_path / "edited.json", edited))
     with pytest.raises(ArtifactError, match="schema version"):
-        load_scope(_write(tmp_path / "old.json", canonical.seal({**good, "schema_version": "0.1"}, "scope_sha256")))
+        load_scope(
+            _write(tmp_path / "old.json", canonical.seal({**good, "schema_version": "0.1"}, "scope_sha256"))
+        )
     (tmp_path / "bad.json").write_text("{")
     with pytest.raises(ArtifactError, match="not valid JSON"):
         load_scope(tmp_path / "bad.json")
@@ -218,7 +339,6 @@ def test_load_scope_refuses_edited_foreign_and_broken_files(fixtures, tmp_path):
         load_scope(tmp_path / "absent.json")
 
 
-
 @pytest.mark.parametrize("attach_first", [True, False])
 def test_calls_in_the_same_second_list_what_they_create_first(tmp_path, attach_first):
     # seen on a real account: CreateUser and AttachUserPolicy in one second, the attach listed first. Both insertion
@@ -226,24 +346,40 @@ def test_calls_in_the_same_second_list_what_they_create_first(tmp_path, attach_f
     logs = LogSet()
     key = iam_user("ci", "AKIAIOSFODNN7SAMESC")
     t = at("2026-10-20T12:00:00Z")
-    calls = [("AttachUserPolicy", {"userName": "u", "policyArn": "arn:aws:iam::aws:policy/ReadOnlyAccess"}, None),
-             ("CreateUser", {"userName": "u"}, {"user": {"userName": "u", "userId": "AIDASAMESECOND00001"}})]
+    calls = [
+        ("AttachUserPolicy", {"userName": "u", "policyArn": "arn:aws:iam::aws:policy/ReadOnlyAccess"}, None),
+        ("CreateUser", {"userName": "u"}, {"user": {"userName": "u", "userId": "AIDASAMESECOND00001"}}),
+    ]
     for name, req, resp in calls if attach_first else calls[::-1]:
         logs.add(t, "iam.amazonaws.com", name, key, request=req, response=resp)
     (tmp_path / "logs").mkdir()
     (tmp_path / "logs" / "x.json").write_bytes(orjson.dumps({"Records": logs.records}))
-    scope = build_scope([tmp_path / "logs"], assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7SAMESC"]))]),
-                        ScopeOptions(workers=1)).scope
+    scope = build_scope(
+        [tmp_path / "logs"],
+        assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7SAMESC"]))]),
+        ScopeOptions(workers=1),
+    ).scope
     assert [e.action for e in timeline_of(scope).entries] == ["iam:CreateUser", "iam:AttachUserPolicy"]
 
 
 # ---- instance role credentials used from more than one address
 
+
 def _session_event(n, session, ip, *, type_="AssumedRole"):
     from types import SimpleNamespace
-    event = Event(event_id=f"e{n}", event_time=f"2026-10-20T12:00:{n:02d}Z", event_source="ec2.amazonaws.com", event_name="DescribeInstances",
-                  aws_region="us-east-1", recipient_account_id="111122223333", read_only=True, source_ip=ip,
-                  user_identity=UserIdentity(type=type_, session_name=session), source=SourceRef(input="x.json", record=n))
+
+    event = Event(
+        event_id=f"e{n}",
+        event_time=f"2026-10-20T12:00:{n:02d}Z",
+        event_source="ec2.amazonaws.com",
+        event_name="DescribeInstances",
+        aws_region="us-east-1",
+        recipient_account_id="111122223333",
+        read_only=True,
+        source_ip=ip,
+        user_identity=UserIdentity(type=type_, session_name=session),
+        source=SourceRef(input="x.json", record=n),
+    )
     return SimpleNamespace(event=event)
 
 
@@ -251,39 +387,80 @@ def _use(*events):
     from types import SimpleNamespace
 
     from controlzee.timeline import _instance_role_use
+
     return _instance_role_use(SimpleNamespace(events=list(events)))
 
 
 def test_an_instance_role_session_from_two_addresses_is_flagged_with_each_address():
-    use = _use(_session_event(1, "i-0123456789abcdef0", "203.0.113.5"), _session_event(2, "i-0123456789abcdef0", "198.51.100.9"),
-               _session_event(3, "i-0123456789abcdef0", "198.51.100.9"))
+    use = _use(
+        _session_event(1, "i-0123456789abcdef0", "203.0.113.5"),
+        _session_event(2, "i-0123456789abcdef0", "198.51.100.9"),
+        _session_event(3, "i-0123456789abcdef0", "198.51.100.9"),
+    )
     assert [(u.instance, u.region, [(a.address, a.events) for a in u.addresses]) for u in use] == [
-        ("i-0123456789abcdef0", "us-east-1", [("198.51.100.9", 2), ("203.0.113.5", 1)])]
+        ("i-0123456789abcdef0", "us-east-1", [("198.51.100.9", 2), ("203.0.113.5", 1)])
+    ]
     assert use[0].event_ids == ["e1", "e2", "e3"]
 
 
 def test_one_address_service_names_and_other_sessions_are_not_flagged():
-    assert _use(_session_event(1, "i-0123456789abcdef0", "203.0.113.5"), _session_event(2, "i-0123456789abcdef0", "203.0.113.5")) == []
-    assert _use(_session_event(1, "i-0123456789abcdef0", "203.0.113.5"), _session_event(2, "i-0123456789abcdef0", "ec2.amazonaws.com"),
-                _session_event(3, "i-0123456789abcdef0", "AWS Internal")) == []
-    assert _use(_session_event(1, "alice", "203.0.113.5"), _session_event(2, "alice", "198.51.100.9")) == []  # a person moves around
-    assert _use(_session_event(1, "i-0123456789abcdef0", "203.0.113.5", type_="IAMUser"),
-                _session_event(2, "i-0123456789abcdef0", "198.51.100.9", type_="IAMUser")) == []
+    assert (
+        _use(
+            _session_event(1, "i-0123456789abcdef0", "203.0.113.5"),
+            _session_event(2, "i-0123456789abcdef0", "203.0.113.5"),
+        )
+        == []
+    )
+    assert (
+        _use(
+            _session_event(1, "i-0123456789abcdef0", "203.0.113.5"),
+            _session_event(2, "i-0123456789abcdef0", "ec2.amazonaws.com"),
+            _session_event(3, "i-0123456789abcdef0", "AWS Internal"),
+        )
+        == []
+    )
+    assert (
+        _use(_session_event(1, "alice", "203.0.113.5"), _session_event(2, "alice", "198.51.100.9")) == []
+    )  # a person moves around
+    assert (
+        _use(
+            _session_event(1, "i-0123456789abcdef0", "203.0.113.5", type_="IAMUser"),
+            _session_event(2, "i-0123456789abcdef0", "198.51.100.9", type_="IAMUser"),
+        )
+        == []
+    )
 
 
 # ---- the report's pictures and quick-read block
+
 
 def _attack_path_report(tmp_path, actor_name):
     logs = LogSet()
     attacker = iam_user("ci", "AKIAIOSFODNN7HOSTIL")
     t = at("2026-10-20T12:00:00Z")
-    logs.add(t, "iam.amazonaws.com", "CreateAccessKey", attacker, request={"userName": "ci"},
-             response={"accessKey": {"userName": "ci", "accessKeyId": "AKIAIOSFODNN7HOSTL2", "secretAccessKey": HIDDEN}})
-    logs.add(at("2026-10-20T12:05:00Z"), "s3.amazonaws.com", "ListBuckets", iam_user(actor_name, "AKIAIOSFODNN7HOSTL2"))
+    logs.add(
+        t,
+        "iam.amazonaws.com",
+        "CreateAccessKey",
+        attacker,
+        request={"userName": "ci"},
+        response={
+            "accessKey": {"userName": "ci", "accessKeyId": "AKIAIOSFODNN7HOSTL2", "secretAccessKey": HIDDEN}
+        },
+    )
+    logs.add(
+        at("2026-10-20T12:05:00Z"),
+        "s3.amazonaws.com",
+        "ListBuckets",
+        iam_user(actor_name, "AKIAIOSFODNN7HOSTL2"),
+    )
     (tmp_path / "logs").mkdir()
     (tmp_path / "logs" / "x.json").write_bytes(orjson.dumps({"Records": logs.records}))
-    scope = build_scope([tmp_path / "logs"], assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7HOSTIL"]))]),
-                        ScopeOptions(workers=1)).scope
+    scope = build_scope(
+        [tmp_path / "logs"],
+        assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7HOSTIL"]))]),
+        ScopeOptions(workers=1),
+    ).scope
     return build_report(scope).decode()
 
 
@@ -296,11 +473,18 @@ def test_the_attack_path_shows_who_handed_a_credential_to_whom(tmp_path):
 
 def test_a_hostile_identity_name_cannot_break_out_of_the_diagram(tmp_path):
     block = _attack_path_report(tmp_path, EVIL).split("```mermaid\n")[1].split("```")[0]
-    shapes = (r'    n\d+\["[A-Za-z0-9 _/.@:+=,()·-]* · \d+ calls?"\]:::(seed|followed)', r'    n\d+ -->\|"[A-Za-z0-9 _/.@:+=,()·-]*"\| n\d+',
-              r'    u\d+\["[A-Za-z0-9 _/.@:+=,()·-]*"\]:::unused', r'    n\d+ -\.->\|"[A-Za-z0-9 _/.@:+=,()·-]*"\| u\d+',
-              r"    classDef (seed|followed|unused) [a-z]+:[#\w:,. -]+", "flowchart LR")
+    shapes = (
+        r'    n\d+\["[A-Za-z0-9 _/.@:+=,()·-]* · \d+ calls?"\]:::(seed|followed)',
+        r'    n\d+ -->\|"[A-Za-z0-9 _/.@:+=,()·-]*"\| n\d+',
+        r'    u\d+\["[A-Za-z0-9 _/.@:+=,()·-]*"\]:::unused',
+        r'    n\d+ -\.->\|"[A-Za-z0-9 _/.@:+=,()·-]*"\| u\d+',
+        r"    classDef (seed|followed|unused) [a-z]+:[#\w:,. -]+",
+        "flowchart LR",
+    )
     lines = [ln for ln in block.splitlines() if ln]
-    assert lines and all(any(re.fullmatch(p, ln) for p in shapes) for ln in lines), [ln for ln in lines if not any(re.fullmatch(p, ln) for p in shapes)]
+    assert lines and all(any(re.fullmatch(p, ln) for p in shapes) for ln in lines), [
+        ln for ln in lines if not any(re.fullmatch(p, ln) for p in shapes)
+    ]
     assert "<img" not in block and "`" not in block and "](" not in block
 
 
@@ -321,6 +505,7 @@ def test_at_a_glance_says_what_stands_out(fixtures):
 
 # ---- folded sections, and a block per identity
 
+
 def test_every_fold_is_closed_and_there_is_a_jump_line(fixtures):
     for scenario in SCENARIOS:
         report = build_report(scope_of(fixtures, scenario)).decode()
@@ -333,11 +518,18 @@ def test_every_fold_is_closed_and_there_is_a_jump_line(fixtures):
 
 def test_long_parts_start_folded_and_short_ones_open(fixtures):
     from tests.unit.test_captured import load
+
     long = build_report(load("secretsmanager-retrieve-secrets")[0]).decode()  # hundreds of calls
     short = build_report(scope_of(fixtures, "04_log_tampering")).decode()
-    assert re.search(r"<details>\n<summary>Every in-scope call, in order \(\d{3,}\)</summary>", long)  # more than 15: folded
-    assert re.search(r"<details open>\n<summary>Every in-scope call, in order \(\d\)</summary>", short)  # a few: open
-    assert "<details>\n<summary>Indicators, followed identities and inputs</summary>" in long  # the appendix is always folded
+    assert re.search(
+        r"<details>\n<summary>Every in-scope call, in order \(\d{3,}\)</summary>", long
+    )  # more than 15: folded
+    assert re.search(
+        r"<details open>\n<summary>Every in-scope call, in order \(\d\)</summary>", short
+    )  # a few: open
+    assert (
+        "<details>\n<summary>Indicators, followed identities and inputs</summary>" in long
+    )  # the appendix is always folded
 
 
 def test_an_identity_block_says_what_the_function_was(fixtures):
@@ -345,8 +537,12 @@ def test_an_identity_block_says_what_the_function_was(fixtures):
     block = report.split("<summary><b>assumed-role/lambda-exec/exfil-fn</b>")[1].split("</details>")[0]
     assert "1 call · followed · function exfil-fn</summary>" in block
     assert "The call `lambda:CreateFunction`, made by **user/ci-deploy**" in block
-    for row in ("| functionName | exfil-fn |", "| handler | app.handler |", "| role | arn:aws:iam::111122223333:role/lambda-exec |",
-                "| runtime | python3.12 |"):
+    for row in (
+        "| functionName | exfil-fn |",
+        "| handler | app.handler |",
+        "| role | arn:aws:iam::111122223333:role/lambda-exec |",
+        "| runtime | python3.12 |",
+    ):
         assert row in block
 
 
@@ -359,19 +555,47 @@ def test_a_hostile_identity_name_stays_inert_in_the_summary_line_and_the_blocks(
 
 # ---- request parameters shown for an identity
 
+
 def _call(request):
-    return Event(event_id="e", event_time="2026-10-20T12:00:00Z", event_source="lambda.amazonaws.com", event_name="CreateFunction20150331",
-                 aws_region="us-east-1", recipient_account_id="111122223333", read_only=False, user_identity=UserIdentity(),
-                 request_parameters=request, source=SourceRef(input="x.json", record=0))
+    return Event(
+        event_id="e",
+        event_time="2026-10-20T12:00:00Z",
+        event_source="lambda.amazonaws.com",
+        event_name="CreateFunction20150331",
+        aws_region="us-east-1",
+        recipient_account_id="111122223333",
+        read_only=False,
+        user_identity=UserIdentity(),
+        request_parameters=request,
+        source=SourceRef(input="x.json", record=0),
+    )
 
 
 def test_parameters_never_show_secrets_and_environment_variables_show_names_only():
     from controlzee.params import describe
-    pairs = dict(describe(_call({
-        "functionName": "f", "runtime": "python3.12", "environment": {"variables": {"DB_URL": "postgres://u:hunter2@h/db", "API_KEY": "k-123"}},
-        "userData": "IyEvYmluL3No", "password": "hunter2", "secretString": "s3cret", "clientToken": "abc",
-        "layers": ["l1", "l2"], "tags": {"team": "x"}})))
-    assert pairs["functionName"] == "f" and pairs["environment variables"] == "API_KEY, DB_URL" and pairs["layers"] == "l1, l2"
+
+    pairs = dict(
+        describe(
+            _call(
+                {
+                    "functionName": "f",
+                    "runtime": "python3.12",
+                    "environment": {"variables": {"DB_URL": "postgres://u:hunter2@h/db", "API_KEY": "k-123"}},
+                    "userData": "IyEvYmluL3No",
+                    "password": "hunter2",
+                    "secretString": "s3cret",
+                    "clientToken": "abc",
+                    "layers": ["l1", "l2"],
+                    "tags": {"team": "x"},
+                }
+            )
+        )
+    )
+    assert (
+        pairs["functionName"] == "f"
+        and pairs["environment variables"] == "API_KEY, DB_URL"
+        and pairs["layers"] == "l1, l2"
+    )
     assert pairs["tags.team"] == "x"
     shown = " ".join(f"{k} {v}" for k, v in pairs.items())
     for secret in ("hunter2", "k-123", "IyEvYmluL3No", "s3cret", "postgres://", "clientToken", "password"):
@@ -380,9 +604,15 @@ def test_parameters_never_show_secrets_and_environment_variables_show_names_only
 
 def test_parameters_keep_cloudtrails_own_hiding_summarise_policies_and_cap_everything():
     from controlzee.params import MAX_PAIRS, MAX_VALUE, describe
+
     trust = '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com","AWS":"arn:aws:iam::444455556666:root"},"Action":"sts:AssumeRole"}]}'
-    pairs = dict(describe(_call({"roleName": "r", "assumeRolePolicyDocument": trust, "x": "<sensitiveDataRemoved>"})))
-    assert pairs["assumeRolePolicyDocument"] == "Allow sts:AssumeRole by ec2.amazonaws.com, arn:aws:iam::444455556666:root"
+    pairs = dict(
+        describe(_call({"roleName": "r", "assumeRolePolicyDocument": trust, "x": "<sensitiveDataRemoved>"}))
+    )
+    assert (
+        pairs["assumeRolePolicyDocument"]
+        == "Allow sts:AssumeRole by ec2.amazonaws.com, arn:aws:iam::444455556666:root"
+    )
     assert pairs["x"] == "(hidden by CloudTrail)"
     many = describe(_call({f"k{i:02d}": "v" * 1000 for i in range(40)}))
     assert len(many) == MAX_PAIRS and all(len(v) <= MAX_VALUE for _, v in many)
@@ -392,6 +622,7 @@ def test_parameters_keep_cloudtrails_own_hiding_summarise_policies_and_cap_every
 
 # ---- evidence a person can read
 
+
 def test_evidence_is_a_table_of_what_happened_and_not_a_list_of_ids(fixtures):
     for scenario in SCENARIOS:
         report = build_report(scope_of(fixtures, scenario)).decode()
@@ -400,8 +631,12 @@ def test_evidence_is_a_table_of_what_happened_and_not_a_list_of_ids(fixtures):
     step = report.split("- [ ] **A02.")[1].split("- [ ] **A03.")[0]
     assert "| When (UTC) | Who | Call | Target | Result | Event |" in step and "evidence from 9 calls" in step
     rows = [ln for ln in step.splitlines() if re.match(r"\s+\| 2026-", ln)]
-    assert len(rows) == 9 and all(re.search(r"`[0-9a-f]{8}`( \+\d+)? \|$", ln) for ln in rows)  # a short id, last
-    assert any("iam:AttachUserPolicy" in r and "AdministratorAccess" in r and "backdoor-svc" in r for r in rows)
+    assert len(rows) == 9 and all(
+        re.search(r"`[0-9a-f]{8}`( \+\d+)? \|$", ln) for ln in rows
+    )  # a short id, last
+    assert any(
+        "iam:AttachUserPolicy" in r and "AdministratorAccess" in r and "backdoor-svc" in r for r in rows
+    )
     assert any("iam:GetAccountAuthorizationDetails" in r and "AccessDenied" in r for r in rows)
 
 
@@ -413,17 +648,28 @@ def test_the_same_call_made_repeatedly_is_one_evidence_row(tmp_path):
     logs.add(at("2026-10-20T12:05:00Z"), "s3.amazonaws.com", "ListBuckets", key)
     (tmp_path / "logs").mkdir()
     (tmp_path / "logs" / "x.json").write_bytes(orjson.dumps({"Records": logs.records}))
-    scope = build_scope([tmp_path / "logs"], assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7REPEAT"]))]), ScopeOptions(workers=1)).scope
+    scope = build_scope(
+        [tmp_path / "logs"],
+        assemble([SpecParts(from_flags(access_keys=["AKIAIOSFODNN7REPEAT"]))]),
+        ScopeOptions(workers=1),
+    ).scope
     step = build_report(scope).decode().split("- [ ] **A01.")[1].split("- [ ] **A02.")[0]
     rows = [ln for ln in step.splitlines() if re.match(r"\s+\| 2026-", ln)]
-    assert len(rows) == 2 and "iam:ListUsers ×3" in rows[0] and "12:00:00Z" in rows[0] and re.search(r"` \+2 \|$", rows[0])
+    assert (
+        len(rows) == 2
+        and "iam:ListUsers ×3" in rows[0]
+        and "12:00:00Z" in rows[0]
+        and re.search(r"` \+2 \|$", rows[0])
+    )
 
 
 def test_each_evidence_table_has_the_full_event_ids_to_copy(fixtures):
     scope = scope_of(fixtures, "01_leaked_key")
     report = build_report(scope).decode()
     step = report.split("- [ ] **A02.")[1].split("- [ ] **A03.")[0]
-    block = step.split("Full event IDs, in the order of the calls above (to copy)</summary>")[1].split("</details>")[0]
+    block = step.split("Full event IDs, in the order of the calls above (to copy)</summary>")[1].split(
+        "</details>"
+    )[0]
     ids = re.findall(r"^\s+([0-9a-f]{8}-[0-9a-f-]{27})$", block, re.M)
     plan = next(a for a in plan_of(scope).actions if a.id == "A02")
     assert ids == plan.evidence and len(ids) == 9  # every id, in order
@@ -433,4 +679,9 @@ def test_each_evidence_table_has_the_full_event_ids_to_copy(fixtures):
 
 def test_a_fence_is_longer_than_any_backtick_run_in_what_it_holds():
     from controlzee.report import _fence
-    assert _fence(["a ```` b"], "")[0] == "`````" and _fence(["plain"], "")[0] == "```" and _fence(["x"])[0] == "```sh"
+
+    assert (
+        _fence(["a ```` b"], "")[0] == "`````"
+        and _fence(["plain"], "")[0] == "```"
+        and _fence(["x"])[0] == "```sh"
+    )

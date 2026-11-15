@@ -7,6 +7,10 @@ __pycache__/
 .hypothesis/
 .DS_Store
 dist/
+
+# editor
+.vscode/
+*.code-workspace
 # scoping output and scratch evidence never belong in the repo
 /out/
 /evidence/

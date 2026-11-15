@@ -4,6 +4,7 @@ The page's Content Security Policy allows exactly these two (by their hashes), s
 unescaped it could not run a script or load anything. The script only enhances (copy buttons, folding, filtering, a
 checklist); the report reads fine without it.
 """
+
 from __future__ import annotations
 
 CSS = """

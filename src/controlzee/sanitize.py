@@ -9,13 +9,16 @@ output to be reproducible. Nothing is derived from an original value, so a repla
 `leaks` is the safety net: it scans text for any original value that was seen, and for anything that still has the
 shape of an identifier but is not one of the replacements. Run it over the final output before sharing it.
 """
+
 from __future__ import annotations
 
 import re
 import uuid
 from typing import Any, Final
 
-_UUID_NS: Final = uuid.UUID("5d1b2c0e-0000-4000-8000-000000000001")  # fixed, only so replacements look like UUIDs
+_UUID_NS: Final = uuid.UUID(
+    "5d1b2c0e-0000-4000-8000-000000000001"
+)  # fixed, only so replacements look like UUIDs
 
 _ACCOUNT = re.compile(r"(?<![\d])\d{12}(?![\d])")
 _ORG = re.compile(r"\b(o|r|p)-[a-z0-9]{4,32}\b|\bou-[a-z0-9]{4,32}-[a-z0-9]{8,32}\b")
@@ -29,7 +32,14 @@ _EMAIL = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b")
 
 # addresses reserved for documentation (RFC 5737): safe stand-ins
 _DOC_NETS: Final = ("192.0.2.", "198.51.100.", "203.0.113.")
-_FAKE_ACCOUNTS: Final = ("111122223333", "444455556666", "777788889999", "222233334444", "555566667777", "888899990000")
+_FAKE_ACCOUNTS: Final = (
+    "111122223333",
+    "444455556666",
+    "777788889999",
+    "222233334444",
+    "555566667777",
+    "888899990000",
+)
 
 
 def _valid_ipv4(s: str) -> bool:
@@ -42,7 +52,9 @@ def _is_documentation_ip(ip: str) -> bool:
 
 class Sanitizer:
     def __init__(self) -> None:
-        self._maps: dict[str, dict[str, str]] = {k: {} for k in ("account", "org", "ip", "key", "principal", "uuid", "email")}
+        self._maps: dict[str, dict[str, str]] = {
+            k: {} for k in ("account", "org", "ip", "key", "principal", "uuid", "email")
+        }
 
     # ---- replacements, numbered in first-seen order
 
@@ -53,7 +65,11 @@ class Sanitizer:
         return m[original]
 
     def _account(self, s: str) -> str:
-        return self._get("account", s, lambda n: _FAKE_ACCOUNTS[n - 1] if n <= len(_FAKE_ACCOUNTS) else f"{900000000000 + n}")
+        return self._get(
+            "account",
+            s,
+            lambda n: _FAKE_ACCOUNTS[n - 1] if n <= len(_FAKE_ACCOUNTS) else f"{900000000000 + n}",
+        )
 
     def _org(self, m: re.Match[str]) -> str:
         s = m.group(0)
@@ -71,12 +87,17 @@ class Sanitizer:
 
     def _principal(self, m: re.Match[str]) -> str:
         s = m.group(0)
-        return self._get("principal", s, lambda n: f"{m.group(1)}EXAMPLEID{n:08d}"[: len(s)].ljust(len(s), "0"))
+        return self._get(
+            "principal", s, lambda n: f"{m.group(1)}EXAMPLEID{n:08d}"[: len(s)].ljust(len(s), "0")
+        )
 
     def _uuid(self, m: re.Match[str]) -> str:
         def make(n: int) -> str:
             u = str(uuid.uuid5(_UUID_NS, str(n)))
-            return u[:-12] + "f" + u[-11:]  # a letter in the tail, so it can never look like a 12-digit account id
+            return (
+                u[:-12] + "f" + u[-11:]
+            )  # a letter in the tail, so it can never look like a 12-digit account id
+
         return self._get("uuid", m.group(0), make)
 
     def _email(self, m: re.Match[str]) -> str:
@@ -120,8 +141,20 @@ class Sanitizer:
         found = [o for o in self.originals() if o in text]
         replaced = {r for m in self._maps.values() for r in m.values()}
         found += [a for a in _ACCOUNT.findall(text) if a not in replaced and a not in _FAKE_ACCOUNTS]
-        found += [ip for ip in _IPV4.findall(text) if ip not in replaced and not _is_documentation_ip(ip) and _valid_ipv4(ip)]
-        found += [m.group(0) for m in _ACCESS_KEY.finditer(text) if m.group(0) not in replaced and "IOSFODNN7" not in m.group(0)]
+        found += [
+            ip
+            for ip in _IPV4.findall(text)
+            if ip not in replaced and not _is_documentation_ip(ip) and _valid_ipv4(ip)
+        ]
+        found += [
+            m.group(0)
+            for m in _ACCESS_KEY.finditer(text)
+            if m.group(0) not in replaced and "IOSFODNN7" not in m.group(0)
+        ]
         found += [m.group(0) for m in _CLIENT_OS.finditer(text)]
-        found += [m.group(0) for m in _EMAIL.finditer(text) if m.group(0) not in replaced and not m.group(0).endswith("@example.com")]
+        found += [
+            m.group(0)
+            for m in _EMAIL.finditer(text)
+            if m.group(0) not in replaced and not m.group(0).endswith("@example.com")
+        ]
         return sorted(set(found))

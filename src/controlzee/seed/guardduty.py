@@ -3,6 +3,7 @@
 Field names follow the GuardDuty finding format documentation (Resource.AccessKeyDetails, Service.Action.AwsApiCallAction,
 Service.EventFirstSeen / EventLastSeen). Findings without these fields simply contribute nothing, and the notes say so.
 """
+
 from __future__ import annotations
 
 import ipaddress
@@ -24,7 +25,9 @@ def _findings(doc: Any) -> list[dict[str, Any]]:
     elif isinstance(doc, dict) and ("Resource" in doc or "Service" in doc):
         items = [doc]
     else:
-        raise SpecError("not a GuardDuty finding: expected a finding object, a list of findings, or {\"Findings\": [...]}")
+        raise SpecError(
+            'not a GuardDuty finding: expected a finding object, a list of findings, or {"Findings": [...]}'
+        )
     return [f for f in items if isinstance(f, dict)]
 
 

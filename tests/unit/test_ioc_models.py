@@ -9,10 +9,17 @@ def ind(kind="access_key_id", value="AKIAEXAMPLE", name="x", **kw):
     return Indicator(name=name, kind=kind, value=value, **kw)
 
 
-@pytest.mark.parametrize("kind,strength", [
-    ("access_key_id", Confidence.STRONG), ("principal_id", Confidence.STRONG), ("source_identity", Confidence.STRONG),
-    ("principal_arn", Confidence.WEAK), ("source_ip", Confidence.WEAK), ("user_agent", Confidence.WEAK),
-])
+@pytest.mark.parametrize(
+    "kind,strength",
+    [
+        ("access_key_id", Confidence.STRONG),
+        ("principal_id", Confidence.STRONG),
+        ("source_identity", Confidence.STRONG),
+        ("principal_arn", Confidence.WEAK),
+        ("source_ip", Confidence.WEAK),
+        ("user_agent", Confidence.WEAK),
+    ],
+)
 def test_strength_by_kind(kind, strength):
     value = {"source_ip": "192.0.2.1"}.get(kind, "something")
     assert ind(kind, value).strength is strength
@@ -37,7 +44,9 @@ def test_user_agent_defaults_to_substring_and_validates_regex():
         ind("user_agent", "([", match="regex")
 
 
-@pytest.mark.parametrize("kind", ["access_key_id", "principal_id", "source_identity", "principal_arn", "source_ip"])
+@pytest.mark.parametrize(
+    "kind", ["access_key_id", "principal_id", "source_identity", "principal_arn", "source_ip"]
+)
 def test_only_user_agents_can_be_fuzzy(kind):
     value = "192.0.2.1" if kind == "source_ip" else "x"
     with pytest.raises(ValidationError, match="only support exact"):

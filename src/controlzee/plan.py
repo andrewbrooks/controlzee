@@ -9,6 +9,7 @@ Values taken from the logs are attacker-influenced, so a value becomes an operat
 if it has the documented shape for its kind (IAM name, access key id, instance id, region...); anything else turns the
 step manual, with the reason. Building a plan never calls AWS.
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -96,15 +97,25 @@ class _Builder:
         self.drafts: list[_Draft] = []
         self.created_users: dict[str, ScopedEvent] = {}  # user name -> CreateUser event
         self.created_roles: dict[str, ScopedEvent] = {}
-        self.created_keys: dict[str, tuple[str, ScopedEvent]] = {}  # key -> (user name, CreateAccessKey event)
+        self.created_keys: dict[
+            str, tuple[str, ScopedEvent]
+        ] = {}  # key -> (user name, CreateAccessKey event)
         self.instances: dict[str, ScopedEvent] = {}  # instance id -> RunInstances event
-        self.functions: dict[str, tuple[ScopedEvent, bool]] = {}  # function name -> (first call, created by the attacker)
+        self.functions: dict[
+            str, tuple[ScopedEvent, bool]
+        ] = {}  # function name -> (first call, created by the attacker)
         self.created_buckets: dict[str, ScopedEvent] = {}  # bucket name -> the first successful CreateBucket
-        self.revoked: list[tuple[str, str, str | None, list[ScopedEvent]]] = []  # (user|role, name, account, evidence)
+        self.revoked: list[
+            tuple[str, str, str | None, list[ScopedEvent]]
+        ] = []  # (user|role, name, account, evidence)
         for scoped in scope.events:
             ev = scoped.event
-            if (ev.event_source == "s3.amazonaws.com" and ev.event_name == "CreateBucket" and ev.error_code is None
-                    and isinstance(bucket := _req(ev, "bucketName"), str)):
+            if (
+                ev.event_source == "s3.amazonaws.com"
+                and ev.event_name == "CreateBucket"
+                and ev.error_code is None
+                and isinstance(bucket := _req(ev, "bucketName"), str)
+            ):
                 self.created_buckets.setdefault(bucket, scoped)
         for t in scope.taint.identities:
             s = self.by_id.get(t.issued_by)
@@ -156,65 +167,136 @@ class _Builder:
         for s in self.scope.events:
             ui, key = s.event.user_identity, s.event.user_identity.access_key_id
             if ui.type == "IAMUser" and key and (user := _user_name(s.event)):
-                (long_term[(_account(s.event), user, key)] if key.startswith("AKIA")
-                 else user_sessions[(_account(s.event), user)]).append(s)
+                (
+                    long_term[(_account(s.event), user, key)]
+                    if key.startswith("AKIA")
+                    else user_sessions[(_account(s.event), user)]
+                ).append(s)
             elif ui.type == "AssumedRole" and (role := _role_name(s.event)):
                 role_sessions[(_account(s.event), role)].append(s)
 
         for (account, user, key), evs in sorted(long_term.items()):
             legit_owner = user not in self.created_users
-            self.run(_Draft("contain", "Deactivate an access key the attacker used", f"access key {key} of user {user} (account {account})",
-                            f"{len(evs)} in-scope call(s) were made with it", evs, account,
-                            caution="the key's legitimate owner will stop working until it has a replacement (see the recover steps)"
-                            if legit_owner else None),
-                     [("deactivate_access_key", {"user": user, "key": key}, None)])
+            self.run(
+                _Draft(
+                    "contain",
+                    "Deactivate an access key the attacker used",
+                    f"access key {key} of user {user} (account {account})",
+                    f"{len(evs)} in-scope call(s) were made with it",
+                    evs,
+                    account,
+                    caution="the key's legitimate owner will stop working until it has a replacement (see the recover steps)"
+                    if legit_owner
+                    else None,
+                ),
+                [("deactivate_access_key", {"user": user, "key": key}, None)],
+            )
         for key, (user, s) in sorted(self.created_keys.items()):
             if any(k == key for _, _, k in long_term):
                 continue
-            self.run(_Draft("contain", "Deactivate an access key the attacker created", f"access key {key} of user {user}",
-                            "created by an in-scope call; it was not seen in use, which the logs may simply not show", [s],
-                            s.event.recipient_account_id),
-                     [("deactivate_access_key", {"user": user, "key": key}, None)])
+            self.run(
+                _Draft(
+                    "contain",
+                    "Deactivate an access key the attacker created",
+                    f"access key {key} of user {user}",
+                    "created by an in-scope call; it was not seen in use, which the logs may simply not show",
+                    [s],
+                    s.event.recipient_account_id,
+                ),
+                [("deactivate_access_key", {"user": user, "key": key}, None)],
+            )
         for (account, user), evs in sorted(user_sessions.items()):
-            self.run(_Draft("contain", "Revoke the user's temporary credentials", f"session tokens of user {user} (account {account})",
-                            "in-scope calls used temporary credentials of this user (GetSessionToken, federation or a console "
-                            "session); deactivating the user's keys does not end them", evs, account,
-                            caution="denies everything to credentials issued before now; remove the policy once the incident is over"),
-                     [("revoke_user_sessions", {"user": user, "after": _last_use(evs)}, None)])
+            self.run(
+                _Draft(
+                    "contain",
+                    "Revoke the user's temporary credentials",
+                    f"session tokens of user {user} (account {account})",
+                    "in-scope calls used temporary credentials of this user (GetSessionToken, federation or a console "
+                    "session); deactivating the user's keys does not end them",
+                    evs,
+                    account,
+                    caution="denies everything to credentials issued before now; remove the policy once the incident is over",
+                ),
+                [("revoke_user_sessions", {"user": user, "after": _last_use(evs)}, None)],
+            )
             self.revoked.append(("user", user, account, evs))
         for (account, role), evs in sorted(role_sessions.items()):
             created = role in self.created_roles
-            self.run(_Draft("contain", "Revoke the role's active sessions", f"role {role} (account {account})",
-                            f"{len(evs)} in-scope call(s) were made with sessions of this role"
-                            + ("; the attacker created it" if created else ""), evs, account,
-                            caution=None if created else "this also ends legitimate sessions of the role; they can assume it again"),
-                     [("revoke_role_sessions", {"role": role, "after": _last_use(evs)}, None)])
+            self.run(
+                _Draft(
+                    "contain",
+                    "Revoke the role's active sessions",
+                    f"role {role} (account {account})",
+                    f"{len(evs)} in-scope call(s) were made with sessions of this role"
+                    + ("; the attacker created it" if created else ""),
+                    evs,
+                    account,
+                    caution=None
+                    if created
+                    else "this also ends legitimate sessions of the role; they can assume it again",
+                ),
+                [("revoke_role_sessions", {"role": role, "after": _last_use(evs)}, None)],
+            )
             self.revoked.append(("role", role, account, evs))
         for name, s in sorted(self.created_roles.items()):
             if any(r == name for _, r in role_sessions):
                 continue
-            self.run(_Draft("contain", "Revoke sessions of a role the attacker created", f"role {name}",
-                            "created by an in-scope call; no session of it was seen, which the logs may not show", [s],
-                            s.event.recipient_account_id),
-                     [("revoke_role_sessions", {"role": name, "after": _last_use([s])}, None)])
+            self.run(
+                _Draft(
+                    "contain",
+                    "Revoke sessions of a role the attacker created",
+                    f"role {name}",
+                    "created by an in-scope call; no session of it was seen, which the logs may not show",
+                    [s],
+                    s.event.recipient_account_id,
+                ),
+                [("revoke_role_sessions", {"role": name, "after": _last_use([s])}, None)],
+            )
             self.revoked.append(("role", name, s.event.recipient_account_id, [s]))
         for user, s in sorted(self.created_users.items()):
-            if any(e.event.event_name in ("CreateLoginProfile", "UpdateLoginProfile") and _req(e.event, "userName") == user
-                   for e in self.scope.events):
-                self.run(_Draft("contain", "Remove the console password of a user the attacker created", f"user {user}",
-                                "an in-scope call gave it a console password", [s], s.event.recipient_account_id),
-                         [("delete_login_profile", {"user": user}, None)])
+            if any(
+                e.event.event_name in ("CreateLoginProfile", "UpdateLoginProfile")
+                and _req(e.event, "userName") == user
+                for e in self.scope.events
+            ):
+                self.run(
+                    _Draft(
+                        "contain",
+                        "Remove the console password of a user the attacker created",
+                        f"user {user}",
+                        "an in-scope call gave it a console password",
+                        [s],
+                        s.event.recipient_account_id,
+                    ),
+                    [("delete_login_profile", {"user": user}, None)],
+                )
         for instance, s in sorted(self.instances.items()):
             r, account = s.event.aws_region, s.event.recipient_account_id
-            self.run(_Draft("contain", "Cut an attacker's instance off from its role", f"instance {instance} ({r})",
-                            "launched by an in-scope call with an instance profile; it keeps fetching new role credentials "
-                            "until the profile is removed", [s], account),
-                     [("disassociate_instance_profile", {"instance": instance}, r)])
-            self.run(_Draft("contain", "Stop an attacker's instance", f"instance {instance} ({r})",
-                            "it may still run the attacker's code", [s], account,
-                            caution="stopping loses its memory; capture it first if you need it, and snapshot the disks "
-                                    "(see the investigate steps)"),
-                     [("stop_instance", {"instance": instance}, r)])
+            self.run(
+                _Draft(
+                    "contain",
+                    "Cut an attacker's instance off from its role",
+                    f"instance {instance} ({r})",
+                    "launched by an in-scope call with an instance profile; it keeps fetching new role credentials "
+                    "until the profile is removed",
+                    [s],
+                    account,
+                ),
+                [("disassociate_instance_profile", {"instance": instance}, r)],
+            )
+            self.run(
+                _Draft(
+                    "contain",
+                    "Stop an attacker's instance",
+                    f"instance {instance} ({r})",
+                    "it may still run the attacker's code",
+                    [s],
+                    account,
+                    caution="stopping loses its memory; capture it first if you need it, and snapshot the disks "
+                    "(see the investigate steps)",
+                ),
+                [("stop_instance", {"instance": instance}, r)],
+            )
 
     # ---- investigate
 
@@ -222,52 +304,101 @@ class _Builder:
         cov = self.scope.coverage
         for u in cov.unlogged_accounts:
             evs = [self.by_id[e] for e in u.event_ids if e in self.by_id]
-            keys = sorted(t.value for t in self.scope.taint.identities if t.issued_by in u.event_ids and t.kind == "access_key_id")
-            self.manual(_Draft("investigate", "Get the logs of an account the attacker reached", f"account {u.account}",
-                               f"in-scope calls assumed {', '.join(u.role_arns)} there, and no logs from it were given", evs, u.account,
-                               caution="the attacker may hold credentials there that this plan cannot revoke"),
-                        lambda ks=keys: [f"controlzee scope --logs THAT_ACCOUNTS_LOGS --access-key {q('key', k)} -o scope-{k}.json"
-                                         for k in ks])
+            keys = sorted(
+                t.value
+                for t in self.scope.taint.identities
+                if t.issued_by in u.event_ids and t.kind == "access_key_id"
+            )
+            self.manual(
+                _Draft(
+                    "investigate",
+                    "Get the logs of an account the attacker reached",
+                    f"account {u.account}",
+                    f"in-scope calls assumed {', '.join(u.role_arns)} there, and no logs from it were given",
+                    evs,
+                    u.account,
+                    caution="the attacker may hold credentials there that this plan cannot revoke",
+                ),
+                lambda ks=keys: [
+                    f"controlzee scope --logs THAT_ACCOUNTS_LOGS --access-key {q('key', k)} -o scope-{k}.json"
+                    for k in ks
+                ],
+            )
         for g in cov.gaps:
             evs = [self.by_id[g.possible_cause]] if g.possible_cause in self.by_id else []
-            self.manual(_Draft("investigate", "Fill a gap in the logs from CloudTrail event history",
-                               f"{g.region} in account {g.account}, {g.start} to {g.end}",
-                               f"the logs are silent for {g.minutes} minutes during the incident; event history keeps 90 days of "
-                               "management events whatever happened to the trail", evs, g.account,
-                               caution="event history can only be read from inside the account, with credentials for it"),
-                        lambda g=g: [f"controlzee scope --lookup-events {q('region', g.region)} --window {g.start} {g.end} "
-                                     "--iocs YOUR_IOC_FILE -o scope-gap.json"])
+            self.manual(
+                _Draft(
+                    "investigate",
+                    "Fill a gap in the logs from CloudTrail event history",
+                    f"{g.region} in account {g.account}, {g.start} to {g.end}",
+                    f"the logs are silent for {g.minutes} minutes during the incident; event history keeps 90 days of "
+                    "management events whatever happened to the trail",
+                    evs,
+                    g.account,
+                    caution="event history can only be read from inside the account, with credentials for it",
+                ),
+                lambda g=g: [
+                    f"controlzee scope --lookup-events {q('region', g.region)} --window {g.start} {g.end} "
+                    "--iocs YOUR_IOC_FILE -o scope-gap.json"
+                ],
+            )
         if any(n.startswith("no data events") for n in cov.notes):
-            self.manual(_Draft("investigate", "Look for object-level access elsewhere", "S3 and other data-plane activity",
-                               "the inputs have no data events, so reads of objects, secrets in Lambda and the like are invisible here",
-                               [], caution="sources: S3 server access logs, CloudTrail data events on another trail, VPC flow logs"))
+            self.manual(
+                _Draft(
+                    "investigate",
+                    "Look for object-level access elsewhere",
+                    "S3 and other data-plane activity",
+                    "the inputs have no data events, so reads of objects, secrets in Lambda and the like are invisible here",
+                    [],
+                    caution="sources: S3 server access logs, CloudTrail data events on another trail, VPC flow logs",
+                )
+            )
         for use in exposure(self.scope).instance_role_use:
             evs = [self.by_id[e] for e in use.event_ids if e in self.by_id]
-            self.manual(_Draft("investigate", "Find out how an instance's role credentials got out", f"instance {use.instance} ({use.region})",
-                               f"its role's credentials were used from {len(use.addresses)} addresses ("
-                               f"{', '.join(a.address for a in use.addresses)}); an instance calls from its own address",
-                               evs, use.account,
-                               caution="the other address holds a copy of the credentials: revoke the role's sessions (see the contain "
-                                       "steps), then find how they left the instance, for example a request-forgery flaw in an "
-                                       "application on it, or a shell on it. Requiring IMDSv2 on the instance stops the first"),
-                        lambda i=use.instance, r=use.region: [
-                            f"aws ec2 describe-instances --region {q('region', r)} --instance-ids {q('instance', i)} "
-                            "--query 'Reservations[].Instances[].MetadataOptions'",
-                            f"aws ec2 modify-instance-metadata-options --region {q('region', r)} --instance-id {q('instance', i)} "
-                            "--http-tokens required"])
+            self.manual(
+                _Draft(
+                    "investigate",
+                    "Find out how an instance's role credentials got out",
+                    f"instance {use.instance} ({use.region})",
+                    f"its role's credentials were used from {len(use.addresses)} addresses ("
+                    f"{', '.join(a.address for a in use.addresses)}); an instance calls from its own address",
+                    evs,
+                    use.account,
+                    caution="the other address holds a copy of the credentials: revoke the role's sessions (see the contain "
+                    "steps), then find how they left the instance, for example a request-forgery flaw in an "
+                    "application on it, or a shell on it. Requiring IMDSv2 on the instance stops the first",
+                ),
+                lambda i=use.instance, r=use.region: [
+                    f"aws ec2 describe-instances --region {q('region', r)} --instance-ids {q('instance', i)} "
+                    "--query 'Reservations[].Instances[].MetadataOptions'",
+                    f"aws ec2 modify-instance-metadata-options --region {q('region', r)} --instance-id {q('instance', i)} "
+                    "--http-tokens required",
+                ],
+            )
         for instance, s in sorted(self.instances.items()):
             r = s.event.aws_region
-            self.run(_Draft("investigate", "Preserve an attacker's instance for analysis", f"instance {instance} ({r})",
-                            "snapshot its disks before it is terminated", [s], s.event.recipient_account_id),
-                     [("snapshot_instance", {"instance": instance}, r)])
+            self.run(
+                _Draft(
+                    "investigate",
+                    "Preserve an attacker's instance for analysis",
+                    f"instance {instance} ({r})",
+                    "snapshot its disks before it is terminated",
+                    [s],
+                    s.event.recipient_account_id,
+                ),
+                [("snapshot_instance", {"instance": instance}, r)],
+            )
 
     # ---- eradicate
 
     def eradicate(self) -> None:
         # Permission changes are undone first, even on a user or role that is then deleted: deleting is disruptive and
         # needs --allow-disruptive, and the privilege the attacker granted must not stay in place when it is left out.
-        changes = [(pc, self.by_id[pc.event_id]) for pc in exposure(self.scope).privilege_changes
-                   if pc.outcome == "ok" and pc.event_id in self.by_id]
+        changes = [
+            (pc, self.by_id[pc.event_id])
+            for pc in exposure(self.scope).privilege_changes
+            if pc.outcome == "ok" and pc.event_id in self.by_id
+        ]
         merged: dict[tuple[str, str, str, str | None], list[ScopedEvent]] = {}
         for pc, s in changes:  # the same change made twice is undone once, citing both calls
             kind, _, who = pc.principal.partition(" ")
@@ -275,92 +406,198 @@ class _Builder:
         for (act, kind, who, policy), evs in merged.items():
             self._undo(act, kind, who, policy, evs)
         for name, s in sorted(self.created_users.items()):
-            self.run(_Draft("eradicate", "Delete a user the attacker created", f"user {name}", "created by an in-scope call", [s],
-                            s.event.recipient_account_id,
-                            caution="removes its keys, password, policies, groups and MFA devices first; respond does this, "
-                                    "by hand repeat each list-then-delete pair until the lists are empty"),
-                     [("delete_user", {"user": name}, None)])
+            self.run(
+                _Draft(
+                    "eradicate",
+                    "Delete a user the attacker created",
+                    f"user {name}",
+                    "created by an in-scope call",
+                    [s],
+                    s.event.recipient_account_id,
+                    caution="removes its keys, password, policies, groups and MFA devices first; respond does this, "
+                    "by hand repeat each list-then-delete pair until the lists are empty",
+                ),
+                [("delete_user", {"user": name}, None)],
+            )
         for name, s in sorted(self.created_roles.items()):
-            self.run(_Draft("eradicate", "Delete a role the attacker created", f"role {name}", "created by an in-scope call", [s],
-                            s.event.recipient_account_id),
-                     [("delete_role", {"role": name}, None)])
+            self.run(
+                _Draft(
+                    "eradicate",
+                    "Delete a role the attacker created",
+                    f"role {name}",
+                    "created by an in-scope call",
+                    [s],
+                    s.event.recipient_account_id,
+                ),
+                [("delete_role", {"role": name}, None)],
+            )
         self.lambda_functions()
         for name, s in sorted(self.created_buckets.items()):
             r = s.event.aws_region
-            self.run(_Draft("eradicate", "Delete a bucket the attacker created", f"bucket {name} ({r})", "created by an in-scope call",
-                            [s], s.event.recipient_account_id,
-                            caution="look inside first: it may hold what the attacker staged or took, and deleting it loses that. "
-                                    "respond deletes only an empty bucket, so it stops here until a person has emptied it"),
-                     [("delete_bucket", {"bucket": name}, r)])
+            self.run(
+                _Draft(
+                    "eradicate",
+                    "Delete a bucket the attacker created",
+                    f"bucket {name} ({r})",
+                    "created by an in-scope call",
+                    [s],
+                    s.event.recipient_account_id,
+                    caution="look inside first: it may hold what the attacker staged or took, and deleting it loses that. "
+                    "respond deletes only an empty bucket, so it stops here until a person has emptied it",
+                ),
+                [("delete_bucket", {"bucket": name}, r)],
+            )
         for instance, s in sorted(self.instances.items()):
             r = s.event.aws_region
-            self.run(_Draft("eradicate", "Terminate an attacker's instance", f"instance {instance} ({r})",
-                            "launched by an in-scope call", [s], s.event.recipient_account_id, caution="only after its disks are preserved"),
-                     [("terminate_instance", {"instance": instance}, r)])
+            self.run(
+                _Draft(
+                    "eradicate",
+                    "Terminate an attacker's instance",
+                    f"instance {instance} ({r})",
+                    "launched by an in-scope call",
+                    [s],
+                    s.event.recipient_account_id,
+                    caution="only after its disks are preserved",
+                ),
+                [("terminate_instance", {"instance": instance}, r)],
+            )
 
     def lambda_functions(self) -> None:
         for name, (s, created) in sorted(self.functions.items()):
             r, account = s.event.aws_region, s.event.recipient_account_id
             if created:
-                draft = _Draft("eradicate", "Delete a Lambda function the attacker created", f"function {name} ({r})",
-                               "created by an in-scope call; its execution role's sessions were followed", [s], account,
-                               caution="download the code first if you want to read what it did: get-function returns a "
-                                       "temporary link to it. Deleting it does not revoke its role; see the contain steps")
+                draft = _Draft(
+                    "eradicate",
+                    "Delete a Lambda function the attacker created",
+                    f"function {name} ({r})",
+                    "created by an in-scope call; its execution role's sessions were followed",
+                    [s],
+                    account,
+                    caution="download the code first if you want to read what it did: get-function returns a "
+                    "temporary link to it. Deleting it does not revoke its role; see the contain steps",
+                )
                 self.run(draft, [("delete_lambda_function", {"function": name}, r)])
             else:
-                draft = _Draft("eradicate", "Review a Lambda function the attacker changed", f"function {name} ({r})",
-                               "an in-scope call replaced its code or configuration; its calls after that were followed", [s], account,
-                               caution="the logs do not show the previous code: redeploy it from source control or your pipeline")
-                self.manual(draft, lambda n=name, r=r: [f"aws lambda get-function --region {q('region', r)} --function-name {q('function', n)}"])
+                draft = _Draft(
+                    "eradicate",
+                    "Review a Lambda function the attacker changed",
+                    f"function {name} ({r})",
+                    "an in-scope call replaced its code or configuration; its calls after that were followed",
+                    [s],
+                    account,
+                    caution="the logs do not show the previous code: redeploy it from source control or your pipeline",
+                )
+                self.manual(
+                    draft,
+                    lambda n=name, r=r: [
+                        f"aws lambda get-function --region {q('region', r)} --function-name {q('function', n)}"
+                    ],
+                )
 
-    _UNDO = {"iam:AttachUserPolicy": ("detach_user_policy", "user", "policy_arn"),
-             "iam:AttachRolePolicy": ("detach_role_policy", "role", "policy_arn"),
-             "iam:AttachGroupPolicy": ("detach_group_policy", "group", "policy_arn"),
-             "iam:PutUserPolicy": ("delete_user_policy", "user", "policy"), "iam:PutRolePolicy": ("delete_role_policy", "role", "policy"),
-             "iam:PutGroupPolicy": ("delete_group_policy", "group", "policy"),
-             "iam:AddUserToGroup": ("remove_user_from_group", "user", "group")}
+    _UNDO = {
+        "iam:AttachUserPolicy": ("detach_user_policy", "user", "policy_arn"),
+        "iam:AttachRolePolicy": ("detach_role_policy", "role", "policy_arn"),
+        "iam:AttachGroupPolicy": ("detach_group_policy", "group", "policy_arn"),
+        "iam:PutUserPolicy": ("delete_user_policy", "user", "policy"),
+        "iam:PutRolePolicy": ("delete_role_policy", "role", "policy"),
+        "iam:PutGroupPolicy": ("delete_group_policy", "group", "policy"),
+        "iam:AddUserToGroup": ("remove_user_from_group", "user", "group"),
+    }
 
     def _undo(self, act: str, kind: str, who: str, policy: str | None, evs: list[ScopedEvent]) -> None:
-        draft = _Draft("eradicate", "Undo a permission change", f"{kind} {who}",
-                       f"{act} by an in-scope call" + (f" ({policy})" if policy else ""), evs, _account(evs[0].event))
+        draft = _Draft(
+            "eradicate",
+            "Undo a permission change",
+            f"{kind} {who}",
+            f"{act} by an in-scope call" + (f" ({policy})" if policy else ""),
+            evs,
+            _account(evs[0].event),
+        )
         if act in self._UNDO:
             op, principal_arg, other_arg = self._UNDO[act]
             self.run(draft, [(op, {principal_arg: who, other_arg: policy}, None)])
             return
-        draft.caution = ("restore the role's previous trust policy by hand: the logs show the new one, not the old"
-                         if act == "iam:UpdateAssumeRolePolicy" else
-                         "restore the previous version by hand: the logs show the change but not what it replaced")
+        draft.caution = (
+            "restore the role's previous trust policy by hand: the logs show the new one, not the old"
+            if act == "iam:UpdateAssumeRolePolicy"
+            else "restore the previous version by hand: the logs show the change but not what it replaced"
+        )
         self.manual(draft)
 
     # ---- recover
 
-    _RESTORE: dict[str, tuple[str, str, str | None, str | None]] = {  # event -> (title, op, request parameter, caution)
-        "StopLogging": ("Turn the trail back on", "start_logging", "name",
-                        "someone may have turned it back on already; respond checks first, and starting it again does no harm"),
-        "StopConfigurationRecorder": ("Restart AWS Config recording", "start_config_recorder", "configurationRecorderName", None),
-        "DeleteDetector": ("Re-enable GuardDuty", "enable_guardduty", None, "the old detector's findings and settings are gone; reapply them"),
-        "DisableSecurityHub": ("Re-enable Security Hub", "enable_security_hub", None, "re-enable the standards you used"),
+    _RESTORE: dict[
+        str, tuple[str, str, str | None, str | None]
+    ] = {  # event -> (title, op, request parameter, caution)
+        "StopLogging": (
+            "Turn the trail back on",
+            "start_logging",
+            "name",
+            "someone may have turned it back on already; respond checks first, and starting it again does no harm",
+        ),
+        "StopConfigurationRecorder": (
+            "Restart AWS Config recording",
+            "start_config_recorder",
+            "configurationRecorderName",
+            None,
+        ),
+        "DeleteDetector": (
+            "Re-enable GuardDuty",
+            "enable_guardduty",
+            None,
+            "the old detector's findings and settings are gone; reapply them",
+        ),
+        "DisableSecurityHub": (
+            "Re-enable Security Hub",
+            "enable_security_hub",
+            None,
+            "re-enable the standards you used",
+        ),
     }
     _ARG = {"start_logging": "trail", "start_config_recorder": "recorder"}
 
-    _READ_NOUN = {"secret": "secrets", "parameter": "parameters", "parameter path": "parameter paths", "": "credentials"}
+    _READ_NOUN = {
+        "secret": "secrets",
+        "parameter": "parameters",
+        "parameter path": "parameter paths",
+        "": "credentials",
+    }
     _READ_STEPS: dict[str, tuple[str, str, str, Callable[[str, str], list[str]] | None]] = {
-        "secret": ("Rotate a secret the attacker read", "Rotate the {n} secrets the attacker read",
-                   "rotation needs a rotation function; otherwise set a new value and update its users",
-                   lambda n, r: [f"aws secretsmanager rotate-secret --region {q('region', r)} --secret-id {q('secret', n)}"]),
-        "parameter": ("Change a parameter the attacker read", "Change the {n} parameters the attacker read",
-                      "the value is a credential only if it is one; check before changing it",
-                      lambda n, r: [f"aws ssm put-parameter --region {q('region', r)} --name {q('parameter', n)} "
-                                    "--type SecureString --overwrite --value NEW_VALUE"]),
-        "parameter path": ("Change the parameters under a path the attacker read", "Change the parameters under the {n} paths the attacker read",
-                           "the attacker could read every parameter under the path; the value of each is a credential "
-                           "only if it is one, so check before changing it",
-                           lambda n, r: [f"aws ssm get-parameters-by-path --region {q('region', r)} --path {q('parameter', n)} "
-                                         "--recursive --query 'Parameters[].Name'",
-                                         f"aws ssm put-parameter --region {q('region', r)} --name NAME_FROM_ABOVE "
-                                         "--type SecureString --overwrite --value NEW_VALUE"]),
-        "": ("Review something the attacker read", "Review the {n} things the attacker read",
-             "controlzee does not know this kind of credential; rotate or review it by hand", None),
+        "secret": (
+            "Rotate a secret the attacker read",
+            "Rotate the {n} secrets the attacker read",
+            "rotation needs a rotation function; otherwise set a new value and update its users",
+            lambda n, r: [
+                f"aws secretsmanager rotate-secret --region {q('region', r)} --secret-id {q('secret', n)}"
+            ],
+        ),
+        "parameter": (
+            "Change a parameter the attacker read",
+            "Change the {n} parameters the attacker read",
+            "the value is a credential only if it is one; check before changing it",
+            lambda n, r: [
+                f"aws ssm put-parameter --region {q('region', r)} --name {q('parameter', n)} "
+                "--type SecureString --overwrite --value NEW_VALUE"
+            ],
+        ),
+        "parameter path": (
+            "Change the parameters under a path the attacker read",
+            "Change the parameters under the {n} paths the attacker read",
+            "the attacker could read every parameter under the path; the value of each is a credential "
+            "only if it is one, so check before changing it",
+            lambda n, r: [
+                f"aws ssm get-parameters-by-path --region {q('region', r)} --path {q('parameter', n)} "
+                "--recursive --query 'Parameters[].Name'",
+                f"aws ssm put-parameter --region {q('region', r)} --name NAME_FROM_ABOVE "
+                "--type SecureString --overwrite --value NEW_VALUE",
+            ],
+        ),
+        "": (
+            "Review something the attacker read",
+            "Review the {n} things the attacker read",
+            "controlzee does not know this kind of credential; rotate or review it by hand",
+            None,
+        ),
     }
 
     def recover(self) -> None:
@@ -370,69 +607,146 @@ class _Builder:
             s = self.by_id[t.event_id]
             target = f"{t.event_source.split('.', 1)[0]} in {t.region} (account {t.account})"
             if t.event_name not in self._RESTORE:
-                self.manual(_Draft("recover", f"Review and restore: {t.effect}", target, f"an in-scope {t.event_name} {t.effect}", [s],
-                                   t.account, caution="the logs show the change but not the previous settings; restore them by hand"))
+                self.manual(
+                    _Draft(
+                        "recover",
+                        f"Review and restore: {t.effect}",
+                        target,
+                        f"an in-scope {t.event_name} {t.effect}",
+                        [s],
+                        t.account,
+                        caution="the logs show the change but not the previous settings; restore them by hand",
+                    )
+                )
                 continue
             title, op, param, caution = self._RESTORE[t.event_name]
             args = {self._ARG[op]: _req(s.event, param)} if param else {}
             if op == "start_logging" and not args["trail"]:
                 args["trail"] = _req(s.event, "trailName")
-            self.run(_Draft("recover", title, target, f"an in-scope {t.event_name} {t.effect}", [s], t.account, caution=caution),
-                     [(op, args, t.region)])
+            self.run(
+                _Draft(
+                    "recover",
+                    title,
+                    target,
+                    f"an in-scope {t.event_name} {t.effect}",
+                    [s],
+                    t.account,
+                    caution=caution,
+                ),
+                [(op, args, t.region)],
+            )
         reads: dict[str, list[tuple[str, str, list[ScopedEvent], str, str | None]]] = {}
         for item in exposure(self.scope).credentials_read:
-            kind, name = next(((k, item[len(k) + 1:]) for k in ("parameter path", "parameter", "secret") if item.startswith(k + " ")),
-                              ("", item))
-            readers = [s for s in self.scope.events if s.event.error_code is None and _reads(s.event, kind, name)]
+            kind, name = next(
+                (
+                    (k, item[len(k) + 1 :])
+                    for k in ("parameter path", "parameter", "secret")
+                    if item.startswith(k + " ")
+                ),
+                ("", item),
+            )
+            readers = [
+                s for s in self.scope.events if s.event.error_code is None and _reads(s.event, kind, name)
+            ]
             r = readers[0].event.aws_region if readers else "us-east-1"
             account = readers[0].event.recipient_account_id if readers else None
             reads.setdefault(kind, []).append((item, name, readers, r, account))
-        for kind, group in reads.items():  # one step per kind of thing read, not one per item: a bulk read is one decision
+        for (
+            kind,
+            group,
+        ) in reads.items():  # one step per kind of thing read, not one per item: a bulk read is one decision
             title, plural, caution, cmds = self._READ_STEPS[kind]
             accounts = {a for *_, a in group}
             evidence = [s for _, _, readers, *_ in group for s in readers]
             single = len(group) == 1
-            self.manual(_Draft("recover", title if single else plural.format(n=len(group)),
-                               group[0][0] if single else f"{len(group)} {self._READ_NOUN[kind]}: " + ", ".join(i for i, *_ in group[:3])
-                               + (", ..." if len(group) > 3 else ""),
-                               "read by an in-scope call" if single else "each read by an in-scope call", evidence,
-                               accounts.pop() if len(accounts) == 1 else None, caution=caution),
-                        (lambda group=group, cmds=cmds: [c for _, n, _, r, _ in group for c in cmds(n, r)]) if cmds else None)
+            self.manual(
+                _Draft(
+                    "recover",
+                    title if single else plural.format(n=len(group)),
+                    group[0][0]
+                    if single
+                    else f"{len(group)} {self._READ_NOUN[kind]}: "
+                    + ", ".join(i for i, *_ in group[:3])
+                    + (", ..." if len(group) > 3 else ""),
+                    "read by an in-scope call" if single else "each read by an in-scope call",
+                    evidence,
+                    accounts.pop() if len(accounts) == 1 else None,
+                    caution=caution,
+                ),
+                (lambda group=group, cmds=cmds: [c for _, n, _, r, _ in group for c in cmds(n, r)])
+                if cmds
+                else None,
+            )
         for kind, name, account, evs in self.revoked:
             if kind == "role" and name in self.created_roles:
                 continue  # deleted in the eradicate steps
-            self.run(_Draft("recover", "Lift the session revocation once the incident is over", f"{kind} {name}",
-                            "the deny on older credentials stays until it is removed; legitimate users of this "
-                            f"{kind} may need it gone", evs, account,
-                            caution="only once the attacker's access is gone; respond runs this step only when it is named "
-                                    "with --steps"),
-                     [(f"lift_{kind}_revocation", {kind: name}, None)])
+            self.run(
+                _Draft(
+                    "recover",
+                    "Lift the session revocation once the incident is over",
+                    f"{kind} {name}",
+                    "the deny on older credentials stays until it is removed; legitimate users of this "
+                    f"{kind} may need it gone",
+                    evs,
+                    account,
+                    caution="only once the attacker's access is gone; respond runs this step only when it is named "
+                    "with --steps",
+                ),
+                [(f"lift_{kind}_revocation", {kind: name}, None)],
+            )
         replaced: set[str] = set()
         for s in self.scope.events:
             ui = s.event.user_identity
             user = _user_name(s.event)
             key = ui.access_key_id
-            if ui.type == "IAMUser" and key and key.startswith("AKIA") and user and user not in self.created_users and key not in replaced:
+            if (
+                ui.type == "IAMUser"
+                and key
+                and key.startswith("AKIA")
+                and user
+                and user not in self.created_users
+                and key not in replaced
+            ):
                 replaced.add(key)
-                self.manual(_Draft("recover", "Give the key's owner a new key, then delete the old one", f"user {user}, replacing {key}",
-                                   "its key was deactivated in the contain steps",
-                                   [x for x in self.scope.events if x.event.user_identity.access_key_id == key], _account(s.event),
-                                   caution="the new secret is shown once: create it where the owner's secret store can take it, "
-                                           "and find out how the old one leaked"),
-                            lambda u=user, k=key: [f"aws iam create-access-key --user-name {q('iam', u)}",
-                                                   f"aws iam delete-access-key --user-name {q('iam', u)} --access-key-id {q('key', k)}"])
+                self.manual(
+                    _Draft(
+                        "recover",
+                        "Give the key's owner a new key, then delete the old one",
+                        f"user {user}, replacing {key}",
+                        "its key was deactivated in the contain steps",
+                        [x for x in self.scope.events if x.event.user_identity.access_key_id == key],
+                        _account(s.event),
+                        caution="the new secret is shown once: create it where the owner's secret store can take it, "
+                        "and find out how the old one leaked",
+                    ),
+                    lambda u=user, k=key: [
+                        f"aws iam create-access-key --user-name {q('iam', u)}",
+                        f"aws iam delete-access-key --user-name {q('iam', u)} --access-key-id {q('key', k)}",
+                    ],
+                )
 
     def actions(self) -> list[PlanAction]:
         out: list[PlanAction] = []
         for phase in PHASES:
             for d in (d for d in self.drafts if d.phase == phase):
                 ev = sorted(d.evidence, key=lambda s: (s.event.event_time, s.event.event_id))
-                out.append(PlanAction(
-                    id=f"A{len(out) + 1:02d}", phase=d.phase, title=d.title, target=d.target, why=d.why, account=d.account,
-                    confidence=_confidence(ev) if ev else Confidence.STRONG, commands=d.commands, operations=d.operations,
-                    disruptive=any(OPS[o.op].disruptive for o in d.operations),
-                    on_request=any(OPS[o.op].on_request for o in d.operations), caution=d.caution,
-                    evidence=[s.event.event_id for s in ev][:LISTED_EVIDENCE]))
+                out.append(
+                    PlanAction(
+                        id=f"A{len(out) + 1:02d}",
+                        phase=d.phase,
+                        title=d.title,
+                        target=d.target,
+                        why=d.why,
+                        account=d.account,
+                        confidence=_confidence(ev) if ev else Confidence.STRONG,
+                        commands=d.commands,
+                        operations=d.operations,
+                        disruptive=any(OPS[o.op].disruptive for o in d.operations),
+                        on_request=any(OPS[o.op].on_request for o in d.operations),
+                        caution=d.caution,
+                        evidence=[s.event.event_id for s in ev][:LISTED_EVIDENCE],
+                    )
+                )
         return out
 
 
@@ -444,12 +758,18 @@ def build_plan(scope: Scope) -> dict[str, Any]:
     b.eradicate()
     b.recover()
     actions = b.actions()
-    notes = ["steps with operations can be carried out by `controlzee respond` after a dry run and your approval; "
-             "the others are for a person. Either way, review each one first",
-             "work through the phases in order; within contain, act quickly, since the attacker may notice"]
+    notes = [
+        "steps with operations can be carried out by `controlzee respond` after a dry run and your approval; "
+        "the others are for a person. Either way, review each one first",
+        "work through the phases in order; within contain, act quickly, since the attacker may notice",
+    ]
     if any(a.confidence is Confidence.WEAK for a in actions):
-        notes.append("steps marked weak rest on weak evidence (IP, user agent or ARN matches): confirm them before acting")
+        notes.append(
+            "steps marked weak rest on weak evidence (IP, user agent or ARN matches): confirm them before acting"
+        )
     if not scope.taint.enabled:
-        notes.append("the scope was built with --no-propagate, so credentials the attacker created are not in this plan")
+        notes.append(
+            "the scope was built with --no-propagate, so credentials the attacker created are not in this plan"
+        )
     plan = Plan(tool=tool_info(), scope_sha256=scope.scope_sha256, actions=actions, notes=notes)
     return canonical.seal(plan.model_dump(mode="json"), "plan_sha256")

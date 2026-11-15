@@ -15,13 +15,20 @@ SCHEMA_DIR = Path(__file__).resolve().parents[2] / "schemas"
 def test_committed_schema_is_current(name):
     committed = SCHEMA_DIR / f"{name}.schema.json"
     assert committed.exists(), "run: uv run python -m controlzee.schemas"
-    assert committed.read_bytes() == schema_bytes(name), f"{committed.name} is stale; run: uv run python -m controlzee.schemas"
+    assert committed.read_bytes() == schema_bytes(name), (
+        f"{committed.name} is stale; run: uv run python -m controlzee.schemas"
+    )
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS)
 def test_goldens_validate_against_the_schemas(fixtures, scenario):
     expected = fixtures / scenario / "expected"
-    for name, file in (("scope", "scope.json"), ("inputs", "scope.inputs.json"), ("timeline", "timeline.json"), ("plan", "plan.json")):
+    for name, file in (
+        ("scope", "scope.json"),
+        ("inputs", "scope.inputs.json"),
+        ("timeline", "timeline.json"),
+        ("plan", "plan.json"),
+    ):
         jsonschema.validate(json.loads((expected / file).read_text()), schema_for(name))
 
 

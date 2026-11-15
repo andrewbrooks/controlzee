@@ -3,6 +3,7 @@
 Steps with `operations` can be carried out by `controlzee respond`, only after a dry run that a person approved; their
 `commands` are the same thing as AWS CLI text. Steps without operations are for a person.
 """
+
 from __future__ import annotations
 
 from typing import Any, Literal

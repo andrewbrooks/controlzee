@@ -8,6 +8,7 @@ not re-queried in the second pass, so events that arrive meanwhile cannot make t
 Event history keeps 90 days of management events per region, independently of any trail, so it can fill a gap left by
 a stopped or deleted trail. It holds no data events.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -28,6 +29,7 @@ class RemoteError(Exception):
 
 def aws_errors() -> tuple[type[Exception], ...]:
     from botocore.exceptions import BotoCoreError, ClientError
+
     return (BotoCoreError, ClientError)
 
 
@@ -36,6 +38,7 @@ def client(service: str, profile: str | None, region: str | None) -> Any:
     key = (service, profile, region)
     if key not in _clients:
         import boto3
+
         _clients[key] = boto3.Session(profile_name=profile, region_name=region).client(service)
     return _clients[key]
 
@@ -50,7 +53,9 @@ class S3Source:
 
     def read(self) -> bytes:
         try:
-            data: bytes = client("s3", self.profile, None).get_object(Bucket=self.bucket, Key=self.key)["Body"].read()
+            data: bytes = (
+                client("s3", self.profile, None).get_object(Bucket=self.bucket, Key=self.key)["Body"].read()
+            )
         except aws_errors() as e:
             raise OSError(0, f"cannot fetch from S3: {e}") from None
         return data
@@ -92,11 +97,15 @@ class S3Input:
         found: list[Source] = []
         ignored = 0
         try:
-            pages = client("s3", self.profile, None).get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix)
+            pages = (
+                client("s3", self.profile, None)
+                .get_paginator("list_objects_v2")
+                .paginate(Bucket=bucket, Prefix=prefix)
+            )
             for page in pages:
                 for obj in page.get("Contents", []):
                     key = obj["Key"]
-                    rel = key[len(prefix):]
+                    rel = key[len(prefix) :]
                     if not rel or key.endswith("/"):
                         continue
                     if rel.endswith(LOG_SUFFIXES):
@@ -129,7 +138,9 @@ class LookupInput:
                         try:
                             records.append(orjson.loads(raw))
                         except orjson.JSONDecodeError:
-                            records.append({"unparseable": True})  # counted as a malformed record by the index pass
+                            records.append(
+                                {"unparseable": True}
+                            )  # counted as a malformed record by the index pass
         except aws_errors() as e:
             raise RemoteError(f"cannot query CloudTrail event history in {self.region}: {e}") from None
 

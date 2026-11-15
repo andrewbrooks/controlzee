@@ -26,27 +26,39 @@ def test_ioc_file_round_trip(tmp_path):
     assert {i.name: (i.kind, i.value, i.match) for i in parts.indicators} == {
         "leaked_key": (IndicatorKind.ACCESS_KEY_ID, "AKIA1", "exact"),
         "nat": (IndicatorKind.SOURCE_IP, "203.0.113.0/24", "exact"),
-        "tool": (IndicatorKind.USER_AGENT, "curl/", "substring")}
+        "tool": (IndicatorKind.USER_AGENT, "curl/", "substring"),
+    }
     assert parts.expression == "leaked_key OR (nat AND tool)"
     assert parts.window == Window(start="2026-10-20T12:00:00Z", end="2026-10-20T14:00:00Z")
 
 
 def test_yaml_dates_are_normalised_to_utc_strings(tmp_path):
     # unquoted YAML timestamps load as datetimes
-    parts = load_iocs_file(write(tmp_path, "indicators: {k: {type: access_key_id, value: A}}\nwindow: {start: 2026-10-20 12:00:00, end: 2026-10-20T15:00:00+01:00}\n"))
+    parts = load_iocs_file(
+        write(
+            tmp_path,
+            "indicators: {k: {type: access_key_id, value: A}}\nwindow: {start: 2026-10-20 12:00:00, end: 2026-10-20T15:00:00+01:00}\n",
+        )
+    )
     assert parts.window == Window(start="2026-10-20T12:00:00Z", end="2026-10-20T14:00:00Z")
 
 
-@pytest.mark.parametrize("text,message", [
-    ("- just\n- a list\n", "must be a mapping"),
-    ("indicators: [", "not valid YAML"),
-    ("version: 2\nindicators: {k: {type: access_key_id, value: A}}\n", "unsupported IOC file version"),
-    ("indicators: {k: {type: nonsense, value: A}}\n", "indicators.k.type"),
-    ("indicators: {k: {type: access_key_id, value: A, surprise: 1}}\n", "surprise"),
-    ("indicators: {k: {type: source_ip, value: nope}}\n", "not an IP address"),
-    ("indicators: {k: {type: access_key_id, value: A}}\nwindow: {start: 2026-10-20T00:00:00Z, until: x}\n", "only takes 'start' and 'end'"),
-    ("indicators: {k: {type: access_key_id, value: A}}\nwindow: {start: not-a-time}\n", "time"),
-])
+@pytest.mark.parametrize(
+    "text,message",
+    [
+        ("- just\n- a list\n", "must be a mapping"),
+        ("indicators: [", "not valid YAML"),
+        ("version: 2\nindicators: {k: {type: access_key_id, value: A}}\n", "unsupported IOC file version"),
+        ("indicators: {k: {type: nonsense, value: A}}\n", "indicators.k.type"),
+        ("indicators: {k: {type: access_key_id, value: A, surprise: 1}}\n", "surprise"),
+        ("indicators: {k: {type: source_ip, value: nope}}\n", "not an IP address"),
+        (
+            "indicators: {k: {type: access_key_id, value: A}}\nwindow: {start: 2026-10-20T00:00:00Z, until: x}\n",
+            "only takes 'start' and 'end'",
+        ),
+        ("indicators: {k: {type: access_key_id, value: A}}\nwindow: {start: not-a-time}\n", "time"),
+    ],
+)
 def test_ioc_file_errors_name_the_problem(tmp_path, text, message):
     with pytest.raises(SpecError, match=message):
         load_iocs_file(write(tmp_path, text))
@@ -70,10 +82,21 @@ def test_make_window():
 
 
 def test_flags_are_named_in_order():
-    inds = from_flags(access_keys=["A1", "A2"], ips=["192.0.2.1"], user_agents=["curl"], user_agent_regexes=["^x"], arns=["arn:a"])
+    inds = from_flags(
+        access_keys=["A1", "A2"],
+        ips=["192.0.2.1"],
+        user_agents=["curl"],
+        user_agent_regexes=["^x"],
+        arns=["arn:a"],
+    )
     assert [(i.name, i.kind.value, i.match) for i in inds] == [
-        ("access_key_1", "access_key_id", "exact"), ("access_key_2", "access_key_id", "exact"), ("arn_1", "principal_arn", "exact"),
-        ("ip_1", "source_ip", "exact"), ("ua_1", "user_agent", "substring"), ("ua_regex_1", "user_agent", "regex")]
+        ("access_key_1", "access_key_id", "exact"),
+        ("access_key_2", "access_key_id", "exact"),
+        ("arn_1", "principal_arn", "exact"),
+        ("ip_1", "source_ip", "exact"),
+        ("ua_1", "user_agent", "substring"),
+        ("ua_regex_1", "user_agent", "regex"),
+    ]
 
 
 def test_bad_flag_values_become_spec_errors():
@@ -92,10 +115,17 @@ def test_assemble_precedence_cli_over_file_over_guardduty(tmp_path):
     file = load_iocs_file(write(tmp_path, YAML))
     # the file beats GuardDuty (the file comes later in the parts list)
     spec = assemble([gd, file])
-    assert spec.expression == "leaked_key OR (nat AND tool)" and spec.window and spec.window.start == "2026-10-20T12:00:00Z"
+    assert (
+        spec.expression == "leaked_key OR (nat AND tool)"
+        and spec.window
+        and spec.window.start == "2026-10-20T12:00:00Z"
+    )
     # GuardDuty alone supplies the window; the default expression ORs everything
     only_gd = assemble([gd])
-    assert only_gd.window == gd.window and only_gd.expression == "gd_access_key_1 OR gd_ip_1 OR gd_principal_id_1"
+    assert (
+        only_gd.window == gd.window
+        and only_gd.expression == "gd_access_key_1 OR gd_ip_1 OR gd_principal_id_1"
+    )
     # the command line beats both
     cli_window = Window(start="2026-10-21T00:00:00Z", end="2026-10-22T00:00:00Z")
     spec = assemble([gd, file], expression="gd_access_key_1 OR leaked_key", window=cli_window)
@@ -110,33 +140,54 @@ def test_assemble_rejects_nothing_and_duplicates():
 
 
 FINDING = {
-    "Id": "f1", "Resource": {"AccessKeyDetails": {"AccessKeyId": "AKIAGD", "PrincipalId": "AIDAGD", "UserName": "alice"}},
-    "Service": {"EventFirstSeen": "2026-10-20T12:00:00.000Z", "EventLastSeen": "2026-10-20T13:30:00Z",
-                "Action": {"AwsApiCallAction": {"RemoteIpDetails": {"IpAddressV4": "198.51.100.7"}}}},
+    "Id": "f1",
+    "Resource": {"AccessKeyDetails": {"AccessKeyId": "AKIAGD", "PrincipalId": "AIDAGD", "UserName": "alice"}},
+    "Service": {
+        "EventFirstSeen": "2026-10-20T12:00:00.000Z",
+        "EventLastSeen": "2026-10-20T13:30:00Z",
+        "Action": {"AwsApiCallAction": {"RemoteIpDetails": {"IpAddressV4": "198.51.100.7"}}},
+    },
 }
 
 
 def test_guardduty_finding_yields_key_principal_ip_and_window():
     p = from_guardduty(FINDING)
     assert [(i.name, i.kind.value, i.value) for i in p.indicators] == [
-        ("gd_access_key_1", "access_key_id", "AKIAGD"), ("gd_principal_id_1", "principal_id", "AIDAGD"), ("gd_ip_1", "source_ip", "198.51.100.7")]
+        ("gd_access_key_1", "access_key_id", "AKIAGD"),
+        ("gd_principal_id_1", "principal_id", "AIDAGD"),
+        ("gd_ip_1", "source_ip", "198.51.100.7"),
+    ]
     assert p.window == Window(start="2026-10-20T12:00:00Z", end="2026-10-20T13:30:00Z")
     assert any("imported access key AKIAGD" in n for n in p.notes)
 
 
 def test_guardduty_accepts_wrapped_and_listed_findings_and_dedupes():
-    other = {"Id": "f2", "Resource": {"AccessKeyDetails": {"AccessKeyId": "AKIAGD"}},
-             "Service": {"EventFirstSeen": "2026-10-19T00:00:00Z", "EventLastSeen": "2026-10-21T00:00:00Z"}}
+    other = {
+        "Id": "f2",
+        "Resource": {"AccessKeyDetails": {"AccessKeyId": "AKIAGD"}},
+        "Service": {"EventFirstSeen": "2026-10-19T00:00:00Z", "EventLastSeen": "2026-10-21T00:00:00Z"},
+    }
     for doc in ({"Findings": [FINDING, other]}, [FINDING, other]):
         p = from_guardduty(doc)
         assert len([i for i in p.indicators if i.kind is IndicatorKind.ACCESS_KEY_ID]) == 1
-        assert p.window == Window(start="2026-10-19T00:00:00Z", end="2026-10-21T00:00:00Z")  # widest span across findings
+        assert p.window == Window(
+            start="2026-10-19T00:00:00Z", end="2026-10-21T00:00:00Z"
+        )  # widest span across findings
         assert any("finding f2: no new indicators" in n for n in p.notes)
 
 
 def test_guardduty_skips_what_it_cannot_use():
-    p = from_guardduty({"Id": "f3", "Resource": {}, "Service": {"EventFirstSeen": "garbage", "EventLastSeen": "2026-10-21T00:00:00Z",
-                                                                "Action": {"AwsApiCallAction": {"RemoteIpDetails": {"IpAddressV4": "not-an-ip"}}}}})
+    p = from_guardduty(
+        {
+            "Id": "f3",
+            "Resource": {},
+            "Service": {
+                "EventFirstSeen": "garbage",
+                "EventLastSeen": "2026-10-21T00:00:00Z",
+                "Action": {"AwsApiCallAction": {"RemoteIpDetails": {"IpAddressV4": "not-an-ip"}}},
+            },
+        }
+    )
     assert p.indicators == [] and p.window is None
     assert any("unreadable EventFirstSeen" in n for n in p.notes)
 

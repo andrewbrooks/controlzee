@@ -3,6 +3,7 @@
 Anything shown to a person goes through `clean`: control characters (including terminal escape sequences) are replaced,
 and length is capped. Report renderers added later use the same function.
 """
+
 from __future__ import annotations
 
 import re

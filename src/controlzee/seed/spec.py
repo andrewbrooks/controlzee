@@ -1,4 +1,5 @@
 """Build a `SeedSpec` from an IOC file, command-line flags and a GuardDuty finding."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
@@ -48,8 +49,10 @@ def make_window(raw: dict[str, Any] | None) -> Window | None:
     if extra:
         raise SpecError(f"window only takes 'start' and 'end', not: {', '.join(sorted(map(str, extra)))}")
     try:
-        return Window(start=normalize_time(raw["start"]) if raw.get("start") else None,
-                      end=normalize_time(raw["end"]) if raw.get("end") else None)
+        return Window(
+            start=normalize_time(raw["start"]) if raw.get("start") else None,
+            end=normalize_time(raw["end"]) if raw.get("end") else None,
+        )
     except ValueError as e:
         raise SpecError(str(e)) from None
 
@@ -73,15 +76,24 @@ def load_iocs_file(path: Path) -> SpecParts:
         f = _IocFile.model_validate(doc)
         if f.version != 1:
             raise SpecError(f"unsupported IOC file version {f.version} (this tool reads version 1)")
-        indicators = [Indicator(name=n, kind=b.type, value=b.value, match=b.match) for n, b in f.indicators.items()]
+        indicators = [
+            Indicator(name=n, kind=b.type, value=b.value, match=b.match) for n, b in f.indicators.items()
+        ]
     except ValidationError as e:
         raise SpecError(f"{path.name}: {_explain(e)}") from None
     return SpecParts(indicators, f.expression, make_window(f.window))
 
 
-def from_flags(*, access_keys: Iterable[str] = (), principal_ids: Iterable[str] = (), source_identities: Iterable[str] = (),
-               arns: Iterable[str] = (), ips: Iterable[str] = (), user_agents: Iterable[str] = (),
-               user_agent_regexes: Iterable[str] = ()) -> list[Indicator]:
+def from_flags(
+    *,
+    access_keys: Iterable[str] = (),
+    principal_ids: Iterable[str] = (),
+    source_identities: Iterable[str] = (),
+    arns: Iterable[str] = (),
+    ips: Iterable[str] = (),
+    user_agents: Iterable[str] = (),
+    user_agent_regexes: Iterable[str] = (),
+) -> list[Indicator]:
     """Indicators from command-line values, named access_key_1, ip_1, ua_1 ... in the order given."""
     groups: list[tuple[str, IndicatorKind, Literal["exact", "substring", "regex"], Iterable[str]]] = [
         ("access_key", IndicatorKind.ACCESS_KEY_ID, "exact", access_keys),
@@ -102,11 +114,15 @@ def from_flags(*, access_keys: Iterable[str] = (), principal_ids: Iterable[str] 
     return out
 
 
-def assemble(parts: Sequence[SpecParts], *, expression: str | None = None, window: Window | None = None) -> SeedSpec:
+def assemble(
+    parts: Sequence[SpecParts], *, expression: str | None = None, window: Window | None = None
+) -> SeedSpec:
     """Merge sources. Precedence for the expression and window: command line, then IOC file, then GuardDuty."""
     indicators = [i for p in parts for i in p.indicators]
     if not indicators:
-        raise SpecError("no indicators given: pass --iocs, --guardduty or an indicator flag such as --access-key")
+        raise SpecError(
+            "no indicators given: pass --iocs, --guardduty or an indicator flag such as --access-key"
+        )
     names = [i.name for i in indicators]
     if dup := sorted({n for n in names if names.count(n) > 1}):
         raise SpecError(f"indicator name(s) used twice: {', '.join(dup)}")
@@ -115,6 +131,8 @@ def assemble(parts: Sequence[SpecParts], *, expression: str | None = None, windo
         expr_text = " OR ".join(sorted(names))
     chosen = window or next((p.window for p in reversed(parts) if p.window), None)
     try:
-        return SeedSpec(indicators=tuple(sorted(indicators, key=lambda i: i.name)), expression=expr_text, window=chosen)
+        return SeedSpec(
+            indicators=tuple(sorted(indicators, key=lambda i: i.name)), expression=expr_text, window=chosen
+        )
     except ValidationError as e:
         raise SpecError(_explain(e)) from None

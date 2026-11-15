@@ -7,6 +7,7 @@ Request parameters are attacker-influenced text, and some are secrets. So this s
   (effect, actions, who) and not copied.
 The caller still escapes each string for where it is put (Markdown or HTML).
 """
+
 from __future__ import annotations
 
 import json
@@ -19,9 +20,27 @@ MAX_PAIRS: Final = 14
 MAX_VALUE: Final = 160
 MAX_DEPTH: Final = 3
 HIDDEN_BY_CLOUDTRAIL: Final = ("HIDDEN_DUE_TO_SECURITY_REASONS", "<sensitiveDataRemoved>")
-_NEVER: Final = frozenset({
-    "secretstring", "secretbinary", "password", "newpassword", "oldpassword", "userdata", "privatekey", "secretaccesskey",
-    "sessiontoken", "token", "authorizationtoken", "plaintext", "ciphertextblob", "zipfile", "body", "keymaterial", "cacertificate"})
+_NEVER: Final = frozenset(
+    {
+        "secretstring",
+        "secretbinary",
+        "password",
+        "newpassword",
+        "oldpassword",
+        "userdata",
+        "privatekey",
+        "secretaccesskey",
+        "sessiontoken",
+        "token",
+        "authorizationtoken",
+        "plaintext",
+        "ciphertextblob",
+        "zipfile",
+        "body",
+        "keymaterial",
+        "cacertificate",
+    }
+)
 _NOISE: Final = frozenset({"clienttoken", "clientrequesttoken", "idempotencytoken", "requestid", "dryrun"})
 _POLICY_KEYS: Final = frozenset({"policydocument", "assumerolepolicydocument", "policy", "resourcepolicy"})
 
@@ -51,7 +70,7 @@ def _as_list(v: Any) -> list[Any]:
 
 
 def policy_summary(document: Any) -> str | None:
-    """"Allow sts:AssumeRole by ec2.amazonaws.com; Deny s3:* on 2 resources", or None if this is not a policy document."""
+    """ "Allow sts:AssumeRole by ec2.amazonaws.com; Deny s3:* on 2 resources", or None if this is not a policy document."""
     if isinstance(document, str):
         if not document.lstrip().startswith("{"):
             return None
@@ -77,7 +96,9 @@ def policy_summary(document: Any) -> str | None:
             text += f" on {len(resources)} resource{'s' if len(resources) != 1 else ''}"
         parts.append(text)
     more = len(_as_list(document["Statement"])) - 4
-    return clean("; ".join(parts) + (f"; and {more} more" if more > 0 else ""), MAX_VALUE * 2) if parts else None
+    return (
+        clean("; ".join(parts) + (f"; and {more} more" if more > 0 else ""), MAX_VALUE * 2) if parts else None
+    )
 
 
 def _walk(value: Any, name: str, depth: int, out: list[tuple[str, str]]) -> None:
@@ -86,10 +107,17 @@ def _walk(value: Any, name: str, depth: int, out: list[tuple[str, str]]) -> None
         return
     if key in _POLICY_KEYS and (s := policy_summary(value)) is not None:
         out.append((name, s))
-    elif key == "environment" and isinstance(value, dict):  # the names say what it is for; the values may be secrets
+    elif key == "environment" and isinstance(
+        value, dict
+    ):  # the names say what it is for; the values may be secrets
         names = sorted(str(k) for k in _as_list_keys(value.get("variables")))
         if names:
-            out.append(("environment variables", clean(", ".join(names[:12]) + (" ..." if len(names) > 12 else ""), MAX_VALUE)))
+            out.append(
+                (
+                    "environment variables",
+                    clean(", ".join(names[:12]) + (" ..." if len(names) > 12 else ""), MAX_VALUE),
+                )
+            )
     elif (s := _scalar(value)) is not None:
         if (summary := policy_summary(s)) is not None:
             s = summary
@@ -102,7 +130,15 @@ def _walk(value: Any, name: str, depth: int, out: list[tuple[str, str]]) -> None
         scalars = [_scalar(v) for v in value]
         if all(s is not None for s in scalars):
             shown = [s for s in scalars[:5] if s is not None]
-            out.append((name, clean(", ".join(shown) + (f" (and {len(scalars) - 5} more)" if len(scalars) > 5 else ""), MAX_VALUE)))
+            out.append(
+                (
+                    name,
+                    clean(
+                        ", ".join(shown) + (f" (and {len(scalars) - 5} more)" if len(scalars) > 5 else ""),
+                        MAX_VALUE,
+                    ),
+                )
+            )
         elif depth < MAX_DEPTH:
             for i, v in enumerate(value[:3]):
                 _walk(v, f"{name}[{i}]", depth + 1, out)

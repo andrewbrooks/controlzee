@@ -4,6 +4,7 @@ Sorted keys, two-space indent (so artifacts diff line by line), UTF-8, a trailin
 floats. The same document always produces the same bytes. The bytes equal what the standard library produces with
 `sort_keys=True` and the same indent, which the tests check, so determinism does not depend on `orjson`.
 """
+
 from __future__ import annotations
 
 import hashlib

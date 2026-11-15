@@ -4,6 +4,7 @@ The layout was chosen by measurement (see docs/architecture.md): plain tuples wi
 about two seconds on eight workers at roughly 0.5-0.7 KB per event. Full `Event` models are built only for events that end
 up in scope (see `materialize`).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -17,8 +18,26 @@ Issued = tuple[tuple[str, str], ...]
 # (event_id, ts_us, event_time, event_source, event_name, region, account, read_only, source_ip, user_agent, error_code,
 #  identity_type, arn, principal_id, access_key_id, issuer_arn, source_identity, issued, file_index, record_index)
 Row = tuple[
-    str, int, str, str, str, str, str, bool | None, str | None, str | None, str | None,
-    str | None, str | None, str | None, str | None, str | None, str | None, Issued | None, int, int,
+    str,
+    int,
+    str,
+    str,
+    str,
+    str,
+    str,
+    bool | None,
+    str | None,
+    str | None,
+    str | None,
+    str | None,
+    str | None,
+    str | None,
+    str | None,
+    str | None,
+    str | None,
+    Issued | None,
+    int,
+    int,
 ]
 R_ID: Final = 0
 R_TS: Final = 1
@@ -61,6 +80,8 @@ class EventIndex:
     duplicates_removed: int = 0
     malformed_records: int = 0
     malformed_samples: list[str] = field(default_factory=list)
-    data_events: int = 0  # records with eventCategory "Data" (S3 object, Lambda invoke...); counted for coverage
+    data_events: int = (
+        0  # records with eventCategory "Data" (S3 object, Lambda invoke...); counted for coverage
+    )
     ignored_files: int = 0  # files in an input directory that are not .json / .json.gz
     sources: list[Source] = field(default_factory=list)  # indexed by a row's file index

@@ -13,15 +13,29 @@ def test_precedence_and_grouping():
     assert parse("a OR b AND c") == Or((Ref("a"), And((Ref("b"), Ref("c")))))
     assert parse("(a OR b) AND c") == And((Or((Ref("a"), Ref("b"))), Ref("c")))
     assert parse("a and b Or c") == parse("a AND b OR c")  # operators are case-insensitive, names are not
-    assert parse("a AND (b AND c)") == And((Ref("a"), Ref("b"), Ref("c")))  # nested same operator is flattened
+    assert parse("a AND (b AND c)") == And(
+        (Ref("a"), Ref("b"), Ref("c"))
+    )  # nested same operator is flattened
     assert parse("access-key_1 OR ip.1".replace(".", "_")) == Or((Ref("access-key_1"), Ref("ip_1")))
 
 
-@pytest.mark.parametrize("bad,why", [
-    ("", "empty"), ("   ", "empty"), ("a b", "AND or OR"), ("a AND", "ends"), ("AND a", "needs an indicator"),
-    ("(a", "missing"), ("a)", "unexpected"), ("()", "unexpected"), ("NOT a", "NOT is not supported"),
-    ("a & b", "unexpected character"), ("a AND OR b", "needs an indicator"), ("a" * 5000, "too long"),
-])
+@pytest.mark.parametrize(
+    "bad,why",
+    [
+        ("", "empty"),
+        ("   ", "empty"),
+        ("a b", "AND or OR"),
+        ("a AND", "ends"),
+        ("AND a", "needs an indicator"),
+        ("(a", "missing"),
+        ("a)", "unexpected"),
+        ("()", "unexpected"),
+        ("NOT a", "NOT is not supported"),
+        ("a & b", "unexpected character"),
+        ("a AND OR b", "needs an indicator"),
+        ("a" * 5000, "too long"),
+    ],
+)
 def test_errors_say_what_is_wrong(bad, why):
     with pytest.raises(ExpressionError, match=why):
         parse(bad)
@@ -72,7 +86,9 @@ def test_matches_python_boolean_semantics_and_strength_invariants(text):
     assert parse(to_text(node)) == node
     for combo in itertools.product([False, True], repeat=4):
         hits = dict(zip("abcd", combo, strict=True))
-        reference = eval(text.replace(" AND ", " and ").replace(" OR ", " or "), {"__builtins__": {}}, dict(hits))  # noqa: S307
+        reference = eval(
+            text.replace(" AND ", " and ").replace(" OR ", " or "), {"__builtins__": {}}, dict(hits)
+        )  # noqa: S307
         for strong in (frozenset(), frozenset("a"), frozenset("ab"), frozenset("abcd")):
             matched, is_strong = evaluate(node, hits, strong)
             assert matched == reference

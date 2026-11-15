@@ -1,4 +1,5 @@
 """JSON Schemas for the files controlzee writes. Committed under schemas/ and checked for drift by the tests."""
+
 from __future__ import annotations
 
 import sys
@@ -14,7 +15,14 @@ from controlzee.model.respond import DryRun, ResponseRecord
 from controlzee.model.scope import InputsManifest, Scope
 from controlzee.model.timeline import Timeline
 
-SCHEMAS: dict[str, type[BaseModel]] = {"scope": Scope, "inputs": InputsManifest, "timeline": Timeline, "plan": Plan, "dryrun": DryRun, "response": ResponseRecord}
+SCHEMAS: dict[str, type[BaseModel]] = {
+    "scope": Scope,
+    "inputs": InputsManifest,
+    "timeline": Timeline,
+    "plan": Plan,
+    "dryrun": DryRun,
+    "response": ResponseRecord,
+}
 
 
 def schema_for(name: str) -> dict[str, Any]:

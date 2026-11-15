@@ -1,4 +1,5 @@
 """The "Sequence of events" log: which moments there are, when it is left out, and that nothing from the logs can break it."""
+
 import re
 
 import pytest
@@ -18,13 +19,25 @@ def moments(scope):
 
 
 def mk(n: int, **kw) -> Moment:
-    base = {"kind": "issued", "title": "New access key", "detail": "iam:CreateAccessKey", "actor": "user/x", "time": "2026-10-20T10:00:00Z",
-            "t_us": n * 60_000_000, "end_us": n * 60_000_000, "count": 1, "event_id": f"e{n}", "hot": False}
+    base = {
+        "kind": "issued",
+        "title": "New access key",
+        "detail": "iam:CreateAccessKey",
+        "actor": "user/x",
+        "time": "2026-10-20T10:00:00Z",
+        "t_us": n * 60_000_000,
+        "end_us": n * 60_000_000,
+        "count": 1,
+        "event_id": f"e{n}",
+        "hot": False,
+    }
     return Moment(**{**base, **kw})
 
 
 def test_a_scope_with_only_two_moments_has_no_log(fixtures):
-    scope = scope_of(fixtures, "05_weak_ioc")  # a first call and one credential issued: the call table says that as well
+    scope = scope_of(
+        fixtures, "05_weak_ioc"
+    )  # a first call and one credential issued: the call table says that as well
     assert moments(scope) == [] and b'class="log"' not in build_html(scope)
 
 
@@ -54,12 +67,18 @@ def test_logging_changes_each_get_a_moment_in_the_log_tampering_scenario(fixture
 
 def test_instance_credentials_used_from_another_address_are_a_moment(fixtures):
     ms = moments(load("ec2-steal-instance-credentials")[0])
-    assert [m.title for m in ms if m.kind == "instance"] == ["Instance role used from another address"] and ms[-1].kind == "instance"
-    assert all(m.kind != "instance" for m in moments(load("ec2-enumerate-from-instance")[0]))  # the instance acting on its own is not one
+    assert [m.title for m in ms if m.kind == "instance"] == [
+        "Instance role used from another address"
+    ] and ms[-1].kind == "instance"
+    assert all(
+        m.kind != "instance" for m in moments(load("ec2-enumerate-from-instance")[0])
+    )  # the instance acting on its own is not one
 
 
 def test_secrets_read_are_a_moment_that_needs_attention(fixtures):
-    assert [(m.kind, m.hot) for m in moments(scope_of(fixtures, "06_lambda")) if m.kind == "secrets"] == [("secrets", True)] * 2
+    assert [(m.kind, m.hot) for m in moments(scope_of(fixtures, "06_lambda")) if m.kind == "secrets"] == [
+        ("secrets", True)
+    ] * 2
 
 
 def test_a_burst_of_the_same_call_is_one_moment_with_a_count(fixtures):
@@ -79,8 +98,16 @@ def test_the_log_shows_at_most_the_cap_and_counts_the_rest():
 
 
 def test_each_moment_links_to_its_row_and_says_how_long_after_the_last():
-    page = _sequence([mk(0), mk(1), mk(61, kind="privilege", title="Full control granted", hot=True)], {"e0": "call-1", "e1": "call-2", "e61": "call-3"})
-    assert 'href="#call-3"' in page and "1 min later" in page and "1 h 0 min later" in page and 'class="ev hot"' in page
+    page = _sequence(
+        [mk(0), mk(1), mk(61, kind="privilege", title="Full control granted", hot=True)],
+        {"e0": "call-1", "e1": "call-2", "e61": "call-3"},
+    )
+    assert (
+        'href="#call-3"' in page
+        and "1 min later" in page
+        and "1 h 0 min later" in page
+        and 'class="ev hot"' in page
+    )
     assert "start" in page and "\u25b2" in page  # the shape is a character, so it reads without styles
 
 
@@ -89,18 +116,36 @@ def test_a_moment_without_a_row_is_plain_text_not_a_dead_link():
     assert page.count("<a href=") == 1
 
 
-@pytest.mark.parametrize(("seconds", "text"), [(0, "in the same second"), (7, "7 s later"), (60, "1 min later"), (3599, "59 min later"), (5400, "1 h 30 min later")])
+@pytest.mark.parametrize(
+    ("seconds", "text"),
+    [
+        (0, "in the same second"),
+        (7, "7 s later"),
+        (60, "1 min later"),
+        (3599, "59 min later"),
+        (5400, "1 h 30 min later"),
+    ],
+)
 def test_elapsed_time_reads_naturally(seconds, text):
     assert _after(seconds) == text
 
 
-HOSTILE = ['"><script>alert(1)</script>', "' onmouseover='alert(1)", "<img src=x onerror=alert(1)>", "A" * 5000]
+HOSTILE = [
+    '"><script>alert(1)</script>',
+    "' onmouseover='alert(1)",
+    "<img src=x onerror=alert(1)>",
+    "A" * 5000,
+]
 
 
 @pytest.mark.parametrize("evil", HOSTILE)
 def test_hostile_text_in_a_moment_is_inert(evil):
     page = _sequence([mk(n, title=evil, detail=evil, actor=evil) for n in range(3)], {"e0": "call-1"})
-    assert "<script" not in page and "<img" not in page and 'onmouseover=' not in page.replace("&#x27; onmouseover=&#x27;", "")
+    assert (
+        "<script" not in page
+        and "<img" not in page
+        and "onmouseover=" not in page.replace("&#x27; onmouseover=&#x27;", "")
+    )
     assert len(page) < 20_000  # long text is cut, not copied whole
 
 
@@ -125,7 +170,12 @@ def test_a_moment_that_needs_attention_has_an_icon_and_words_not_only_a_colour()
 
 def test_the_log_has_the_time_in_a_gutter_a_number_and_the_time_since_the_last():
     page = _sequence([mk(0), mk(5)], {"e0": "call-1", "e5": "call-2"})
-    assert page.count('class="ev-t"') == 2 and 'class="ev-n" aria-hidden="true">2<' in page and "5 min later" in page and ">start<" in page
+    assert (
+        page.count('class="ev-t"') == 2
+        and 'class="ev-n" aria-hidden="true">2<' in page
+        and "5 min later" in page
+        and ">start<" in page
+    )
 
 
 def test_a_log_over_several_days_names_the_day_in_the_gutter():

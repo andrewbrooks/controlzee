@@ -1,4 +1,5 @@
 """Indicators of compromise, the window, and the seed specification derived from them."""
+
 from __future__ import annotations
 
 import ipaddress
@@ -24,7 +25,9 @@ class IndicatorKind(StrEnum):
     USER_AGENT = "user_agent"
 
 
-STRONG_KINDS = frozenset({IndicatorKind.ACCESS_KEY_ID, IndicatorKind.PRINCIPAL_ID, IndicatorKind.SOURCE_IDENTITY})
+STRONG_KINDS = frozenset(
+    {IndicatorKind.ACCESS_KEY_ID, IndicatorKind.PRINCIPAL_ID, IndicatorKind.SOURCE_IDENTITY}
+)
 
 
 class Indicator(Model):
@@ -41,7 +44,9 @@ class Indicator(Model):
     @classmethod
     def _name_ok(cls, v: str) -> str:
         if not _NAME.match(v) or v.lower() in RESERVED_NAMES:
-            raise ValueError(f"indicator name {v!r} must be letters, digits, '_' or '-', start with a letter, and not be AND/OR/NOT")
+            raise ValueError(
+                f"indicator name {v!r} must be letters, digits, '_' or '-', start with a letter, and not be AND/OR/NOT"
+            )
         return v
 
     @field_validator("value")

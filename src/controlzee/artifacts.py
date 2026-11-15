@@ -3,6 +3,7 @@
 A scope is accepted only if it is sealed (its hash matches its content) and of this tool's schema version: everything
 derived from it cites its `scope_sha256`, which would be meaningless for an edited or foreign document.
 """
+
 from __future__ import annotations
 
 import os
@@ -35,10 +36,14 @@ def load_scope(path: Path) -> Scope:
     if not isinstance(doc, dict) or "scope_sha256" not in doc:
         raise ArtifactError(f"{path.name} is not a scope.json written by controlzee scope")
     if doc.get("schema_version") != SCHEMA_VERSION:
-        raise ArtifactError(f"{path.name} has schema version {doc.get('schema_version')!r}; this tool reads {SCHEMA_VERSION!r}. "
-                            "Run controlzee scope again with this version")
+        raise ArtifactError(
+            f"{path.name} has schema version {doc.get('schema_version')!r}; this tool reads {SCHEMA_VERSION!r}. "
+            "Run controlzee scope again with this version"
+        )
     if not canonical.is_sealed(doc, "scope_sha256"):
-        raise ArtifactError(f"{path.name} was changed after it was written (its scope_sha256 does not match its content)")
+        raise ArtifactError(
+            f"{path.name} was changed after it was written (its scope_sha256 does not match its content)"
+        )
     try:
         return Scope.model_validate(doc)
     except ValidationError as e:

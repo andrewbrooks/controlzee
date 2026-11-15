@@ -4,14 +4,49 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
+    name: test (python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest supported Python and the newest, so a change in what the runner ships cannot surprise us.
+        python: ["3.12", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy src
+      # shellcheck is preinstalled on GitHub's runners
+      - run: git ls-files '.githooks/*' | xargs shellcheck
+      - run: uv run python -m tests.builders.build_fixtures --check
+      - run: uv run pytest -q
+
+  secrets:
+    name: secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # scan history, not just the latest commit
+      # Reads .gitleaks.toml, which allows the fake key ids the tests hold on purpose.
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  audit:
+    name: dependency audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv sync --locked
-      - run: uv run ruff check .
-      - run: uv run mypy src
-      - run: uv run python -m tests.builders.build_fixtures --check
-      - run: uv run pytest -q
+      # Fails on any known vulnerability in the locked dependencies.
+      - run: uv audit --preview-features audit-command
