@@ -35,7 +35,9 @@ def test_scope_writes_both_files_and_reports(s01, tmp_path):
     doc = json.loads(out.read_text())
     assert doc["summary"]["events_in_scope"] == 11 and (tmp_path / "scope.inputs.json").exists()
     assert stat.S_IMODE(os.stat(out).st_mode) == 0o600
-    assert str(tmp_path) not in out.read_text()  # paths are shown on the terminal, never written into the artifact
+    assert (
+        str(tmp_path) not in out.read_text()
+    )  # paths are shown on the terminal, never written into the artifact
 
 
 def test_output_matches_the_golden_byte_for_byte(s01, tmp_path):
@@ -46,11 +48,31 @@ def test_output_matches_the_golden_byte_for_byte(s01, tmp_path):
 
 
 def test_flags_without_a_file(s01, tmp_path):
-    r = run("scope", "--logs", s01 / "logs", "--access-key", "AKIAIOSFODNN7LEAKED", "--ip", "198.51.100.77",
-            "--expr", "access_key_1 AND ip_1", "-o", tmp_path / "s.json")
+    r = run(
+        "scope",
+        "--logs",
+        s01 / "logs",
+        "--access-key",
+        "AKIAIOSFODNN7LEAKED",
+        "--ip",
+        "198.51.100.77",
+        "--expr",
+        "access_key_1 AND ip_1",
+        "-o",
+        tmp_path / "s.json",
+    )
     assert r.exit_code == 0 and "In scope: 11 events" in r.stdout
     # the key alone matches 11 events; without propagation the backdoor key's two are not added
-    r = run("scope", "--logs", s01 / "logs", "--access-key", "AKIAIOSFODNN7LEAKED", "--no-propagate", "-o", tmp_path / "t.json")
+    r = run(
+        "scope",
+        "--logs",
+        s01 / "logs",
+        "--access-key",
+        "AKIAIOSFODNN7LEAKED",
+        "--no-propagate",
+        "-o",
+        tmp_path / "t.json",
+    )
     assert r.exit_code == 0 and "In scope: 11 events" in r.stdout and "Followed" not in r.stdout
 
 
@@ -66,15 +88,27 @@ def test_refuses_to_overwrite_without_force(s01, tmp_path):
     assert run(*args, "--force").exit_code == 0
 
 
-@pytest.mark.parametrize("extra,message", [
-    (["--expr", "access_key_1 AND nope"], "undefined indicator"),
-    (["--expr", "access_key_1 &&"], "unexpected character"),
-    (["--ip", "300.1.1.1"], "not an IP address"),
-    (["--window", "2026-10-21T00:00:00Z", "2026-10-20T00:00:00Z"], "starts after it ends"),
-    (["--window", "yesterday", "today"], "time"),
-])
+@pytest.mark.parametrize(
+    "extra,message",
+    [
+        (["--expr", "access_key_1 AND nope"], "undefined indicator"),
+        (["--expr", "access_key_1 &&"], "unexpected character"),
+        (["--ip", "300.1.1.1"], "not an IP address"),
+        (["--window", "2026-10-21T00:00:00Z", "2026-10-20T00:00:00Z"], "starts after it ends"),
+        (["--window", "yesterday", "today"], "time"),
+    ],
+)
 def test_bad_input_is_a_clean_exit_2(s01, tmp_path, extra, message):
-    r = run("scope", "--logs", s01 / "logs", "--access-key", "AKIAIOSFODNN7LEAKED", *extra, "-o", tmp_path / "s.json")
+    r = run(
+        "scope",
+        "--logs",
+        s01 / "logs",
+        "--access-key",
+        "AKIAIOSFODNN7LEAKED",
+        *extra,
+        "-o",
+        tmp_path / "s.json",
+    )
     assert r.exit_code == 2 and message in r.output and "Traceback" not in r.output
     assert not (tmp_path / "s.json").exists()
 
@@ -118,9 +152,21 @@ def test_terminal_output_cannot_be_hijacked_by_log_content(tmp_path):
 
 def test_guardduty_import_prints_what_it_took(s01, tmp_path):
     finding = tmp_path / "f.json"
-    finding.write_text(json.dumps({"Id": "f1", "Resource": {"AccessKeyDetails": {"AccessKeyId": "AKIAIOSFODNN7LEAKED"}}, "Service": {}}))
+    finding.write_text(
+        json.dumps(
+            {
+                "Id": "f1",
+                "Resource": {"AccessKeyDetails": {"AccessKeyId": "AKIAIOSFODNN7LEAKED"}},
+                "Service": {},
+            }
+        )
+    )
     r = run("scope", "--logs", s01 / "logs", "--guardduty", finding, "-o", tmp_path / "s.json")
-    assert r.exit_code == 0 and "imported access key AKIAIOSFODNN7LEAKED" in r.stdout and "In scope: 13 events" in r.stdout
+    assert (
+        r.exit_code == 0
+        and "imported access key AKIAIOSFODNN7LEAKED" in r.stdout
+        and "In scope: 13 events" in r.stdout
+    )
 
 
 def test_the_example_ioc_file_runs_against_scenario_01(s01, tmp_path):
@@ -128,10 +174,14 @@ def test_the_example_ioc_file_runs_against_scenario_01(s01, tmp_path):
     r = run("scope", "--logs", s01 / "logs", "--iocs", example, "-o", tmp_path / "s.json")
     assert r.exit_code == 0, r.output
     assert "In scope: 13 events (13 strong, 0 weak)" in r.stdout
-    assert "2 in-scope event(s) acted as them, 0 found only that way" in r.stdout  # matched weakly, made strong by taint
+    assert (
+        "2 in-scope event(s) acted as them, 0 found only that way" in r.stdout
+    )  # matched weakly, made strong by taint
 
 
-@pytest.mark.parametrize("command,name", [("timeline", "timeline.json"), ("plan", "plan.json"), ("report", "report.md")])
+@pytest.mark.parametrize(
+    "command,name", [("timeline", "timeline.json"), ("plan", "plan.json"), ("report", "report.md")]
+)
 def test_commands_that_read_a_scope(s01, tmp_path, command, name):
     out = tmp_path / name
     r = run(command, s01 / "expected/scope.json", "-o", out)
@@ -145,9 +195,15 @@ def test_commands_that_read_a_scope(s01, tmp_path, command, name):
 
 def test_summaries_of_the_derived_commands(s01, tmp_path):
     r = run("timeline", s01 / "expected/scope.json", "-o", tmp_path / "t.json")
-    assert "11 events by 2 identities, 0 gap(s)" in r.stdout and "full administrative access was granted" in r.stdout
+    assert (
+        "11 events by 2 identities, 0 gap(s)" in r.stdout
+        and "full administrative access was granted" in r.stdout
+    )
     r = run("plan", s01 / "expected/scope.json", "-o", tmp_path / "p.json")
-    assert "Plan: 6 step(s) (2 contain, 1 investigate, 2 eradicate, 1 recover); controlzee runs none of the commands" in r.stdout
+    assert (
+        "Plan: 6 step(s) (2 contain, 1 investigate, 2 eradicate, 1 recover); controlzee runs none of the commands"
+        in r.stdout
+    )
 
 
 def test_a_changed_scope_is_refused(s01, tmp_path):
@@ -156,7 +212,11 @@ def test_a_changed_scope_is_refused(s01, tmp_path):
     edited = tmp_path / "scope.json"
     edited.write_text(json.dumps(doc))
     r = run("report", edited, "-o", tmp_path / "r.md")
-    assert r.exit_code == 2 and "was changed after it was written" in r.output and not (tmp_path / "r.md").exists()
+    assert (
+        r.exit_code == 2
+        and "was changed after it was written" in r.output
+        and not (tmp_path / "r.md").exists()
+    )
 
 
 def test_a_scope_from_inputs_that_could_not_be_read_exits_3(tmp_path):
@@ -164,4 +224,8 @@ def test_a_scope_from_inputs_that_could_not_be_read_exits_3(tmp_path):
     bad.mkdir()
     (bad / "bad.json").write_bytes(b"{")
     r = run("scope", "--logs", bad, "--access-key", "AKIAIOSFODNN7LEAKED", "-o", tmp_path / "s.json")
-    assert r.exit_code == 3 and "none of the 1 input file(s) could be read" in r.output and (tmp_path / "s.json").exists()
+    assert (
+        r.exit_code == 3
+        and "none of the 1 input file(s) could be read" in r.output
+        and (tmp_path / "s.json").exists()
+    )

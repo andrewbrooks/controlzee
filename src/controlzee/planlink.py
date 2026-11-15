@@ -3,6 +3,7 @@
 Read off the step's operations (the user, role, access key, instance or function it names, by the name of the argument), never from free text. A step that is about something
 the attacker created and never used as an identity has nothing to light up, and gets no link. Display only: nothing here is saved.
 """
+
 from __future__ import annotations
 
 from controlzee.model.plan import Plan

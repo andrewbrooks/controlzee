@@ -1,4 +1,5 @@
 """UTC timestamp helpers shared by ingest and seeding."""
+
 from __future__ import annotations
 
 import calendar

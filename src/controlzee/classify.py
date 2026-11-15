@@ -7,6 +7,7 @@ attacker makes it. Reading calls default to discovery and other writes to "other
 Resources come from the request parameters each service documents (bucketName, secretId, roleName...). Only names the
 tables know are read, so a parameter an attacker controls cannot pose as a resource of another kind.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -17,51 +18,123 @@ from controlzee.model.event import Event
 from controlzee.model.timeline import Tactic
 from controlzee.taint.rules import API_VERSION
 
-TACTIC_ORDER: Final[tuple[Tactic, ...]] = ("initial-access", "execution", "persistence", "privilege-escalation", "defense-evasion",
-                                           "credential-access", "discovery", "lateral-movement", "collection", "exfiltration",
-                                           "impact", "other")
+TACTIC_ORDER: Final[tuple[Tactic, ...]] = (
+    "initial-access",
+    "execution",
+    "persistence",
+    "privilege-escalation",
+    "defense-evasion",
+    "credential-access",
+    "discovery",
+    "lateral-movement",
+    "collection",
+    "exfiltration",
+    "impact",
+    "other",
+)
 Access = Literal["read", "write", "delete", "assume"]
 
 _BY_TACTIC: Final[dict[Tactic, dict[str, tuple[str, ...]]]] = {
     "initial-access": {"signin": ("ConsoleLogin",)},
     "execution": {"ec2": ("RunInstances",), "ssm": ("SendCommand",), "lambda": ("Invoke", "InvokeFunction")},
     "persistence": {
-        "iam": ("CreateUser", "CreateAccessKey", "CreateLoginProfile", "UpdateLoginProfile", "CreateRole", "UpdateAssumeRolePolicy",
-                "CreateServiceSpecificCredential", "UploadSSHPublicKey", "CreateVirtualMFADevice", "EnableMFADevice"),
+        "iam": (
+            "CreateUser",
+            "CreateAccessKey",
+            "CreateLoginProfile",
+            "UpdateLoginProfile",
+            "CreateRole",
+            "UpdateAssumeRolePolicy",
+            "CreateServiceSpecificCredential",
+            "UploadSSHPublicKey",
+            "CreateVirtualMFADevice",
+            "EnableMFADevice",
+        ),
         "ec2": ("ImportKeyPair", "CreateKeyPair"),
         "lambda": ("CreateFunction", "UpdateFunctionCode", "UpdateFunctionConfiguration", "AddPermission"),
         # IAM Identity Center: a new person or an assignment is a way back in
-        "identitystore": ("CreateUser", "CreateGroupMembership"), "sso": ("CreateAccountAssignment", "CreateInstanceAccessControlAttributeConfiguration")},
+        "identitystore": ("CreateUser", "CreateGroupMembership"),
+        "sso": ("CreateAccountAssignment", "CreateInstanceAccessControlAttributeConfiguration"),
+    },
     "privilege-escalation": {
-        "iam": ("AttachUserPolicy", "AttachRolePolicy", "AttachGroupPolicy", "PutUserPolicy", "PutRolePolicy", "PutGroupPolicy",
-                "AddUserToGroup", "CreatePolicyVersion", "SetDefaultPolicyVersion"),
+        "iam": (
+            "AttachUserPolicy",
+            "AttachRolePolicy",
+            "AttachGroupPolicy",
+            "PutUserPolicy",
+            "PutRolePolicy",
+            "PutGroupPolicy",
+            "AddUserToGroup",
+            "CreatePolicyVersion",
+            "SetDefaultPolicyVersion",
+        ),
         "ec2": ("AssociateIamInstanceProfile", "ReplaceIamInstanceProfileAssociation"),
-        "sso": ("AttachManagedPolicyToPermissionSet", "AttachCustomerManagedPolicyReferenceToPermissionSet",
-                "PutInlinePolicyToPermissionSet", "PutPermissionsBoundaryToPermissionSet")},
+        "sso": (
+            "AttachManagedPolicyToPermissionSet",
+            "AttachCustomerManagedPolicyReferenceToPermissionSet",
+            "PutInlinePolicyToPermissionSet",
+            "PutPermissionsBoundaryToPermissionSet",
+        ),
+    },
     "defense-evasion": {"ec2": ("DeleteFlowLogs",), "logs": ("DeleteLogGroup", "DeleteLogStream")},
-    "credential-access": {"secretsmanager": ("GetSecretValue", "BatchGetSecretValue"),
-                          "ssm": ("GetParameter", "GetParameters", "GetParametersByPath"), "ec2": ("GetPasswordData",),
-                          "sts": ("GetSessionToken", "GetFederationToken"), "kms": ("Decrypt",)},
-    "lateral-movement": {"sts": ("AssumeRole", "AssumeRoleWithSAML", "AssumeRoleWithWebIdentity"),
-                         "ssm": ("StartSession",), "ec2-instance-connect": ("SendSSHPublicKey",)},
+    "credential-access": {
+        "secretsmanager": ("GetSecretValue", "BatchGetSecretValue"),
+        "ssm": ("GetParameter", "GetParameters", "GetParametersByPath"),
+        "ec2": ("GetPasswordData",),
+        "sts": ("GetSessionToken", "GetFederationToken"),
+        "kms": ("Decrypt",),
+    },
+    "lateral-movement": {
+        "sts": ("AssumeRole", "AssumeRoleWithSAML", "AssumeRoleWithWebIdentity"),
+        "ssm": ("StartSession",),
+        "ec2-instance-connect": ("SendSSHPublicKey",),
+    },
     "collection": {"s3": ("GetObject",), "dynamodb": ("Scan",), "ec2": ("CreateSnapshot",)},
-    "exfiltration": {"ec2": ("ModifySnapshotAttribute", "ModifyImageAttribute"),
-                     "rds": ("ModifyDBSnapshotAttribute", "ModifyDBClusterSnapshotAttribute"),
-                     "s3": ("PutBucketPolicy", "PutBucketAcl", "PutObjectAcl", "DeletePublicAccessBlock", "DeleteBucketPublicAccessBlock",
-                            "PutBucketReplication")},
+    "exfiltration": {
+        "ec2": ("ModifySnapshotAttribute", "ModifyImageAttribute"),
+        "rds": ("ModifyDBSnapshotAttribute", "ModifyDBClusterSnapshotAttribute"),
+        "s3": (
+            "PutBucketPolicy",
+            "PutBucketAcl",
+            "PutObjectAcl",
+            "DeletePublicAccessBlock",
+            "DeleteBucketPublicAccessBlock",
+            "PutBucketReplication",
+        ),
+    },
     # removing an identity, a credential or a permission is ATT&CK's "account access removal"; changing or deleting stored
     # secrets, parameters and functions is data manipulation or destruction. An attacker removing its own traces looks the same.
-    "impact": {"s3": ("DeleteBucket", "DeleteObject", "DeleteObjects", "PutBucketEncryption"),
-               "iam": ("DeleteUser", "DeleteRole", "DeleteAccessKey", "UpdateAccessKey", "DeleteLoginProfile", "DeleteUserPolicy",
-                       "DeleteRolePolicy", "DeleteGroupPolicy", "DetachUserPolicy", "DetachRolePolicy", "DetachGroupPolicy",
-                       "RemoveUserFromGroup", "DeleteGroup"),
-               "secretsmanager": ("PutSecretValue", "UpdateSecret", "DeleteSecret"),
-               "ssm": ("PutParameter", "DeleteParameter", "DeleteParameters"), "lambda": ("DeleteFunction",),
-               "ec2": ("TerminateInstances", "StopInstances", "DeleteVolume", "DeleteSnapshot"), "rds": ("DeleteDBInstance", "DeleteDBCluster"),
-               "kms": ("ScheduleKeyDeletion", "DisableKey")},
+    "impact": {
+        "s3": ("DeleteBucket", "DeleteObject", "DeleteObjects", "PutBucketEncryption"),
+        "iam": (
+            "DeleteUser",
+            "DeleteRole",
+            "DeleteAccessKey",
+            "UpdateAccessKey",
+            "DeleteLoginProfile",
+            "DeleteUserPolicy",
+            "DeleteRolePolicy",
+            "DeleteGroupPolicy",
+            "DetachUserPolicy",
+            "DetachRolePolicy",
+            "DetachGroupPolicy",
+            "RemoveUserFromGroup",
+            "DeleteGroup",
+        ),
+        "secretsmanager": ("PutSecretValue", "UpdateSecret", "DeleteSecret"),
+        "ssm": ("PutParameter", "DeleteParameter", "DeleteParameters"),
+        "lambda": ("DeleteFunction",),
+        "ec2": ("TerminateInstances", "StopInstances", "DeleteVolume", "DeleteSnapshot"),
+        "rds": ("DeleteDBInstance", "DeleteDBCluster"),
+        "kms": ("ScheduleKeyDeletion", "DisableKey"),
+    },
 }
 _TABLE: Final[dict[tuple[str, str], Tactic]] = {
-    (svc, name): tactic for tactic, by_svc in _BY_TACTIC.items() for svc, names in by_svc.items() for name in names}
+    (svc, name): tactic
+    for tactic, by_svc in _BY_TACTIC.items()
+    for svc, names in by_svc.items()
+    for name in names
+}
 _TABLE.update({(src.split(".", 1)[0], name): "defense-evasion" for src, name in TAMPERING})
 _READ_PREFIXES: Final = ("Get", "List", "Describe", "Lookup", "Head", "Search", "BatchGet", "Scan", "Query")
 _API_VERSION = API_VERSION
@@ -72,7 +145,7 @@ def service(event_source: str) -> str:
 
 
 def action(ev: Event) -> str:
-    """"iam:CreateAccessKey", with Lambda's API-version suffix dropped."""
+    """ "iam:CreateAccessKey", with Lambda's API-version suffix dropped."""
     return f"{service(ev.event_source)}:{_API_VERSION.sub('', ev.event_name)}"
 
 
@@ -100,15 +173,31 @@ def access(ev: Event) -> Access:
 
 # (service, request parameter, resource type). Lists of values are allowed where the API takes them.
 _RESOURCE_PARAMS: Final[tuple[tuple[str, str, str], ...]] = (
-    ("s3", "bucketName", "bucket"), ("secretsmanager", "secretId", "secret"), ("ssm", "name", "parameter"),
-    ("ssm", "names", "parameter"), ("ssm", "path", "parameter path"), ("iam", "userName", "user"), ("iam", "roleName", "role"),
-    ("iam", "groupName", "group"), ("iam", "policyArn", "policy"), ("iam", "instanceProfileName", "instance profile"),
-    ("ec2", "instanceId", "instance"), ("ec2", "snapshotId", "snapshot"), ("ec2", "volumeId", "volume"),
-    ("ec2", "groupId", "security group"), ("lambda", "functionName", "function"), ("kms", "keyId", "key"),
-    ("rds", "dBInstanceIdentifier", "db instance"), ("rds", "dBSnapshotIdentifier", "db snapshot"),
-    ("rds", "dBClusterIdentifier", "db cluster"), ("dynamodb", "tableName", "table"), ("cloudtrail", "name", "trail"),
-    ("guardduty", "detectorId", "detector"), ("config", "configurationRecorderName", "config recorder"),
-    ("sts", "roleArn", "role"), ("logs", "logGroupName", "log group"),
+    ("s3", "bucketName", "bucket"),
+    ("secretsmanager", "secretId", "secret"),
+    ("ssm", "name", "parameter"),
+    ("ssm", "names", "parameter"),
+    ("ssm", "path", "parameter path"),
+    ("iam", "userName", "user"),
+    ("iam", "roleName", "role"),
+    ("iam", "groupName", "group"),
+    ("iam", "policyArn", "policy"),
+    ("iam", "instanceProfileName", "instance profile"),
+    ("ec2", "instanceId", "instance"),
+    ("ec2", "snapshotId", "snapshot"),
+    ("ec2", "volumeId", "volume"),
+    ("ec2", "groupId", "security group"),
+    ("lambda", "functionName", "function"),
+    ("kms", "keyId", "key"),
+    ("rds", "dBInstanceIdentifier", "db instance"),
+    ("rds", "dBSnapshotIdentifier", "db snapshot"),
+    ("rds", "dBClusterIdentifier", "db cluster"),
+    ("dynamodb", "tableName", "table"),
+    ("cloudtrail", "name", "trail"),
+    ("guardduty", "detectorId", "detector"),
+    ("config", "configurationRecorderName", "config recorder"),
+    ("sts", "roleArn", "role"),
+    ("logs", "logGroupName", "log group"),
 )
 _MAX_VALUE = 512
 
@@ -141,7 +230,9 @@ def resources(ev: Event) -> list[tuple[str, str]]:
         found.add(("object", f"{b}/{k}"[:_MAX_VALUE]))
     if svc == "ec2":
         items = _dig(req, "instancesSet", "items")
-        if ev.event_name == "RunInstances" and ev.error_code is None:  # the instances it created are in the response
+        if (
+            ev.event_name == "RunInstances" and ev.error_code is None
+        ):  # the instances it created are in the response
             items = _dig(ev.response_elements, "instancesSet", "items")
         for item in items if isinstance(items, list) else []:
             found.update(("instance", v) for v in _strings(_dig(item, "instanceId")))

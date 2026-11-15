@@ -4,6 +4,7 @@ An identity (who it is, how it came about, what it did) and the evidence behind 
 `visual.py` and `report.py` write them as Markdown and `html_report.py` as HTML. Nothing here escapes anything: the
 renderers do, for where they put it.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -20,12 +21,17 @@ MAX_NODES: Final = 30  # a picture of more than this is not a picture
 MAX_CALLS: Final = 15  # calls listed per identity
 MAX_TOUCHED: Final = 4  # kinds of resource shown on an identity in the picture; the rest are counted
 SECRET_KINDS: Final = ("secret", "parameter", "parameter path")
-KIND_NAMES: Final = {"access_key_id": "access key", "principal_id": "user", "role_id": "role", "instance_id": "instance",
-                     "function_name": "function"}
+KIND_NAMES: Final = {
+    "access_key_id": "access key",
+    "principal_id": "user",
+    "role_id": "role",
+    "instance_id": "instance",
+    "function_name": "function",
+}
 
 
 def idesc(kind: str, value: str) -> str:
-    """"function exfil-fn", "access key ...ODMT": what a followed identity is, in a few words."""
+    """ "function exfil-fn", "access key ...ODMT": what a followed identity is, in a few words."""
     if kind in ("function_name", "instance_id"):
         return f"{KIND_NAMES[kind]} {value}"
     return f"{KIND_NAMES.get(kind, 'credential')} ...{value[-4:]}"
@@ -72,7 +78,13 @@ class UnusedFacts:
 
 
 def _issued(rule: str, ev: Event) -> Issued:
-    return Issued(rule=rule, by=actor_label(ev.user_identity), time=ev.event_time, ip=ev.source_ip, params=params.describe(ev))
+    return Issued(
+        rule=rule,
+        by=actor_label(ev.user_identity),
+        time=ev.event_time,
+        ip=ev.source_ip,
+        params=params.describe(ev),
+    )
 
 
 def collect_identities(scope: Scope, tl: Timeline) -> tuple[list[IdentityFacts], list[UnusedFacts]]:
@@ -87,23 +99,52 @@ def collect_identities(scope: Scope, tl: Timeline) -> tuple[list[IdentityFacts],
             if s.via and s.via in tainted and s.via not in via:
                 via.append(s.via)
         matched = sorted({i for s in evs if s.origin == "seed" for i in s.matched_indicators})
-        who = [("ARN", actor.arn or ""), ("Account", actor.account or ""), ("Access keys", ", ".join(actor.access_keys)),
-               ("Source addresses", ", ".join(actor.source_ips)), ("User agents", "; ".join(actor.user_agents[:3])),
-               ("First seen", actor.first_event_time), ("Last seen", actor.last_event_time)]
+        who = [
+            ("ARN", actor.arn or ""),
+            ("Account", actor.account or ""),
+            ("Access keys", ", ".join(actor.access_keys)),
+            ("Source addresses", ", ".join(actor.source_ips)),
+            ("User agents", "; ".join(actor.user_agents[:3])),
+            ("First seen", actor.first_event_time),
+            ("Last seen", actor.last_event_time),
+        ]
         did = []
         for s in evs[:MAX_CALLS]:
             ev = s.event
-            pairs = [] if ev.read_only else params.describe(ev)[:3]  # a write's parameters say what it changed; reads are noise
-            did.append(Did(time=ev.event_time, call=action(ev), target="; ".join(f"{k} {v}" for k, v in resources(ev)),
-                           result=ev.error_code or "ok", params="; ".join(f"{k}={v[:60]}" for k, v in pairs)))
-        out.append(IdentityFacts(
-            label=actor.label, calls=len(evs), matched=matched, what=idesc(*via[0].split(":", 1)) if via else "",
-            who=[(k, v) for k, v in who if v],
-            issued=[_issued(tainted[v].rule, by_id[tainted[v].issued_by].event) for v in via[:3] if tainted[v].issued_by in by_id],
-            did=did, more=max(len(evs) - MAX_CALLS, 0)))
+            pairs = (
+                [] if ev.read_only else params.describe(ev)[:3]
+            )  # a write's parameters say what it changed; reads are noise
+            did.append(
+                Did(
+                    time=ev.event_time,
+                    call=action(ev),
+                    target="; ".join(f"{k} {v}" for k, v in resources(ev)),
+                    result=ev.error_code or "ok",
+                    params="; ".join(f"{k}={v[:60]}" for k, v in pairs),
+                )
+            )
+        out.append(
+            IdentityFacts(
+                label=actor.label,
+                calls=len(evs),
+                matched=matched,
+                what=idesc(*via[0].split(":", 1)) if via else "",
+                who=[(k, v) for k, v in who if v],
+                issued=[
+                    _issued(tainted[v].rule, by_id[tainted[v].issued_by].event)
+                    for v in via[:3]
+                    if tainted[v].issued_by in by_id
+                ],
+                did=did,
+                more=max(len(evs) - MAX_CALLS, 0),
+            )
+        )
     used = {s.via for s in scope.events if s.via}
-    unused = [UnusedFacts(what=idesc(t.kind, t.value), issued=_issued(t.rule, by_id[t.issued_by].event))
-              for t in scope.taint.identities if f"{t.kind}:{t.value}" not in used and t.issued_by in by_id]
+    unused = [
+        UnusedFacts(what=idesc(t.kind, t.value), issued=_issued(t.rule, by_id[t.issued_by].event))
+        for t in scope.taint.identities
+        if f"{t.kind}:{t.value}" not in used and t.issued_by in by_id
+    ]
     return out, unused
 
 
@@ -127,11 +168,26 @@ def evidence_rows(ids: list[str], scope: Scope) -> tuple[list[EvidenceRow], list
         ev = by_id.get(i)
         if ev is None:
             continue
-        key = (actor_label(ev.user_identity), action(ev), "; ".join(f"{k} {v}" for k, v in resources(ev)), ev.error_code or "ok")
+        key = (
+            actor_label(ev.user_identity),
+            action(ev),
+            "; ".join(f"{k} {v}" for k, v in resources(ev)),
+            ev.error_code or "ok",
+        )
         groups.setdefault(key, []).append(ev.event_id)
         first.setdefault(key, ev.event_time)
-    rows = [EvidenceRow(when=first[k].replace("T", " "), who=k[0], call=k[1], count=len(v), target=k[2], result=k[3], ids=v)
-            for k, v in groups.items()]
+    rows = [
+        EvidenceRow(
+            when=first[k].replace("T", " "),
+            who=k[0],
+            call=k[1],
+            count=len(v),
+            target=k[2],
+            result=k[3],
+            ids=v,
+        )
+        for k, v in groups.items()
+    ]
     return rows, [i for i in ids if i in by_id]
 
 
@@ -151,7 +207,11 @@ _ACCESS_ORDER: Final = {"write": 0, "delete": 0, "read": 1}
 
 def reads_secret(ev: Event) -> bool:
     """A successful call that reads a secret or parameter value: the one test the graph and the sequence of events both use."""
-    return ev.error_code is None and tactic(ev) == "credential-access" and any(k in SECRET_KINDS for k, _ in resources(ev))
+    return (
+        ev.error_code is None
+        and tactic(ev) == "credential-access"
+        and any(k in SECRET_KINDS for k, _ in resources(ev))
+    )
 
 
 def touched_by_actor(scope: Scope) -> dict[str, list[Touch]]:
@@ -176,6 +236,11 @@ def touched_by_actor(scope: Scope) -> dict[str, list[Touch]]:
                 flags.setdefault(who, {}).setdefault((kind, acc), "secret")
     out: dict[str, list[Touch]] = {}
     for who, groups in names.items():
-        touches = [Touch(kind, acc, len(found), tuple(found[:2]), flags.get(who, {}).get((kind, acc), "")) for (kind, acc), found in groups.items()]
-        out[who] = sorted(touches, key=lambda t: (not t.flag, _ACCESS_ORDER.get(t.access, 2), -t.count, t.kind, t.access))
+        touches = [
+            Touch(kind, acc, len(found), tuple(found[:2]), flags.get(who, {}).get((kind, acc), ""))
+            for (kind, acc), found in groups.items()
+        ]
+        out[who] = sorted(
+            touches, key=lambda t: (not t.flag, _ACCESS_ORDER.get(t.access, 2), -t.count, t.kind, t.access)
+        )
     return out

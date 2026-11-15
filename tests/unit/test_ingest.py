@@ -14,9 +14,22 @@ LIMIT = 1 << 20
 
 
 def rec(n, **kw):
-    r = {"eventID": f"e{n}", "eventTime": f"2026-10-20T12:00:{n:02d}Z", "eventSource": "s3.amazonaws.com", "eventName": "ListBuckets",
-         "awsRegion": "us-east-1", "recipientAccountId": "111122223333", "sourceIPAddress": "192.0.2.1", "userAgent": "ua",
-         "userIdentity": {"type": "IAMUser", "arn": "arn:aws:iam::111122223333:user/a", "principalId": "AIDA1", "accessKeyId": "AKIA1"}}
+    r = {
+        "eventID": f"e{n}",
+        "eventTime": f"2026-10-20T12:00:{n:02d}Z",
+        "eventSource": "s3.amazonaws.com",
+        "eventName": "ListBuckets",
+        "awsRegion": "us-east-1",
+        "recipientAccountId": "111122223333",
+        "sourceIPAddress": "192.0.2.1",
+        "userAgent": "ua",
+        "userIdentity": {
+            "type": "IAMUser",
+            "arn": "arn:aws:iam::111122223333:user/a",
+            "principalId": "AIDA1",
+            "accessKeyId": "AKIA1",
+        },
+    }
     r.update(kw)
     return r
 
@@ -29,6 +42,7 @@ def put(path, records, *, gz=False):
 
 
 # ---- gzip safety
+
 
 def test_gunzip_handles_multiple_members_and_zero_padding():
     a, b = gzip.compress(b'{"Records": [', mtime=0), gzip.compress(b"]}", mtime=0)
@@ -47,8 +61,15 @@ def test_gunzip_rejects_truncation_and_bombs():
         gunzip_capped(b"\x1f\x8bgarbage", LIMIT)
 
 
-@pytest.mark.parametrize("data,message", [
-    (b"not json", "not valid JSON"), (b"[]", "no Records"), (b'{"Records": {}}', "no Records"), (b'{"x": 1}', "no Records")])
+@pytest.mark.parametrize(
+    "data,message",
+    [
+        (b"not json", "not valid JSON"),
+        (b"[]", "no Records"),
+        (b'{"Records": {}}', "no Records"),
+        (b'{"x": 1}', "no Records"),
+    ],
+)
 def test_load_records_rejects_other_files(data, message):
     with pytest.raises(ValueError, match=message):
         load_records(data, LIMIT)
@@ -62,6 +83,7 @@ def test_load_records_plain_gzip_and_size_cap():
 
 
 # ---- rows
+
 
 def test_row_fields_and_fallbacks():
     table: dict[str, str] = {}
@@ -84,9 +106,20 @@ def test_row_interns_repeated_strings():
     assert a and b and a[12] is b[12] and a[9] is b[9]
 
 
-@pytest.mark.parametrize("bad", [
-    "not a dict", None, 5, {}, {**rec(1), "eventID": 7}, {**rec(1), "eventTime": "yesterday"}, {**rec(1), "eventTime": None},
-    {**rec(1), "eventName": None}, {k: v for k, v in rec(1).items() if k != "eventSource"}])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "not a dict",
+        None,
+        5,
+        {},
+        {**rec(1), "eventID": 7},
+        {**rec(1), "eventTime": "yesterday"},
+        {**rec(1), "eventTime": None},
+        {**rec(1), "eventName": None},
+        {k: v for k, v in rec(1).items() if k != "eventSource"},
+    ],
+)
 def test_rows_need_the_mandatory_fields(bad):
     assert row_of(bad, 0, 0, {}) is None
 
@@ -99,9 +132,14 @@ def test_odd_optional_fields_become_none_not_errors():
 
 # ---- discovery and loading
 
+
 def test_discover_skips_digest_and_insight_files_and_counts_ignored(tmp_path):
     put(tmp_path / "AWSLogs/1/CloudTrail/us-east-1/2026/10/20/a.json.gz", [rec(1)], gz=True)
-    put(tmp_path / "AWSLogs/1/CloudTrail-Digest/us-east-1/2026/10/20/1_CloudTrail-Digest_x.json.gz", [], gz=True)
+    put(
+        tmp_path / "AWSLogs/1/CloudTrail-Digest/us-east-1/2026/10/20/1_CloudTrail-Digest_x.json.gz",
+        [],
+        gz=True,
+    )
     put(tmp_path / "AWSLogs/1/CloudTrail-Insight/us-east-1/2026/10/20/i.json.gz", [], gz=True)
     (tmp_path / "README.txt").write_text("hi")
     sources, skipped, ignored = discover([tmp_path])
@@ -128,13 +166,19 @@ def test_nothing_to_read_is_an_error(tmp_path):
 
 def test_load_dedupes_sorts_and_reports_problems(tmp_path):
     put(tmp_path / "b.json", [rec(5), rec(2), {"junk": True}])
-    put(tmp_path / "a.json.gz", [rec(3), rec(2)], gz=True)  # e2 is a duplicate (a.json.gz sorts first, so it wins)
+    put(
+        tmp_path / "a.json.gz", [rec(3), rec(2)], gz=True
+    )  # e2 is a duplicate (a.json.gz sorts first, so it wins)
     (tmp_path / "broken.json").write_bytes(b"{truncated")
     idx = load_index([tmp_path], IngestOptions(workers=1))
     assert [r[R_ID] for r in idx.rows] == ["e2", "e3", "e5"]
-    assert idx.duplicates_removed == 1 and idx.malformed_records == 1 and idx.malformed_samples == ["b.json#2"]
+    assert (
+        idx.duplicates_removed == 1 and idx.malformed_records == 1 and idx.malformed_samples == ["b.json#2"]
+    )
     by_path = {f.path: f for f in idx.files}
-    assert by_path["broken.json"].status == "error" and "not valid JSON" in (by_path["broken.json"].note or "")
+    assert by_path["broken.json"].status == "error" and "not valid JSON" in (
+        by_path["broken.json"].note or ""
+    )
     assert by_path["a.json.gz"].records == 2 and by_path["a.json.gz"].status == "ingested"
     # the surviving e2 is the one from a.json.gz
     assert idx.files[idx.rows[0][-2]].path == "a.json.gz"
@@ -146,6 +190,7 @@ def test_equal_timestamps_order_by_event_id(tmp_path):
 
 
 # ---- second pass
+
 
 def test_materialize_builds_events_for_requested_rows_only(tmp_path):
     put(tmp_path / "x.json", [rec(n) for n in range(1, 8)])
@@ -171,8 +216,14 @@ def test_materialize_detects_files_changed_underneath(tmp_path):
 
 # ---- what calls hand over, and data events
 
+
 def test_rows_record_what_a_successful_call_handed_over(tmp_path):
-    made = rec(1, eventSource="iam.amazonaws.com", eventName="CreateAccessKey", responseElements={"accessKey": {"accessKeyId": "AKIANEW"}})
+    made = rec(
+        1,
+        eventSource="iam.amazonaws.com",
+        eventName="CreateAccessKey",
+        responseElements={"accessKey": {"accessKeyId": "AKIANEW"}},
+    )
     failed = rec(2, eventSource="iam.amazonaws.com", eventName="CreateAccessKey", errorCode="LimitExceeded")
     data = rec(3, eventCategory="Data", eventName="GetObject")
     put(tmp_path / "x.json", [made, failed, data])

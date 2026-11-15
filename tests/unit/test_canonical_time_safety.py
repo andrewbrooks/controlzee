@@ -24,7 +24,8 @@ def test_canonical_bytes_equal_the_standard_library_form(doc):
 
 def test_canonical_is_sorted_indented_and_newline_terminated():
     assert canonical.dumps({"b": 1, "a": {"z": [1, 2], "y": None}}) == (
-        b'{\n  "a": {\n    "y": null,\n    "z": [\n      1,\n      2\n    ]\n  },\n  "b": 1\n}\n')
+        b'{\n  "a": {\n    "y": null,\n    "z": [\n      1,\n      2\n    ]\n  },\n  "b": 1\n}\n'
+    )
 
 
 def test_seal_hashes_everything_but_the_hash_field():
@@ -35,12 +36,15 @@ def test_seal_hashes_everything_but_the_hash_field():
     assert not canonical.is_sealed({**sealed, "x": 2}, "h") and not canonical.is_sealed(doc, "h")
 
 
-@pytest.mark.parametrize("text,us", [
-    ("2026-10-20T14:30:11Z", 1_792_506_611_000_000),
-    ("2026-10-20T14:30:11.250Z", 1_792_506_611_250_000),
-    ("2026-10-20T16:30:11+02:00", 1_792_506_611_000_000),
-    ("2026-10-20T14:30:11", 1_792_506_611_000_000),  # naive means UTC
-])
+@pytest.mark.parametrize(
+    "text,us",
+    [
+        ("2026-10-20T14:30:11Z", 1_792_506_611_000_000),
+        ("2026-10-20T14:30:11.250Z", 1_792_506_611_250_000),
+        ("2026-10-20T16:30:11+02:00", 1_792_506_611_000_000),
+        ("2026-10-20T14:30:11", 1_792_506_611_000_000),  # naive means UTC
+    ],
+)
 def test_parse_time(text, us):
     assert parse_time_us(text) == us
 
@@ -58,6 +62,7 @@ def test_time_round_trip(us):
 
 def test_normalize_time_accepts_what_yaml_produces():
     import datetime as dt
+
     assert normalize_time("2026-10-20T14:30:11+02:00") == "2026-10-20T12:30:11Z"
     assert normalize_time(dt.datetime(2026, 10, 20, 14, 30, 11)) == "2026-10-20T14:30:11Z"
     assert normalize_time(dt.date(2026, 10, 20)) == "2026-10-20T00:00:00Z"

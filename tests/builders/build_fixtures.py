@@ -2,6 +2,7 @@
 
 --check rebuilds into a temporary directory and fails if the committed files differ (used by the test suite).
 """
+
 from __future__ import annotations
 
 import filecmp
@@ -37,7 +38,11 @@ def differences(a: Path, b: Path) -> list[str]:
     for name in SCENARIOS:
         left, right = a / name / "logs", b / name / "logs"
         lf = sorted(p.relative_to(left).as_posix() for p in left.rglob("*") if p.is_file())
-        rf = sorted(p.relative_to(right).as_posix() for p in right.rglob("*") if p.is_file()) if right.exists() else []
+        rf = (
+            sorted(p.relative_to(right).as_posix() for p in right.rglob("*") if p.is_file())
+            if right.exists()
+            else []
+        )
         if lf != rf:
             out.append(f"{name}: file lists differ")
             continue

@@ -1,4 +1,5 @@
 """Find seed events: apply the indicators and expression to the index, and record near misses."""
+
 from __future__ import annotations
 
 import ipaddress
@@ -61,8 +62,10 @@ def compile_indicator(ind: Indicator) -> Predicate:
 def window_bounds(window: Window | None) -> tuple[int | None, int | None]:
     if window is None:
         return None, None
-    return (parse_time_us(window.start) if window.start else None,
-            parse_time_us(window.end) if window.end else None)
+    return (
+        parse_time_us(window.start) if window.start else None,
+        parse_time_us(window.end) if window.end else None,
+    )
 
 
 def validate_spec(spec: SeedSpec) -> expr.Node:
@@ -75,12 +78,16 @@ def validate_spec(spec: SeedSpec) -> expr.Node:
     if missing := sorted(used - defined):
         raise ValueError(f"the expression uses undefined indicator(s): {', '.join(missing)}")
     if unused := sorted(defined - used):
-        raise ValueError(f"indicator(s) defined but not used in the expression (they would be ignored): {', '.join(unused)}")
+        raise ValueError(
+            f"indicator(s) defined but not used in the expression (they would be ignored): {', '.join(unused)}"
+        )
     strong = {i.name for i in spec.indicators if i.kind in STRONG_KINDS}
     w = spec.window
     if not (used & strong) and (w is None or not (w.start and w.end)):
-        raise ValueError("an expression with only weak indicators (IP, user agent, ARN) needs a time window with both a start "
-                         "and an end, otherwise it would match unrelated traffic. Pass --window START END")
+        raise ValueError(
+            "an expression with only weak indicators (IP, user agent, ARN) needs a time window with both a start "
+            "and an end, otherwise it would match unrelated traffic. Pass --window START END"
+        )
     if w and w.start and w.end and parse_time_us(w.start) > parse_time_us(w.end):
         raise ValueError("the window starts after it ends")
     return node

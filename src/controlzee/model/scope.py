@@ -1,4 +1,5 @@
 """The scoping result, `scope.json`: what the attacker did, as far as the logs show."""
+
 from __future__ import annotations
 
 from typing import Any, Literal
@@ -43,7 +44,9 @@ class ScopedEvent(Model):
     confidence: Confidence
     origin: Literal["seed", "propagated"] = "seed"
     matched_indicators: list[str]
-    chain: list[str] = []  # event ids from a seed to the call that issued `via`; empty for seeds no taint reached
+    chain: list[
+        str
+    ] = []  # event ids from a seed to the call that issued `via`; empty for seeds no taint reached
     via: str | None = None  # the tainted identity the event acted as, "<kind>:<value>"
 
 
@@ -115,7 +118,9 @@ class Gap(Model):
 
     account: str
     region: str
-    kind: Literal["silence", "starts_late", "ends_early"]  # between two events, or before the first / after the last
+    kind: Literal[
+        "silence", "starts_late", "ends_early"
+    ]  # between two events, or before the first / after the last
     start: str
     end: str
     minutes: int
@@ -148,7 +153,9 @@ class UnloggedAccount(Model):
 class Coverage(Model):
     """What the logs can and cannot show about this incident."""
 
-    period_start: str | None  # the incident period checked for gaps: the window and the in-scope events together
+    period_start: (
+        str | None
+    )  # the incident period checked for gaps: the window and the in-scope events together
     period_end: str | None
     gap_minutes: int  # shortest silence reported
     streams: list[LogStream]

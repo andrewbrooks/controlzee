@@ -4,6 +4,7 @@ Each value is matched against the narrowest pattern its kind allows before it is
 otherwise. Nothing controlzee does goes through a shell: AWS is called through boto3 with typed parameters, so these
 checks are about getting exactly the intended target (no surprise region, profile, bucket or step), not about quoting.
 """
+
 from __future__ import annotations
 
 import re
@@ -13,7 +14,9 @@ from controlzee.respond.ops import SHAPES
 
 PROFILE: Final = re.compile(r"^[\w.+@-]{1,64}$")
 BUCKET: Final = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
-PREFIX: Final = re.compile(r"^[\w!\-.*'()/=+@,;:&$ ]{0,1024}$")  # S3's "safe" key characters, plus a few common ones
+PREFIX: Final = re.compile(
+    r"^[\w!\-.*'()/=+@,;:&$ ]{0,1024}$"
+)  # S3's "safe" key characters, plus a few common ones
 ACTION_ID: Final = re.compile(r"^A\d{2,4}$")
 APPROVAL: Final = re.compile(r"^[0-9a-f]{12,64}$")
 
@@ -56,5 +59,7 @@ def steps(value: str | None) -> set[str] | None:
 def approval(value: str) -> str:
     v = value.strip().lower()
     if not APPROVAL.match(v):
-        raise ArgError("--approve takes the dry run's sha256 (at least its first 12 hex characters), as printed by the dry run")
+        raise ArgError(
+            "--approve takes the dry run's sha256 (at least its first 12 hex characters), as printed by the dry run"
+        )
     return v

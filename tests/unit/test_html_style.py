@@ -1,4 +1,5 @@
 """The report's look: light only, every colour a variable, red kept for "needs attention"."""
+
 import colorsys
 import re
 
@@ -12,12 +13,17 @@ def variables(css: str) -> dict[str, str]:
 
 
 def hue(hex_colour: str) -> float:
-    r, g, b = (int(hex_colour[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    r, g, b = (int(hex_colour[i : i + 2], 16) / 255 for i in (1, 3, 5))
     return colorsys.rgb_to_hsv(r, g, b)[0] * 360
 
 
 def test_the_page_is_light_only():
-    assert "color-scheme:light" in CSS and "prefers-color-scheme" not in CSS and "data-theme" not in CSS and "dark" not in CSS.lower()
+    assert (
+        "color-scheme:light" in CSS
+        and "prefers-color-scheme" not in CSS
+        and "data-theme" not in CSS
+        and "dark" not in CSS.lower()
+    )
     assert "theme" not in JS.lower()
 
 
@@ -28,7 +34,9 @@ def test_there_is_no_theme_button(fixtures):
 
 def test_every_colour_is_a_variable_declared_at_the_top():
     outside = re.sub(r":root\{[^}]*\}", "", CSS)
-    assert not re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\(", outside), "a colour is written outside :root: use a variable"
+    assert not re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\(", outside), (
+        "a colour is written outside :root: use a variable"
+    )
 
 
 def test_the_look_is_paper_ink_and_one_accent():
@@ -44,7 +52,10 @@ def test_red_is_only_for_attention_no_tactic_is_red():
     for name, value in v.items():
         if name.startswith("--c-"):
             h = hue(value.strip())
-            assert not (h < 15 or h > 345) or value.strip() in ("#3D3D3D", "#2E4057"), (name, value)  # greys and navy have no hue to speak of
+            assert not (h < 15 or h > 345) or value.strip() in ("#3D3D3D", "#2E4057"), (
+                name,
+                value,
+            )  # greys and navy have no hue to speak of
     assert v["--c-privilege-escalation"] != v["--attn"]
 
 

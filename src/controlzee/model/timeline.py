@@ -1,12 +1,25 @@
 """`timeline.json`: the in-scope events as a story (who did what, in order, with the gaps), and what was exposed."""
+
 from __future__ import annotations
 
 from typing import Any, Literal
 
 from controlzee.model.common import SCHEMA_VERSION, Confidence, Model
 
-Tactic = Literal["initial-access", "execution", "persistence", "privilege-escalation", "defense-evasion", "credential-access",
-                 "discovery", "lateral-movement", "collection", "exfiltration", "impact", "other"]
+Tactic = Literal[
+    "initial-access",
+    "execution",
+    "persistence",
+    "privilege-escalation",
+    "defense-evasion",
+    "credential-access",
+    "discovery",
+    "lateral-movement",
+    "collection",
+    "exfiltration",
+    "impact",
+    "other",
+]
 
 
 class Actor(Model):
@@ -98,7 +111,9 @@ class InstanceRoleUse(Model):
 class Exposure(Model):
     accounts: list[str]  # where in-scope activity was recorded, plus accounts reached without logs
     admin_granted: bool
-    credentials_read: list[str]  # secrets and parameters successfully read: assume they are known to the attacker
+    credentials_read: list[
+        str
+    ]  # secrets and parameters successfully read: assume they are known to the attacker
     privilege_changes: list[PrivilegeChange]
     resources: list[ResourceAccess]
     instance_role_use: list[InstanceRoleUse]  # instance role sessions seen from several addresses

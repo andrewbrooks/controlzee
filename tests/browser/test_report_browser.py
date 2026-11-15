@@ -3,6 +3,7 @@
 Checks what the unit tests cannot: the script runs without errors, and the page still has its sections and
 working in-page links with JavaScript switched off.
 """
+
 import pytest
 
 from tests.builders.build_fixtures import SCENARIOS
@@ -35,8 +36,11 @@ def test_page_works_with_and_without_script(browser, fixtures, tmp_path, scenari
     page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     page.goto(page_file.as_uri())
     assert page.locator("section#glance").is_visible()
-    hrefs = page.eval_on_selector_all("a[href^='#']", "els => els.map(e => e.getAttribute('href').slice(1))") if js else \
-        [h[1:] for h in __import__("re").findall(r'href="(#[\w-]+)"', page.content())]
+    hrefs = (
+        page.eval_on_selector_all("a[href^='#']", "els => els.map(e => e.getAttribute('href').slice(1))")
+        if js
+        else [h[1:] for h in __import__("re").findall(r'href="(#[\w-]+)"', page.content())]
+    )
     assert all(page.locator(f"[id='{h}']").count() == 1 for h in hrefs)
     assert errors == []
     ctx.close()
@@ -93,14 +97,22 @@ def _open(browser, fixtures, tmp_path, scenario="02_role_chain", **context):
     return page, errors
 
 
-def test_hovering_a_step_outlines_its_identity_in_the_graph_and_the_other_way_round(browser, fixtures, tmp_path):
+def test_hovering_a_step_outlines_its_identity_in_the_graph_and_the_other_way_round(
+    browser, fixtures, tmp_path
+):
     page, errors = _open(browser, fixtures, tmp_path)
     page.hover("#step-A03")
-    assert page.locator(".node.hl").count() == 1 and page.locator(".node.hl").get_attribute("data-node") == "identity-1"
+    assert (
+        page.locator(".node.hl").count() == 1
+        and page.locator(".node.hl").get_attribute("data-node") == "identity-1"
+    )
     page.hover("#path h2")
     assert page.locator(".node.hl").count() == 0 and page.locator(".step.hl").count() == 0
     page.locator(".node[data-node=identity-1]").dispatch_event("mouseenter")
-    assert {e.get_attribute("id") for e in page.locator(".step.hl").all()} == {"step-A03", "step-A10"}  # both steps that name the role
+    assert {e.get_attribute("id") for e in page.locator(".step.hl").all()} == {
+        "step-A03",
+        "step-A10",
+    }  # both steps that name the role
     assert errors == []
 
 
@@ -117,9 +129,14 @@ def test_ticking_steps_moves_the_phase_bar_and_is_remembered(browser, fixtures, 
     assert "0 of 4 done" in page.inner_text(".phasebar a[data-phase=contain]")
     page.check("#step-A01 input")
     page.check("#step-A02 input")
-    assert "2 of 4 done" in page.inner_text(".phasebar a[data-phase=contain]") and page.eval_on_selector("#progress", "e => e.value") == 2
+    assert (
+        "2 of 4 done" in page.inner_text(".phasebar a[data-phase=contain]")
+        and page.eval_on_selector("#progress", "e => e.value") == 2
+    )
     page.reload()
-    assert page.is_checked("#step-A01 input") and "2 of 4 done" in page.inner_text(".phasebar a[data-phase=contain]")
+    assert page.is_checked("#step-A01 input") and "2 of 4 done" in page.inner_text(
+        ".phasebar a[data-phase=contain]"
+    )
 
 
 def test_the_phase_bar_stays_in_view_and_a_click_goes_to_its_phase(browser, fixtures, tmp_path):
@@ -145,10 +162,16 @@ def test_the_page_works_when_storage_is_blocked(browser, fixtures, tmp_path):
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.goto(page_file.as_uri())
     page.check("#step-A01 input")
-    assert page.is_checked("#step-A01 input") and "1 of 4 done" in page.inner_text(".phasebar a[data-phase=contain]") and errors == []
+    assert (
+        page.is_checked("#step-A01 input")
+        and "1 of 4 done" in page.inner_text(".phasebar a[data-phase=contain]")
+        and errors == []
+    )
 
 
-def test_a_graph_of_four_columns_has_no_sideways_scroll_in_its_box_at_two_window_widths(browser, fixtures, tmp_path):
+def test_a_graph_of_four_columns_has_no_sideways_scroll_in_its_box_at_two_window_widths(
+    browser, fixtures, tmp_path
+):
     for width in (1280, 1568):
         page_file = tmp_path / "report.html"
         page_file.write_bytes(build_html(scope_of(fixtures, "02_role_chain")))
@@ -156,7 +179,9 @@ def test_a_graph_of_four_columns_has_no_sideways_scroll_in_its_box_at_two_window
         page.goto(page_file.as_uri())
         assert page.eval_on_selector(".gwrap", "e => e.scrollWidth <= e.clientWidth + 1")
         assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
-        size = page.eval_on_selector(".node .name", "e => parseFloat(getComputedStyle(e).fontSize) * e.getScreenCTM().a")
+        size = page.eval_on_selector(
+            ".node .name", "e => parseFloat(getComputedStyle(e).fontSize) * e.getScreenCTM().a"
+        )
         assert size >= 12, (width, size)  # the node names are drawn at 12 pixels or more
 
 
@@ -168,14 +193,23 @@ def test_the_header_is_two_rows_and_the_phase_bar_sits_right_under_it(browser, f
         page.goto(page_file.as_uri())
         header = page.eval_on_selector("header.top", "e => e.getBoundingClientRect().height")
         assert 60 < header < 90
-        assert abs(float(page.eval_on_selector(".phasebar", "e => parseFloat(getComputedStyle(e).top)")) - header) <= 1.5
+        assert (
+            abs(
+                float(page.eval_on_selector(".phasebar", "e => parseFloat(getComputedStyle(e).top)")) - header
+            )
+            <= 1.5
+        )
         labels = page.eval_on_selector_all("header.top nav a", "els => els.map(e => e.textContent)")
         heads = page.eval_on_selector_all("main > section > h2", "els => els.map(e => e.textContent)")
         assert labels == heads
-        assert page.eval_on_selector("header.top nav", "e => e.scrollWidth <= e.clientWidth + 1")  # every label is in view
+        assert page.eval_on_selector(
+            "header.top nav", "e => e.scrollWidth <= e.clientWidth + 1"
+        )  # every label is in view
         page.click("header.top nav a[href='#calls']")
         page.wait_for_timeout(300)
-        assert page.eval_on_selector("#calls h2", "e => e.getBoundingClientRect().top") >= header - 1  # the heading is not under the header
+        assert (
+            page.eval_on_selector("#calls h2", "e => e.getBoundingClientRect().top") >= header - 1
+        )  # the heading is not under the header
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS)
@@ -195,5 +229,10 @@ def test_a_zoomed_graph_follows_the_window_when_it_is_resized(browser, fixtures,
     page.click("[data-gzoom=in]")
     page.set_viewport_size({"width": 1100, "height": 900})
     page.wait_for_timeout(200)
-    expected = page.evaluate("Math.round(Math.max(1000, document.querySelector('.gwrap').clientWidth) * 1.5625)")
-    assert abs(int(page.eval_on_selector("svg.graph", "e => e.getAttribute('width')")) - expected) <= 2 and errors == []
+    expected = page.evaluate(
+        "Math.round(Math.max(1000, document.querySelector('.gwrap').clientWidth) * 1.5625)"
+    )
+    assert (
+        abs(int(page.eval_on_selector("svg.graph", "e => e.getAttribute('width')")) - expected) <= 2
+        and errors == []
+    )

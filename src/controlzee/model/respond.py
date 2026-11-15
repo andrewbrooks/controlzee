@@ -4,6 +4,7 @@ These are operational records, not analysis: unlike the other artifacts they car
 made, when each change was applied), because that is evidence the response needs. They are still sealed, canonical
 and free of host names and local paths.
 """
+
 from __future__ import annotations
 
 from typing import Any, Literal

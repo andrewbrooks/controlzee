@@ -7,6 +7,7 @@ anything the shell would treat specially that this cannot reproduce exactly (a v
 return the command as it came. The one expansion it keeps is a `"$(...)"` spliced into a single-quoted JSON document, the form the plan
 uses for "now": the JSON around it is indented and the expansion is left exactly as written.
 """
+
 from __future__ import annotations
 
 import json
@@ -35,7 +36,7 @@ def _scan(command: str) -> list[_Word] | None:
             end = command.find(c, i + 1)
             if end < 0:
                 return None
-            text = command[i + 1:end]
+            text = command[i + 1 : end]
             if c == '"' and ("\\" in text or "!" in text):
                 return None
             cur.append(("single" if c == "'" else "double", text))
@@ -88,7 +89,9 @@ def _render(word: _Word) -> str | None:
     except ValueError:
         return None
     pretty = json.dumps(doc, indent=2)
-    if not isinstance(doc, (dict, list)) or any(pretty.count(f"__czee_{k}__") != 1 for k in range(len(marks))):
+    if not isinstance(doc, (dict, list)) or any(
+        pretty.count(f"__czee_{k}__") != 1 for k in range(len(marks))
+    ):
         return None
     for k, raw in enumerate(marks):
         pretty = pretty.replace(f"__czee_{k}__", f"'{raw}'")

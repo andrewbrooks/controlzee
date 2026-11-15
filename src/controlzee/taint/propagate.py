@@ -10,6 +10,7 @@ window exists to keep weak indicators from matching unrelated traffic, and taint
 
 Works on index rows only (no models): every round is one pass over the rows from the earliest new identity onwards.
 """
+
 from __future__ import annotations
 
 from bisect import bisect_left
@@ -92,7 +93,9 @@ def propagate(index: EventIndex, seeds: Sequence[SeedHit]) -> Propagation:
                     continue
                 row = rows[n]
                 # an identity cannot act before it exists
-                t = next((t for t in acting_as(row, new) if t.row != n and row[R_TS] >= rows[t.row][R_TS]), None)
+                t = next(
+                    (t for t in acting_as(row, new) if t.row != n and row[R_TS] >= rows[t.row][R_TS]), None
+                )
                 if t is None:
                     continue
                 marks[n] = Mark(conf, t.chain, t)

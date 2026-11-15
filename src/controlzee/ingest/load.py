@@ -1,4 +1,5 @@
 """Discover input files, index them (in parallel when worth it), and merge deterministically."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -73,7 +74,9 @@ def discover(inputs: Sequence[Input]) -> tuple[list[Source], list[FileEntry], in
             else:
                 ignored += 1
     names = [src.rel for _, src in found]
-    if len(set(names)) != len(names):  # same relative name under two inputs: keep them apart, deterministically
+    if len(set(names)) != len(
+        names
+    ):  # same relative name under two inputs: keep them apart, deterministically
         found = [(n, _renamed(src, f"{n}:{src.rel}")) for n, src in found]
     found.sort(key=lambda t: t[1].rel)
     sources: list[Source] = []
@@ -96,7 +99,7 @@ def _renamed(src: Source, rel: str) -> Source:
 def _chunks(sources: list[Source], workers: int) -> list[list[tuple[int, Source]]]:
     items = list(enumerate(sources))
     size = max(1, -(-len(items) // (workers * 4)))
-    return [items[i:i + size] for i in range(0, len(items), size)]
+    return [items[i : i + size] for i in range(0, len(items), size)]
 
 
 def _index_all(sources: list[Source], options: IngestOptions) -> list[FileResult]:
@@ -104,10 +107,16 @@ def _index_all(sources: list[Source], options: IngestOptions) -> list[FileResult
     total = sum(s.size for s in sources)
     if workers <= 1 or len(sources) <= 2 or total < PARALLEL_MIN_BYTES:
         return index_chunk(list(enumerate(sources)), options.max_file_bytes)
-    ctx = multiprocessing.get_context("spawn")  # identical behaviour on Linux and macOS, no fork-with-threads hazards
+    ctx = multiprocessing.get_context(
+        "spawn"
+    )  # identical behaviour on Linux and macOS, no fork-with-threads hazards
     with ProcessPoolExecutor(max_workers=workers, mp_context=ctx) as pool:
-        futures = [pool.submit(index_chunk, chunk, options.max_file_bytes) for chunk in _chunks(sources, workers)]
-        return [r for f in futures for r in f.result()]  # submission order == file order, whatever finishes first
+        futures = [
+            pool.submit(index_chunk, chunk, options.max_file_bytes) for chunk in _chunks(sources, workers)
+        ]
+        return [
+            r for f in futures for r in f.result()
+        ]  # submission order == file order, whatever finishes first
 
 
 def load_index(inputs: Sequence[Input], options: IngestOptions | None = None) -> EventIndex:
@@ -138,6 +147,13 @@ def load_index(inputs: Sequence[Input], options: IngestOptions | None = None) ->
             gc.enable()
     samples = [s for res in results for s in res.samples][:10]
     entries = sorted([res.entry for res in results] + skipped, key=lambda e: e.path)
-    return EventIndex(rows=rows, files=entries, duplicates_removed=dup,
-                      malformed_records=sum(r.malformed for r in results), malformed_samples=samples,
-                      data_events=sum(r.data_events for r in results), ignored_files=ignored, sources=sources)
+    return EventIndex(
+        rows=rows,
+        files=entries,
+        duplicates_removed=dup,
+        malformed_records=sum(r.malformed for r in results),
+        malformed_samples=samples,
+        data_events=sum(r.data_events for r in results),
+        ignored_files=ignored,
+        sources=sources,
+    )

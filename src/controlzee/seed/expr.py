@@ -1,4 +1,5 @@
 """IOC expressions: indicator names combined with AND / OR and parentheses. AND binds tighter than OR."""
+
 from __future__ import annotations
 
 import re
@@ -40,7 +41,9 @@ def _tokens(text: str) -> list[str]:
         if not m or m.end() == pos:
             break
         if m.group("bad"):
-            raise ExpressionError(f"unexpected character {m.group('bad')!r}; use indicator names, AND, OR and parentheses")
+            raise ExpressionError(
+                f"unexpected character {m.group('bad')!r}; use indicator names, AND, OR and parentheses"
+            )
         out.append(m.group("paren") or m.group("word"))
         pos = m.end()
     return out
@@ -86,7 +89,9 @@ class _Parser:
         if tok == ")":
             raise ExpressionError("unexpected ')'")
         if tok.upper() == "NOT":
-            raise ExpressionError("NOT is not supported: list the indicators that must match, not ones that must not")
+            raise ExpressionError(
+                "NOT is not supported: list the indicators that must match, not ones that must not"
+            )
         if tok.upper() in ("AND", "OR"):
             raise ExpressionError(f"{tok.upper()} needs an indicator name on both sides")
         return Ref(self.take())

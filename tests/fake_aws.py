@@ -1,5 +1,6 @@
 """An in-memory AWS account for respond tests. Every call is validated against botocore's real service model, so a
 wrong operation or parameter name fails here as it would against AWS; the behaviour is a small model of each API."""
+
 from __future__ import annotations
 
 import json
@@ -49,18 +50,46 @@ class Account:
     functions: set[str] = field(default_factory=set)  # Lambda function names
     buckets: dict[str, list[str]] = field(default_factory=dict)  # bucket name -> object keys
     denied: set[str] = field(default_factory=set)  # IAM actions the simulator denies
-    allowed_regions: set[str] | None = None  # an organization policy that allows only these regions, as the real simulator evaluates it
-    missing_context: dict[str, list[str]] = field(default_factory=dict)  # denied action -> condition keys the simulator lacked
+    allowed_regions: set[str] | None = (
+        None  # an organization policy that allows only these regions, as the real simulator evaluates it
+    )
+    missing_context: dict[str, list[str]] = field(
+        default_factory=dict
+    )  # denied action -> condition keys the simulator lacked
     skew: timedelta | None = timedelta(0)  # AWS's clock minus the local one; None = no Date header
-    documents: dict[tuple[str, str, str], dict[str, Any]] = field(default_factory=dict)  # (user|role, name, policy) -> inline document
-    calls: list[tuple[str, str, dict[str, Any]]] = field(default_factory=list)  # (service, operation, params), writes only
-    simulated_regions: list[str | None] = field(default_factory=list)  # aws:RequestedRegion of each simulator call
+    documents: dict[tuple[str, str, str], dict[str, Any]] = field(
+        default_factory=dict
+    )  # (user|role, name, policy) -> inline document
+    calls: list[tuple[str, str, dict[str, Any]]] = field(
+        default_factory=list
+    )  # (service, operation, params), writes only
+    simulated_regions: list[str | None] = field(
+        default_factory=list
+    )  # aws:RequestedRegion of each simulator call
 
-    def install(self, monkeypatch: Any, profile: str | None = None, regions: tuple[str, ...] = ("us-east-1", "us-east-2")) -> None:
+    def install(
+        self,
+        monkeypatch: Any,
+        profile: str | None = None,
+        regions: tuple[str, ...] = ("us-east-1", "us-east-2"),
+    ) -> None:
         from controlzee.ingest import remote
-        for service in ("sts", "iam", "ec2", "cloudtrail", "config", "guardduty", "securityhub", "lambda", "s3"):
+
+        for service in (
+            "sts",
+            "iam",
+            "ec2",
+            "cloudtrail",
+            "config",
+            "guardduty",
+            "securityhub",
+            "lambda",
+            "s3",
+        ):
             for region in regions:
-                monkeypatch.setitem(remote._clients, (service, profile, region), FakeClient(self, service, region))
+                monkeypatch.setitem(
+                    remote._clients, (service, profile, region), FakeClient(self, service, region)
+                )
 
 
 _READS = ("get_", "list_", "describe_", "simulate_", "head_")
@@ -79,6 +108,7 @@ class FakeClient:
         class Pager:
             def paginate(self, **kw: Any) -> Any:
                 yield getattr(client, method)(**kw)
+
         return Pager()
 
     def __getattr__(self, method: str) -> Any:
@@ -91,13 +121,23 @@ class FakeClient:
             if not method.startswith(_READS):
                 self.acct.calls.append((self.service, method, kw))
             return getattr(self, f"_{self.service}_{method}")(op, **kw)
+
         return call
 
     # ---- sts / iam
 
     def _sts_get_caller_identity(self, op: str) -> Any:
-        meta = {} if self.acct.skew is None else {"HTTPHeaders": {"date": format_datetime(datetime.now(UTC) + self.acct.skew, usegmt=True)}}
-        return {"Account": ACCOUNT, "Arn": self.acct.caller_arn, "UserId": "AROAFAKE:alice", "ResponseMetadata": meta}
+        meta = (
+            {}
+            if self.acct.skew is None
+            else {"HTTPHeaders": {"date": format_datetime(datetime.now(UTC) + self.acct.skew, usegmt=True)}}
+        )
+        return {
+            "Account": ACCOUNT,
+            "Arn": self.acct.caller_arn,
+            "UserId": "AROAFAKE:alice",
+            "ResponseMetadata": meta,
+        }
 
     def _user(self, op: str, name: str) -> User:
         if name not in self.acct.users:
@@ -118,10 +158,17 @@ class FakeClient:
         return {"Role": {"RoleName": RoleName, "Arn": f"arn:aws:iam::{ACCOUNT}:role/{RoleName}"}}
 
     def _iam_get_group(self, op: str, GroupName: str) -> Any:  # noqa: N803
-        return {"Group": {"GroupName": GroupName, "Arn": f"arn:aws:iam::{ACCOUNT}:group/{GroupName}"}, "Users": []}
+        return {
+            "Group": {"GroupName": GroupName, "Arn": f"arn:aws:iam::{ACCOUNT}:group/{GroupName}"},
+            "Users": [],
+        }
 
     def _iam_list_access_keys(self, op: str, UserName: str) -> Any:  # noqa: N803
-        return {"AccessKeyMetadata": [{"AccessKeyId": k, "Status": s} for k, s in sorted(self._user(op, UserName).keys.items())]}
+        return {
+            "AccessKeyMetadata": [
+                {"AccessKeyId": k, "Status": s} for k, s in sorted(self._user(op, UserName).keys.items())
+            ]
+        }
 
     def _iam_update_access_key(self, op: str, UserName: str, AccessKeyId: str, Status: str) -> Any:  # noqa: N803
         self._user(op, UserName).keys[AccessKeyId] = Status
@@ -148,10 +195,16 @@ class FakeClient:
         return {"PolicyName": policy, "PolicyDocument": doc}  # boto3 hands back the decoded document
 
     def _iam_get_user_policy(self, op: str, UserName: str, PolicyName: str) -> Any:  # noqa: N803
-        return {"UserName": UserName, **self._inline_document(op, "user", UserName, PolicyName, self._user(op, UserName).inline)}
+        return {
+            "UserName": UserName,
+            **self._inline_document(op, "user", UserName, PolicyName, self._user(op, UserName).inline),
+        }
 
     def _iam_get_role_policy(self, op: str, RoleName: str, PolicyName: str) -> Any:  # noqa: N803
-        return {"RoleName": RoleName, **self._inline_document(op, "role", RoleName, PolicyName, self._role(op, RoleName).inline)}
+        return {
+            "RoleName": RoleName,
+            **self._inline_document(op, "role", RoleName, PolicyName, self._role(op, RoleName).inline),
+        }
 
     def _iam_get_login_profile(self, op: str, UserName: str) -> Any:  # noqa: N803
         if not self._user(op, UserName).login:
@@ -177,7 +230,12 @@ class FakeClient:
         return {}
 
     def _iam_list_groups_for_user(self, op: str, UserName: str) -> Any:  # noqa: N803
-        return {"Groups": [{"GroupName": g, "Arn": f"arn:aws:iam::{ACCOUNT}:group/{g}"} for g in sorted(self._user(op, UserName).groups)]}
+        return {
+            "Groups": [
+                {"GroupName": g, "Arn": f"arn:aws:iam::{ACCOUNT}:group/{g}"}
+                for g in sorted(self._user(op, UserName).groups)
+            ]
+        }
 
     def _iam_remove_user_from_group(self, op: str, GroupName: str, UserName: str) -> Any:  # noqa: N803
         self._user(op, UserName).groups.discard(GroupName)
@@ -217,8 +275,12 @@ class FakeClient:
         return {}
 
     def _iam_list_instance_profiles_for_role(self, op: str, RoleName: str) -> Any:  # noqa: N803
-        return {"InstanceProfiles": [{"InstanceProfileName": p, "Arn": f"arn:aws:iam::{ACCOUNT}:instance-profile/{p}"}
-                                     for p in sorted(self._role(op, RoleName).profiles)]}
+        return {
+            "InstanceProfiles": [
+                {"InstanceProfileName": p, "Arn": f"arn:aws:iam::{ACCOUNT}:instance-profile/{p}"}
+                for p in sorted(self._role(op, RoleName).profiles)
+            ]
+        }
 
     def _iam_delete_role(self, op: str, RoleName: str) -> Any:  # noqa: N803
         r = self._role(op, RoleName)
@@ -227,17 +289,49 @@ class FakeClient:
         del self.acct.roles[RoleName]
         return {}
 
-    def _iam_simulate_principal_policy(self, op: str, PolicySourceArn: str, ActionNames: list[str], ResourceArns: list[str],  # noqa: N803
-                                       ContextEntries: list[Any] | None = None) -> Any:  # noqa: N803
+    def _iam_simulate_principal_policy(
+        self,
+        op: str,
+        PolicySourceArn: str,
+        ActionNames: list[str],
+        ResourceArns: list[str],  # noqa: N803
+        ContextEntries: list[Any] | None = None,
+    ) -> Any:  # noqa: N803
         if "iam:SimulatePrincipalPolicy" in self.acct.denied:
             raise _err("AccessDenied", op)
-        region = next((e["ContextKeyValues"][0] for e in ContextEntries or [] if e["ContextKeyName"] == "aws:RequestedRegion"), None)
-        locked = self.acct.allowed_regions is not None and region not in self.acct.allowed_regions  # a missing region is denied too
+        region = next(
+            (
+                e["ContextKeyValues"][0]
+                for e in ContextEntries or []
+                if e["ContextKeyName"] == "aws:RequestedRegion"
+            ),
+            None,
+        )
+        locked = (
+            self.acct.allowed_regions is not None and region not in self.acct.allowed_regions
+        )  # a missing region is denied too
         self.acct.simulated_regions.append(region)
-        return {"EvaluationResults": [{"EvalActionName": a, "EvalResourceName": r,
-                                       "EvalDecision": "explicitDeny" if locked else "implicitDeny" if a in self.acct.denied else "allowed",
-                                       **({"MissingContextValues": self.acct.missing_context[a]} if a in self.acct.missing_context else {})}
-                                      for a in ActionNames for r in ResourceArns], "IsTruncated": False}
+        return {
+            "EvaluationResults": [
+                {
+                    "EvalActionName": a,
+                    "EvalResourceName": r,
+                    "EvalDecision": "explicitDeny"
+                    if locked
+                    else "implicitDeny"
+                    if a in self.acct.denied
+                    else "allowed",
+                    **(
+                        {"MissingContextValues": self.acct.missing_context[a]}
+                        if a in self.acct.missing_context
+                        else {}
+                    ),
+                }
+                for a in ActionNames
+                for r in ResourceArns
+            ],
+            "IsTruncated": False,
+        }
 
     # ---- lambda and s3
 
@@ -278,9 +372,16 @@ class FakeClient:
         self.acct.trails[Name] = True
         return {}
 
-    def _config_describe_configuration_recorder_status(self, op: str, ConfigurationRecorderNames: list[str]) -> Any:  # noqa: N803
-        return {"ConfigurationRecordersStatus": [{"name": n, "recording": self.acct.recorders[n]}
-                                                 for n in ConfigurationRecorderNames if n in self.acct.recorders]}
+    def _config_describe_configuration_recorder_status(
+        self, op: str, ConfigurationRecorderNames: list[str]
+    ) -> Any:  # noqa: N803
+        return {
+            "ConfigurationRecordersStatus": [
+                {"name": n, "recording": self.acct.recorders[n]}
+                for n in ConfigurationRecorderNames
+                if n in self.acct.recorders
+            ]
+        }
 
     def _config_start_configuration_recorder(self, op: str, ConfigurationRecorderName: str) -> Any:  # noqa: N803
         self.acct.recorders[ConfigurationRecorderName] = True
@@ -312,17 +413,28 @@ class FakeClient:
     # ---- ec2
 
     def _ec2_describe_instances(self, op: str, InstanceIds: list[str]) -> Any:  # noqa: N803
-        found = [{"InstanceId": i, "State": {"Name": self.acct.instances[i]["state"]},
-                  "BlockDeviceMappings": [{"Ebs": {"VolumeId": v}} for v in self.acct.instances[i]["volumes"]]}
-                 for i in InstanceIds if i in self.acct.instances]
+        found = [
+            {
+                "InstanceId": i,
+                "State": {"Name": self.acct.instances[i]["state"]},
+                "BlockDeviceMappings": [{"Ebs": {"VolumeId": v}} for v in self.acct.instances[i]["volumes"]],
+            }
+            for i in InstanceIds
+            if i in self.acct.instances
+        ]
         if not found:
             raise _err("InvalidInstanceID.NotFound", op)
         return {"Reservations": [{"Instances": found}]}
 
     def _ec2_describe_iam_instance_profile_associations(self, op: str, Filters: list[Any]) -> Any:  # noqa: N803
         ids = Filters[0]["Values"]
-        return {"IamInstanceProfileAssociations": [{"AssociationId": a, "InstanceId": i, "State": "associated"}
-                                                   for i in ids for a in self.acct.instances.get(i, {}).get("assoc", [])]}
+        return {
+            "IamInstanceProfileAssociations": [
+                {"AssociationId": a, "InstanceId": i, "State": "associated"}
+                for i in ids
+                for a in self.acct.instances.get(i, {}).get("assoc", [])
+            ]
+        }
 
     def _ec2_disassociate_iam_instance_profile(self, op: str, AssociationId: str) -> Any:  # noqa: N803
         for inst in self.acct.instances.values():

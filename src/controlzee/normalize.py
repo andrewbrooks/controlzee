@@ -1,4 +1,5 @@
 """Turn a raw CloudTrail record into an `Event`. Tolerant by design: CloudTrail omits fields freely."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -36,12 +37,19 @@ def identity_from_record(ui: dict[str, Any]) -> UserIdentity:
         user_name=_str(ui.get("userName")),
         session_name=session_name(typ, arn),
         session_issuer=SessionIssuer(
-            type=_str(iss.get("type")), arn=_str(iss.get("arn")), principal_id=_str(iss.get("principalId")),
-            account_id=_str(iss.get("accountId")), user_name=_str(iss.get("userName")),
-        ) if iss else None,
+            type=_str(iss.get("type")),
+            arn=_str(iss.get("arn")),
+            principal_id=_str(iss.get("principalId")),
+            account_id=_str(iss.get("accountId")),
+            user_name=_str(iss.get("userName")),
+        )
+        if iss
+        else None,
         source_identity=_str(ui.get("sourceIdentity")),
         invoked_by=_str(ui.get("invokedBy")),
-        mfa_authenticated=(mfa == "true") if isinstance(mfa, str) else (mfa if isinstance(mfa, bool) else None),
+        mfa_authenticated=(mfa == "true")
+        if isinstance(mfa, str)
+        else (mfa if isinstance(mfa, bool) else None),
     )
 
 

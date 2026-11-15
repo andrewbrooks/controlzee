@@ -1,4 +1,5 @@
 """What each identity touched, drawn on the graph; and the account that was reached without logs."""
+
 import pytest
 
 from controlzee.diagrams import _mid, _short, attack_svg, touch_text
@@ -21,19 +22,24 @@ def graph(*nodes: Node, edges=((0, 1, "AssumeRole"),), ghosts=()) -> Graph:
 def test_each_identity_lists_what_it_changed_and_role_assumptions_are_left_to_the_arrows(fixtures):
     got = touched_by_actor(scope_of(fixtures, "02_role_chain"))
     assert [(t.kind, t.access, t.names) for t in got["assumed-role/ops-admin/maint"]] == [
-        ("policy", "write", ("arn:aws:iam::aws:policy/ReadOnlyAccess",)), ("role", "write", ("support-audit",))]
+        ("policy", "write", ("arn:aws:iam::aws:policy/ReadOnlyAccess",)),
+        ("role", "write", ("support-audit",)),
+    ]
     assert "user/jenkins" not in got  # it only assumed roles and made read calls without a named resource
 
 
 def test_full_control_and_secrets_read_are_flagged_and_listed_first(fixtures):
     admin = touched_by_actor(scope_of(fixtures, "01_leaked_key"))["user/ci-deploy"]
     assert [(t.kind, t.flag) for t in admin] == [("user", "admin"), ("policy", "")]
-    secret = touched_by_actor(scope_of(fixtures, "03_instance_role"))["assumed-role/app-role/i-0a1b2c3d4e5f60718"]
+    secret = touched_by_actor(scope_of(fixtures, "03_instance_role"))[
+        "assumed-role/app-role/i-0a1b2c3d4e5f60718"
+    ]
     assert [(t.kind, t.access, t.flag) for t in secret] == [("secret", "read", "secret")]
 
 
 def test_a_failed_call_is_not_something_the_identity_touched(fixtures):
     from controlzee.model.scope import Scope
+
     scope = scope_of(fixtures, "01_leaked_key")
     failed = [s for s in scope.events if s.event.error_code]
     assert not failed or all(t.count for v in touched_by_actor(scope).values() for t in v)
@@ -67,13 +73,22 @@ def test_at_most_four_kinds_are_drawn_and_the_rest_counted():
 
 
 def test_a_kind_with_many_resources_is_a_count_not_a_list():
-    assert touch_text(touch(kind="secret", access="read", count=40, names=("a", "b"), flag="secret")) == "★ read secret ×40"
+    assert (
+        touch_text(touch(kind="secret", access="read", count=40, names=("a", "b"), flag="secret"))
+        == "★ read secret ×40"
+    )
     assert touch_text(touch(count=2, names=("a", "b"))) == "changed role a, b"
 
 
-@pytest.mark.parametrize(("arn", "short"), [("arn:aws:iam::aws:policy/ReadOnlyAccess", "ReadOnlyAccess"),
-                                            ("arn:aws:lambda:us-east-1:111122223333:function:billing-report:$LATEST", "billing-report"),
-                                            ("prod/db", "prod/db"), ("arn:broken", "arn:broken")])
+@pytest.mark.parametrize(
+    ("arn", "short"),
+    [
+        ("arn:aws:iam::aws:policy/ReadOnlyAccess", "ReadOnlyAccess"),
+        ("arn:aws:lambda:us-east-1:111122223333:function:billing-report:$LATEST", "billing-report"),
+        ("prod/db", "prod/db"),
+        ("arn:broken", "arn:broken"),
+    ],
+)
 def test_an_arn_is_shown_by_its_last_part(arn, short):
     assert _short(arn) == short
 
@@ -82,23 +97,43 @@ def test_an_account_reached_without_logs_is_drawn_so_the_chain_does_not_seem_to_
     scope = scope_of(fixtures, "02_role_chain")
     assert [g[1] for g in build_graph(scope).ghosts] == ["account 444455556666"]
     page = build_html(scope).decode()
-    assert 'class="node ghost"' in page and "reached, but no logs: unknown" in page and "1 account reached without logs" in page
+    assert (
+        'class="node ghost"' in page
+        and "reached, but no logs: unknown" in page
+        and "1 account reached without logs" in page
+    )
     assert 'class="node ghost"' not in build_html(scope_of(fixtures, "01_leaked_key")).decode()
 
 
 def test_the_picture_says_in_its_label_what_it_holds():
-    svg = attack_svg(graph(Node("user/a", 3, True, (touch(),)), Node("user/b", 1, False, (touch(), touch(kind="secret")))), {})
-    assert 'aria-label="How the attacker moved: 2 identities, 1 arrow, 3 kinds of resource touched"' in svg and 'role="img"' in svg
+    svg = attack_svg(
+        graph(Node("user/a", 3, True, (touch(),)), Node("user/b", 1, False, (touch(), touch(kind="secret")))),
+        {},
+    )
+    assert (
+        'aria-label="How the attacker moved: 2 identities, 1 arrow, 3 kinds of resource touched"' in svg
+        and 'role="img"' in svg
+    )
 
 
-HOSTILE = ['"><script>alert(1)</script>', "' onmouseover='alert(1)", "<img src=x onerror=alert(1)>", "A" * 5000]
+HOSTILE = [
+    '"><script>alert(1)</script>',
+    "' onmouseover='alert(1)",
+    "<img src=x onerror=alert(1)>",
+    "A" * 5000,
+]
 
 
 @pytest.mark.parametrize("evil", HOSTILE)
 def test_hostile_resource_and_account_names_are_inert(evil):
-    nodes = (Node(evil, 3, True, (touch(kind=evil, names=(evil, evil), count=2, flag="admin"),)), Node("user/b", 1, False))
+    nodes = (
+        Node(evil, 3, True, (touch(kind=evil, names=(evil, evil), count=2, flag="admin"),)),
+        Node("user/b", 1, False),
+    )
     svg = attack_svg(graph(*nodes, ghosts=((0, f"account {evil}", "AssumeRole"),)), {evil: "identity-0"})
-    parsed = audit(svg.encode())  # what the browser would make of it: only our own tags, and no attribute that runs anything
+    parsed = audit(
+        svg.encode()
+    )  # what the browser would make of it: only our own tags, and no attribute that runs anything
     assert set(parsed.tags) <= {"svg", "defs", "marker", "path", "rect", "text", "g", "title", "circle"}
     assert not [k for _t, k, _v in parsed.attrs if k.startswith("on") or k == "style"]
     assert len(svg) < 20_000  # long text is cut, not copied whole
@@ -116,6 +151,9 @@ def test_the_graph_is_the_same_bytes_every_time(fixtures):
 
 
 def test_a_long_name_is_cut_from_the_middle_so_similar_names_stay_apart():
-    a, b = _mid("changed bucket stratus-red-team-olc-2f39ab", 30), _mid("changed bucket stratus-red-team-olc-77cd01", 30)
+    a, b = (
+        _mid("changed bucket stratus-red-team-olc-2f39ab", 30),
+        _mid("changed bucket stratus-red-team-olc-77cd01", 30),
+    )
     assert len(a) == 30 and a != b and a.endswith("2f39ab") and a.startswith("changed bucket")
     assert _mid("short", 30) == "short"

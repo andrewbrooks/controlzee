@@ -13,6 +13,7 @@ replaced, acts for them from that moment. Calls the function made before the cha
 
 Runs inside the index workers on every record, so the common case (any other call) must cost one dict lookup.
 """
+
 from __future__ import annotations
 
 import re
@@ -25,8 +26,12 @@ from controlzee.ingest.index import Issued
 ACCESS_KEY: Final = "access_key_id"  # userIdentity.accessKeyId
 PRINCIPAL: Final = "principal_id"  # userIdentity.principalId, whole (an IAM user's userId)
 ROLE: Final = "role_id"  # any session of the role: principalId "<roleId>:<session name>"
-INSTANCE: Final = "instance_id"  # the instance's role sessions: an AssumedRole principalId "<roleId>:<instance id>"
-FUNCTION: Final = "function_name"  # the function's role sessions: an AssumedRole principalId "<roleId>:<function name>"
+INSTANCE: Final = (
+    "instance_id"  # the instance's role sessions: an AssumedRole principalId "<roleId>:<instance id>"
+)
+FUNCTION: Final = (
+    "function_name"  # the function's role sessions: an AssumedRole principalId "<roleId>:<function name>"
+)
 KINDS: Final = (ACCESS_KEY, PRINCIPAL, ROLE, INSTANCE, FUNCTION)
 API_VERSION: Final = re.compile(r"\d{8}(v\d+)?$")  # Lambda logs event names like CreateFunction20150331
 _FUNCTION_NAME: Final = re.compile(r"^[\w-]{1,64}$")
@@ -48,6 +53,7 @@ def _one(kind: str, *path: str) -> Callable[[Any, Any], list[tuple[str, str]]]:
     def rule(request: Any, response: Any) -> list[tuple[str, str]]:
         v = _get(response, *path)
         return [(kind, v)] if isinstance(v, str) and v else []
+
     return rule
 
 

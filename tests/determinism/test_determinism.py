@@ -1,4 +1,5 @@
 """Same inputs, same bytes: whatever the hash seed, worker count, file arrival order, file splitting or compression."""
+
 import gzip
 import json
 import os
@@ -32,23 +33,47 @@ def test_hash_seed_does_not_change_the_output(fixtures, tmp_path, scenario):
     for seed in ("0", "1", "12345", "random"):
         out = tmp_path / f"scope-{seed}.json"
         env = {**os.environ, "PYTHONHASHSEED": seed}
-        r = subprocess.run([sys.executable, "-m", "controlzee", "scope", "--logs", str(root / "logs"), "--iocs", str(root / "iocs.yaml"),
-                            "-o", str(out), "--workers", "1"], env=env, capture_output=True, text=True, check=False)
+        r = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "controlzee",
+                "scope",
+                "--logs",
+                str(root / "logs"),
+                "--iocs",
+                str(root / "iocs.yaml"),
+                "-o",
+                str(out),
+                "--workers",
+                "1",
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         assert r.returncode == 0, r.stderr
         outputs.add((out.read_bytes(), out.with_name(out.stem + ".inputs.json").read_bytes()))
     assert len(outputs) == 1
     assert next(iter(outputs))[0] == (root / "expected/scope.json").read_bytes()
 
 
-
-@pytest.mark.parametrize("command,name", [("timeline", "timeline.json"), ("plan", "plan.json"), ("report", "report.md")])
+@pytest.mark.parametrize(
+    "command,name", [("timeline", "timeline.json"), ("plan", "plan.json"), ("report", "report.md")]
+)
 def test_hash_seed_does_not_change_derived_outputs(fixtures, tmp_path, command, name):
     scope = fixtures / "02_role_chain/expected/scope.json"
     outputs = set()
     for seed in ("0", "777", "random"):
         out = tmp_path / f"{seed}-{name}"
-        r = subprocess.run([sys.executable, "-m", "controlzee", command, str(scope), "-o", str(out)],
-                           env={**os.environ, "PYTHONHASHSEED": seed}, capture_output=True, text=True, check=False)
+        r = subprocess.run(
+            [sys.executable, "-m", "controlzee", command, str(scope), "-o", str(out)],
+            env={**os.environ, "PYTHONHASHSEED": seed},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         assert r.returncode == 0, r.stderr
         outputs.add(out.read_bytes())
     assert outputs == {(fixtures / "02_role_chain/expected" / name).read_bytes()}
@@ -81,7 +106,7 @@ def _rewrite(records, dest, *, per_file, gz, seed):
     rnd.shuffle(recs)
     dest.mkdir(parents=True)
     for n, start in enumerate(range(0, len(recs), per_file)):
-        body = orjson.dumps({"Records": recs[start:start + per_file]})
+        body = orjson.dumps({"Records": recs[start : start + per_file]})
         name = f"part-{rnd.randrange(10**6):06d}-{n}.json"
         if gz(n):
             (dest / (name + ".gz")).write_bytes(gzip.compress(body, mtime=rnd.randrange(10**9)))
@@ -96,15 +121,24 @@ def test_the_events_do_not_depend_on_how_the_files_are_arranged(fixtures, tmp_pa
     records = _records(root / "logs")
     baseline = json.loads(scope_bytes(root / "logs", spec))
     base_events = baseline["events"]
-    layouts = [{"per_file": 1, "gz": lambda n: False}, {"per_file": 7, "gz": lambda n: n % 2 == 0}, {"per_file": 1000, "gz": lambda n: True}]
+    layouts = [
+        {"per_file": 1, "gz": lambda n: False},
+        {"per_file": 7, "gz": lambda n: n % 2 == 0},
+        {"per_file": 1000, "gz": lambda n: True},
+    ]
     for i, layout in enumerate(layouts):
         dest = tmp_path / f"layout{i}"
         _rewrite(records, dest, seed=i, **layout)
         doc = json.loads(scope_bytes(dest, spec))
         # file names and record positions legitimately differ; everything else about each event must not
-        strip = lambda evs: [{**e, "event": {k: v for k, v in e["event"].items() if k != "source"}} for e in evs]  # noqa: E731
+        strip = lambda evs: [
+            {**e, "event": {k: v for k, v in e["event"].items() if k != "source"}} for e in evs
+        ]  # noqa: E731
         assert strip(doc["events"]) == strip(base_events)
-        assert doc["near_misses"] == baseline["near_misses"] and doc["near_miss_summary"] == baseline["near_miss_summary"]
+        assert (
+            doc["near_misses"] == baseline["near_misses"]
+            and doc["near_miss_summary"] == baseline["near_miss_summary"]
+        )
         assert doc["summary"] == baseline["summary"] and doc["seeds"] == baseline["seeds"]
 
 
