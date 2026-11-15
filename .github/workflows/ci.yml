@@ -9,10 +9,18 @@ permissions:
 
 jobs:
   test:
+    name: test (python ${{ matrix.python }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest supported Python and the newest, so a change in what the runner ships cannot surprise us.
+        python: ["3.12", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
