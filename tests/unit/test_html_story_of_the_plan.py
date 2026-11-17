@@ -269,3 +269,11 @@ def test_a_long_command_starts_folded_and_a_short_one_does_not(fixtures):
     assert folded and all("more lines" in f for f in folded)
     assert '<div class="cmd"><pre>' in page
     assert page.count('<div class="cmd long">') == page.count("<details><summary><code>aws ")
+
+
+def test_the_pictures_open_on_one_line_with_the_legend_folded(fixtures):
+    page = build_html(scope_of(fixtures, "02_role_chain")).decode()
+    for section in ("path", "swimlanes"):
+        body = page.split(f'<section id="{section}">')[1].split("</section>")[0]
+        assert body.count('<details class="key"><summary>How to read this picture</summary>') == 1
+        assert len(re.search(r'<p class="note">(.*?)</p>', body).group(1)) < 200  # type: ignore[union-attr]

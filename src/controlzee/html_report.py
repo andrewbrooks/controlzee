@@ -593,6 +593,11 @@ def _command(c: str) -> tuple[str, str]:
     return "\n".join(h(x, 4000) for x in lines), "&#10;".join(h(x, 4000) for x in lines)
 
 
+def _key(summary: str, text: str) -> str:
+    """The long explanation of a picture, folded so the section opens on the picture rather than on a paragraph of legend."""
+    return f'<details class="key"><summary>{h(summary)}</summary><div class="body"><p class="note">{h(text, 2000)}</p></div></details>'
+
+
 LONG_COMMAND_LINES = 8
 
 
@@ -742,12 +747,14 @@ def build_html(scope: Scope) -> bytes:
         sections.append(("glance", "At a glance", _case_header(scope, tl, plan) + _glance(scope, tl, plan)))
         graph = build_graph(scope, with_touched=True)
         if graph is not None:
-            note = (
-                "An arrow is a credential or principal one identity created or obtained for another; its number is the step in the sequence of "
-                "events that issued it, and the list under the picture says what it is. Double outline: matched an indicator. Grey outline: found by "
-                "following the attacker. Dashed: handed over, never used. Dotted: an account that was reached but sent no logs, so what happened "
-                "there is unknown. The lines inside an identity are what it changed, deleted or read (\u25b2 full control, \u2605 secrets read). "
-                "Click an identity for its details. Drag the lower edge of the picture to make it taller; with scripts on, zoom with the buttons or Ctrl+wheel."
+            note = "Who got credentials from whom. Click an identity for its details; zoom with the buttons or Ctrl+wheel."
+            key = _key(
+                "How to read this picture",
+                "An arrow is a credential or principal one identity created or obtained for another. Its number is the step in the sequence of "
+                "events that issued it, and arrows that share a number came from the same step; the list under the picture says what each one is. "
+                "Double outline: matched an indicator. Grey outline: found by following the attacker. Dashed: handed over, never used. "
+                "Dotted: an account that was reached but sent no logs, so what happened there is unknown. The lines inside an identity are what it "
+                "changed, deleted or read (\u25b2 full control, \u2605 secrets read). Drag the lower edge of the picture to make it taller.",
             )
             drawn = attack_svg(
                 graph, anchors, numbers, {label: " ".join(ids) for label, ids in steps_of.items()}
@@ -756,7 +763,7 @@ def build_html(scope: Scope) -> bytes:
                 (
                     "path",
                     "How the attacker moved",
-                    f'<p class="note">{note}</p><div class="gbox"><div class="g-zoom">'
+                    f'<p class="note">{note}</p>{key}<div class="gbox"><div class="g-zoom">'
                     '<button type="button" data-gzoom="in" aria-label="Zoom in">+</button>'
                     '<button type="button" data-gzoom="out" aria-label="Zoom out">&minus;</button>'
                     f'<button type="button" data-gzoom="reset">Reset</button></div><div class="gwrap">{drawn}</div></div>'
@@ -779,12 +786,14 @@ def build_html(scope: Scope) -> bytes:
                 (
                     "swimlanes",
                     "Timeline",
-                    '<p class="note">One lane per identity, one mark per call; the shape and colour say which tactic. '
-                    "A dark outline: found by following the attacker. A hollow mark: the call failed. A shaded band: the logs were silent. "
-                    "A red diamond: the attacker changed logging or detection. A narrow break in the axis: a long stretch with no activity, "
-                    "cut short and labelled with its length. "
-                    "Click a mark to jump to its row in Calls; zoom with the buttons, Ctrl+wheel or a double click, and drag to pan."
-                    f'</p><div class="scroll tl-wrap"><div class="tl-zoom"><button type="button" data-zoom="in" aria-label="Zoom in">+</button>'
+                    '<p class="note">One lane per identity, one mark per call. Click a mark to jump to its row in Calls; zoom with the buttons, Ctrl+wheel or a double click, and drag to pan.</p>'
+                    + _key(
+                        "How to read this picture",
+                        "The shape and colour of a mark say which tactic. A dark outline: found by following the attacker. A hollow mark: the call "
+                        "failed. A shaded band: the logs were silent. A red diamond: the attacker changed logging or detection. A narrow break in the "
+                        "axis: a long stretch with no activity, cut short and labelled with its length.",
+                    )
+                    + f'<div class="scroll tl-wrap"><div class="tl-zoom"><button type="button" data-zoom="in" aria-label="Zoom in">+</button>'
                     '<button type="button" data-zoom="out" aria-label="Zoom out">&minus;</button>'
                     f'<button type="button" data-zoom="reset">Reset</button></div>{lanes}</div><div class="legend">{legend}</div>',
                 )
