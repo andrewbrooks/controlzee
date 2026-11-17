@@ -169,7 +169,10 @@ def _do_first(plan: Plan) -> str:
     contain = [a for a in plan.actions if a.phase == "contain"]
     if not contain:
         return ""
-    items = "".join(f'<li><a href="#step-{h(a.id)}">{h(a.id)}</a> {h(a.title)}</li>' for a in contain[:5])
+    items = "".join(
+        f'<li><a href="#step-{h(a.id)}">{h(a.id)}</a> {h(a.title)} <span class="note">{h(a.target)}</span></li>'
+        for a in contain[:5]
+    )
     more = (
         f'<p class="note">and {len(contain) - 5} more containment steps, in <a href="#plan">the response plan</a></p>'
         if len(contain) > 5

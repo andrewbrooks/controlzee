@@ -45,6 +45,14 @@ def test_the_header_then_what_to_do_first_then_the_picture_of_the_attack(fixture
     )
 
 
+def test_each_do_first_step_names_its_target_so_same_titled_steps_differ(fixtures):
+    page = build_html(scope_of(fixtures, "02_role_chain")).decode()
+    items = re.findall(r"<li>(.*?)</li>", page.split('class="dofirst"')[1].split("</ol>")[0])
+    revokes = [i for i in items if "Revoke the role" in i]
+    assert len(revokes) >= 2 and len(set(revokes)) == len(revokes)
+    assert all('<span class="note">role ' in i for i in revokes)
+
+
 def test_every_section_that_is_present_keeps_its_place_when_others_are_left_out(fixtures):
     got = sections(
         build_html(scope_of(fixtures, "04_log_tampering")).decode()
