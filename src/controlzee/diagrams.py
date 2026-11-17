@@ -272,8 +272,8 @@ def attack_svg(
 
 # ---- who did what when
 
-GUTTER, PLOT_W, PAD_R, TOP, LANE_H, AXIS_H = 220, 860, 24, 30, 38, 46
-_DODGE: Final = (0, -7, 7, -14, 14)
+GUTTER, PLOT_W, PAD_R, TOP, LANE_H, AXIS_H = 220, 860, 24, 30, 44, 46
+_DODGE: Final = (0, -8, 8, -14, 14)
 PAD_L: Final = 8  # room left of the plot, so a mark on the first tick is not cut in half by the plot's clip
 
 # A stretch with no activity is cut short on the axis when it is at least this long AND at least this share of the whole incident:
@@ -281,7 +281,7 @@ PAD_L: Final = 8  # room left of the plot, so a mark on the first tick is not cu
 # week-long incident from being cut. Of the 16 test inputs, exactly the three with a pause of 1 to 3 hours qualify.
 BREAK_MIN_US: Final = 15 * 60_000_000
 BREAK_SHARE: Final = 0.20
-BREAK_FRAC: Final = 0.04  # the width of a cut, as a share of the axis
+BREAK_FRAC: Final = 0.055  # the width of a cut, as a share of the axis
 
 # One silhouette for each tactic, so that colour is not the only way to tell them apart. Centred on 0 0, about 10 units across.
 _SHAPES: Final = {
@@ -484,7 +484,7 @@ def timeline_svg(scope: Scope, tl: Timeline, rows: dict[str, str] | None = None)
         cx = x(vt)
         taken = placed.setdefault(i, [])
         off = next(
-            (o for o in _DODGE if not any(abs(px - cx) < 8 and po == o for px, po in taken)), _DODGE[-1]
+            (o for o in _DODGE if not any(abs(px - cx) < 11 and po == o for px, po in taken)), _DODGE[-1]
         )
         taken.append((cx, off))
         cy = TOP + i * LANE_H + LANE_H / 2 + off

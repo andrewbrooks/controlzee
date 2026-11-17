@@ -93,7 +93,7 @@ svg text{font-family:var(--sans);fill:var(--ink)}
 .lane{fill:transparent}.lane.alt{fill:var(--paper-2)}.lane-label{font-family:var(--mono);font-size:12px}
 .gap rect{fill:var(--warn);opacity:.18}.axis,.tick{stroke:var(--mut);stroke-width:1}.tick-label,.axis-note{font-size:11px;fill:var(--mut)}
 .tamper path{fill:var(--attn)}
-.dot .body{fill:var(--c,var(--c-other))}.dot.prop .body{stroke:var(--ink);stroke-width:1.8}
+.dot .body{fill:var(--c,var(--c-other));transform-box:fill-box;transform-origin:center;transform:scale(1.3)}.dot.link:hover .body{transform:scale(1.5)}.dot .hit{r:11px}.dot.prop .body{stroke:var(--ink);stroke-width:1.8}
 .dot.fail .body{fill:var(--card);stroke:var(--c,var(--ink));stroke-width:1.8}.dot.fail.prop .body{stroke:var(--ink)}.dot .hit{fill:transparent}.dot.link{cursor:pointer}
 .dot.link:hover .body{stroke:var(--ink);stroke-width:2.4}
 .tl-wrap{position:relative}.tl-zoom{position:absolute;top:6px;left:8px;gap:4px;z-index:1}
@@ -125,7 +125,7 @@ ol.log{list-style:none;margin:10px 0;padding:0;background:var(--card);border:1px
 .gwrap{overflow:auto;resize:vertical;min-height:180px;border:1px solid var(--line);border-radius:6px;background:var(--card);text-align:center}
 .gwrap svg.graph{display:block;margin:0 auto;border:0;border-radius:0;max-width:none}.gwrap svg.graph:not(.wide):not(.zoomed){width:100%;min-width:1000px}
 .tl-zoom{display:none}.js .tl-zoom{display:flex}
-.brk rect{fill:var(--paper-2);stroke:var(--mut);stroke-dasharray:3 3}.brk-lab text{font-size:11.5px;font-style:italic;fill:var(--mut)}
+.brk rect{fill:var(--line);stroke:var(--mut);stroke-width:1.2}.brk-lab text{font-size:12px;font-weight:600;fill:var(--ink)}
 tr.hit td{background:var(--warn-soft)}
 .t-initial-access{--c:var(--c-initial-access)}.t-execution{--c:var(--c-execution)}.t-persistence{--c:var(--c-persistence)}
 .t-privilege-escalation{--c:var(--c-privilege-escalation)}.t-defense-evasion{--c:var(--c-defense-evasion)}.t-credential-access{--c:var(--c-credential-access)}
