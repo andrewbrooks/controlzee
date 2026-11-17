@@ -45,6 +45,14 @@ def test_the_header_then_what_to_do_first_then_the_picture_of_the_attack(fixture
     )
 
 
+def test_each_do_first_step_names_its_target_so_same_titled_steps_differ(fixtures):
+    page = build_html(scope_of(fixtures, "02_role_chain")).decode()
+    items = re.findall(r"<li>(.*?)</li>", page.split('class="dofirst"')[1].split("</ol>")[0])
+    revokes = [i for i in items if "Revoke the role" in i]
+    assert len(revokes) >= 2 and len(set(revokes)) == len(revokes)
+    assert all('<span class="note">role ' in i for i in revokes)
+
+
 def test_every_section_that_is_present_keeps_its_place_when_others_are_left_out(fixtures):
     got = sections(
         build_html(scope_of(fixtures, "04_log_tampering")).decode()
@@ -253,3 +261,19 @@ def test_without_a_graph_a_step_does_not_point_at_a_picture_that_is_not_there(fi
         r'<p class="concerns">About the identity <a href="#identity-0"><code class="ident">[^<]*</code></a>\.</p>',
         page,
     )  # still a link to its details
+
+
+def test_a_long_command_starts_folded_and_a_short_one_does_not(fixtures):
+    page = build_html(scope_of(fixtures, "02_role_chain")).decode()
+    folded = re.findall(r'<div class="cmd long"><details><summary>(.*?)</summary>', page)
+    assert folded and all("more lines" in f for f in folded)
+    assert '<div class="cmd"><pre>' in page
+    assert page.count('<div class="cmd long">') == page.count("<details><summary><code>aws ")
+
+
+def test_the_pictures_open_on_one_line_with_the_legend_folded(fixtures):
+    page = build_html(scope_of(fixtures, "02_role_chain")).decode()
+    for section in ("path", "swimlanes"):
+        body = page.split(f'<section id="{section}">')[1].split("</section>")[0]
+        assert body.count('<details class="key"><summary>How to read this picture</summary>') == 1
+        assert len(re.search(r'<p class="note">(.*?)</p>', body).group(1)) < 200  # type: ignore[union-attr]

@@ -169,7 +169,10 @@ def _do_first(plan: Plan) -> str:
     contain = [a for a in plan.actions if a.phase == "contain"]
     if not contain:
         return ""
-    items = "".join(f'<li><a href="#step-{h(a.id)}">{h(a.id)}</a> {h(a.title)}</li>' for a in contain[:5])
+    items = "".join(
+        f'<li><a href="#step-{h(a.id)}">{h(a.id)}</a> {h(a.title)} <span class="note">{h(a.target)}</span></li>'
+        for a in contain[:5]
+    )
     more = (
         f'<p class="note">and {len(contain) - 5} more containment steps, in <a href="#plan">the response plan</a></p>'
         if len(contain) > 5
@@ -590,6 +593,29 @@ def _command(c: str) -> tuple[str, str]:
     return "\n".join(h(x, 4000) for x in lines), "&#10;".join(h(x, 4000) for x in lines)
 
 
+def _key(summary: str, text: str) -> str:
+    """The long explanation of a picture, folded so the section opens on the picture rather than on a paragraph of legend."""
+    return f'<details class="key"><summary>{h(summary)}</summary><div class="body"><p class="note">{h(text, 2000)}</p></div></details>'
+
+
+LONG_COMMAND_LINES = 8
+
+
+def _commands_block(shown: list[tuple[str, str]]) -> str:
+    """The step's commands with a Copy button. A long one (a policy document, say) starts folded behind its first line, so the
+    plan reads as steps rather than as a wall of JSON; Copy still copies all of it."""
+    text = "\n".join(t for t, _ in shown)
+    copy = f'<button data-copy="{"&#10;".join(c for _, c in shown)}">Copy</button>'
+    lines = text.split("\n")
+    if len(lines) <= LONG_COMMAND_LINES:
+        return f'<div class="cmd"><pre><code>{text}</code></pre>{copy}</div>'
+    first = lines[0].rstrip("\\ ")
+    return (
+        f'<div class="cmd long"><details><summary><code>{first}</code> <span class="note">and {len(lines) - 1} more lines</span></summary>'
+        f"<pre><code>{text}</code></pre></details>{copy}</div>"
+    )
+
+
 def _step(a: PlanAction, scope: Scope, identities: dict[str, str], drawn: set[str]) -> str:
     """`identities` maps the labels of the identities this step is about to the ids of their blocks; `drawn` holds the labels the graph on
     the page draws (none when there is no graph)."""
@@ -623,11 +649,7 @@ def _step(a: PlanAction, scope: Scope, identities: dict[str, str], drawn: set[st
     if a.caution:
         out.append(f'<p class="caution"><strong>Caution:</strong> {h(a.caution, 600)}</p>')
     if a.commands:
-        shown = [_command(c) for c in a.commands]
-        out.append(
-            f'<div class="cmd"><pre><code>{chr(10).join(t for t, _ in shown)}</code></pre>'
-            f'<button data-copy="{"&#10;".join(c for _, c in shown)}">Copy</button></div>'
-        )
+        out.append(_commands_block([_command(c) for c in a.commands]))
     out.append(_evidence(a.evidence, scope) if a.evidence else "")
     out.append("</article>")
     return "".join(out)
@@ -725,12 +747,14 @@ def build_html(scope: Scope) -> bytes:
         sections.append(("glance", "At a glance", _case_header(scope, tl, plan) + _glance(scope, tl, plan)))
         graph = build_graph(scope, with_touched=True)
         if graph is not None:
-            note = (
-                "An arrow is a credential or principal one identity created or obtained for another; its number is the step in the sequence of "
-                "events that issued it, and the list under the picture says what it is. Double outline: matched an indicator. Grey outline: found by "
-                "following the attacker. Dashed: handed over, never used. Dotted: an account that was reached but sent no logs, so what happened "
-                "there is unknown. The lines inside an identity are what it changed, deleted or read (\u25b2 full control, \u2605 secrets read). "
-                "Click an identity for its details. Drag the lower edge of the picture to make it taller; with scripts on, zoom with the buttons or Ctrl+wheel."
+            note = "Who got credentials from whom. Click an identity for its details; zoom with the buttons or Ctrl+wheel."
+            key = _key(
+                "How to read this picture",
+                "An arrow is a credential or principal one identity created or obtained for another. Its number is the step in the sequence of "
+                "events that issued it, and arrows that share a number came from the same step; the list under the picture says what each one is. "
+                "Double outline: matched an indicator. Grey outline: found by following the attacker. Dashed: handed over, never used. "
+                "Dotted: an account that was reached but sent no logs, so what happened there is unknown. The lines inside an identity are what it "
+                "changed, deleted or read (\u25b2 full control, \u2605 secrets read). Drag the lower edge of the picture to make it taller.",
             )
             drawn = attack_svg(
                 graph, anchors, numbers, {label: " ".join(ids) for label, ids in steps_of.items()}
@@ -739,7 +763,7 @@ def build_html(scope: Scope) -> bytes:
                 (
                     "path",
                     "How the attacker moved",
-                    f'<p class="note">{note}</p><div class="gbox"><div class="g-zoom">'
+                    f'<p class="note">{note}</p>{key}<div class="gbox"><div class="g-zoom">'
                     '<button type="button" data-gzoom="in" aria-label="Zoom in">+</button>'
                     '<button type="button" data-gzoom="out" aria-label="Zoom out">&minus;</button>'
                     f'<button type="button" data-gzoom="reset">Reset</button></div><div class="gwrap">{drawn}</div></div>'
@@ -762,12 +786,14 @@ def build_html(scope: Scope) -> bytes:
                 (
                     "swimlanes",
                     "Timeline",
-                    '<p class="note">One lane per identity, one mark per call; the shape and colour say which tactic. '
-                    "A dark outline: found by following the attacker. A hollow mark: the call failed. A shaded band: the logs were silent. "
-                    "A red diamond: the attacker changed logging or detection. A narrow break in the axis: a long stretch with no activity, "
-                    "cut short and labelled with its length. "
-                    "Click a mark to jump to its row in Calls; zoom with the buttons, Ctrl+wheel or a double click, and drag to pan."
-                    f'</p><div class="scroll tl-wrap"><div class="tl-zoom"><button type="button" data-zoom="in" aria-label="Zoom in">+</button>'
+                    '<p class="note">One lane per identity, one mark per call. Click a mark to jump to its row in Calls; zoom with the buttons, Ctrl+wheel or a double click, and drag to pan.</p>'
+                    + _key(
+                        "How to read this picture",
+                        "The shape and colour of a mark say which tactic. A dark outline: found by following the attacker. A hollow mark: the call "
+                        "failed. A shaded band: the logs were silent. A red diamond: the attacker changed logging or detection. A narrow break in the "
+                        "axis: a long stretch with no activity, cut short and labelled with its length.",
+                    )
+                    + f'<div class="scroll tl-wrap"><div class="tl-zoom"><button type="button" data-zoom="in" aria-label="Zoom in">+</button>'
                     '<button type="button" data-zoom="out" aria-label="Zoom out">&minus;</button>'
                     f'<button type="button" data-zoom="reset">Reset</button></div>{lanes}</div><div class="legend">{legend}</div>',
                 )

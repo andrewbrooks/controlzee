@@ -16,6 +16,10 @@ paths = [
   '''^tests/fixtures/05_weak_ioc/''',
   # The published example report built from that scenario.
   '''^docs/examples/05_weak_ioc\.html$''',
+  # Published example reports built from sanitized Stratus Red Team captures. The sanitizer replaces the real key ids with
+  # the AKIAIOSFODNN7 / ASIAIOSFODNN7 family from AWS's documentation, which the access-token rule matches.
+  '''^docs/examples/ec2-steal-instance-credentials\.html$''',
+  '''^docs/examples/secretsmanager-retrieve-secrets\.html$''',
   # A unit test that feeds a secret-shaped key id to the sanitizer.
   '''^tests/unit/test_sanitize\.py$''',
 ]
