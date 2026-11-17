@@ -68,3 +68,25 @@ def test_the_page_carries_a_print_stylesheet_that_expands_and_keeps_steps_whole(
     printing = CSS.split("@media print")[1]
     assert "header.top" in printing and "display:none" in printing and "details::details-content" in printing
     assert ".step" in printing and "break-inside:avoid" in printing and "tr," in printing
+
+
+def _luminance(hex_colour: str) -> float:
+    digits = hex_colour.lstrip("#")
+    if len(digits) == 3:
+        digits = "".join(d * 2 for d in digits)
+    channels = [int(digits[i : i + 2], 16) / 255 for i in (0, 2, 4)]
+    lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def _contrast(a: str, b: str) -> float:
+    hi, lo = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def test_the_muted_text_colours_are_readable_on_paper_and_cards():
+    root = re.search(r":root\{([^}]*)\}", CSS).group(1)  # type: ignore[union-attr]
+    colours = dict(re.findall(r"--([\w-]+):(#[0-9A-Fa-f]{3,6})\b", root))
+    for name in ("mut", "faint"):
+        for ground in ("paper", "card"):
+            assert _contrast(colours[name], colours[ground]) >= 4.5, f"--{name} on --{ground}"
