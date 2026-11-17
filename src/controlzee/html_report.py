@@ -593,6 +593,24 @@ def _command(c: str) -> tuple[str, str]:
     return "\n".join(h(x, 4000) for x in lines), "&#10;".join(h(x, 4000) for x in lines)
 
 
+LONG_COMMAND_LINES = 8
+
+
+def _commands_block(shown: list[tuple[str, str]]) -> str:
+    """The step's commands with a Copy button. A long one (a policy document, say) starts folded behind its first line, so the
+    plan reads as steps rather than as a wall of JSON; Copy still copies all of it."""
+    text = "\n".join(t for t, _ in shown)
+    copy = f'<button data-copy="{"&#10;".join(c for _, c in shown)}">Copy</button>'
+    lines = text.split("\n")
+    if len(lines) <= LONG_COMMAND_LINES:
+        return f'<div class="cmd"><pre><code>{text}</code></pre>{copy}</div>'
+    first = lines[0].rstrip("\\ ")
+    return (
+        f'<div class="cmd long"><details><summary><code>{first}</code> <span class="note">and {len(lines) - 1} more lines</span></summary>'
+        f"<pre><code>{text}</code></pre></details>{copy}</div>"
+    )
+
+
 def _step(a: PlanAction, scope: Scope, identities: dict[str, str], drawn: set[str]) -> str:
     """`identities` maps the labels of the identities this step is about to the ids of their blocks; `drawn` holds the labels the graph on
     the page draws (none when there is no graph)."""
@@ -626,11 +644,7 @@ def _step(a: PlanAction, scope: Scope, identities: dict[str, str], drawn: set[st
     if a.caution:
         out.append(f'<p class="caution"><strong>Caution:</strong> {h(a.caution, 600)}</p>')
     if a.commands:
-        shown = [_command(c) for c in a.commands]
-        out.append(
-            f'<div class="cmd"><pre><code>{chr(10).join(t for t, _ in shown)}</code></pre>'
-            f'<button data-copy="{"&#10;".join(c for _, c in shown)}">Copy</button></div>'
-        )
+        out.append(_commands_block([_command(c) for c in a.commands]))
     out.append(_evidence(a.evidence, scope) if a.evidence else "")
     out.append("</article>")
     return "".join(out)

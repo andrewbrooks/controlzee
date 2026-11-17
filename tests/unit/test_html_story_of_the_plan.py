@@ -261,3 +261,11 @@ def test_without_a_graph_a_step_does_not_point_at_a_picture_that_is_not_there(fi
         r'<p class="concerns">About the identity <a href="#identity-0"><code class="ident">[^<]*</code></a>\.</p>',
         page,
     )  # still a link to its details
+
+
+def test_a_long_command_starts_folded_and_a_short_one_does_not(fixtures):
+    page = build_html(scope_of(fixtures, "02_role_chain")).decode()
+    folded = re.findall(r'<div class="cmd long"><details><summary>(.*?)</summary>', page)
+    assert folded and all("more lines" in f for f in folded)
+    assert '<div class="cmd"><pre>' in page
+    assert page.count('<div class="cmd long">') == page.count("<details><summary><code>aws ")
