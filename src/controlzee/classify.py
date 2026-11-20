@@ -49,12 +49,20 @@ _BY_TACTIC: Final[dict[Tactic, dict[str, tuple[str, ...]]]] = {
             "UploadSSHPublicKey",
             "CreateVirtualMFADevice",
             "EnableMFADevice",
+            # a login path AWS trusts, planted or bent: tokens an identity provider signs can then assume roles
+            "CreateOpenIDConnectProvider",
+            "AddClientIDToOpenIDConnectProvider",
+            "UpdateOpenIDConnectProviderThumbprint",
+            "CreateSAMLProvider",
+            "UpdateSAMLProvider",
         ),
         "ec2": ("ImportKeyPair", "CreateKeyPair"),
         "lambda": ("CreateFunction", "UpdateFunctionCode", "UpdateFunctionConfiguration", "AddPermission"),
         # IAM Identity Center: a new person or an assignment is a way back in
         "identitystore": ("CreateUser", "CreateGroupMembership"),
         "sso": ("CreateAccountAssignment", "CreateInstanceAccessControlAttributeConfiguration"),
+        # IAM Roles Anywhere: a trust anchor or profile lets a certificate holder outside AWS get role credentials
+        "rolesanywhere": ("CreateTrustAnchor", "UpdateTrustAnchor", "CreateProfile", "UpdateProfile"),
     },
     "privilege-escalation": {
         "iam": (

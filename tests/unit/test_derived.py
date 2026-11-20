@@ -97,6 +97,17 @@ def test_changing_an_instances_user_data_is_execution_but_other_attribute_change
         ("s3.amazonaws.com", "PutBucketPolicy", False, "exfiltration"),
         ("ec2.amazonaws.com", "CreateTags", False, "other"),
         ("ec2.amazonaws.com", "DescribeVpcs", None, "discovery"),
+        ("iam.amazonaws.com", "CreateOpenIDConnectProvider", False, "persistence"),
+        ("iam.amazonaws.com", "AddClientIDToOpenIDConnectProvider", False, "persistence"),
+        ("iam.amazonaws.com", "UpdateOpenIDConnectProviderThumbprint", False, "persistence"),
+        ("iam.amazonaws.com", "CreateSAMLProvider", False, "persistence"),
+        ("iam.amazonaws.com", "UpdateSAMLProvider", False, "persistence"),
+        ("rolesanywhere.amazonaws.com", "CreateTrustAnchor", False, "persistence"),
+        ("rolesanywhere.amazonaws.com", "UpdateTrustAnchor", False, "persistence"),
+        ("rolesanywhere.amazonaws.com", "CreateProfile", False, "persistence"),
+        ("rolesanywhere.amazonaws.com", "UpdateProfile", False, "persistence"),
+        ("iam.amazonaws.com", "ListOpenIDConnectProviders", True, "discovery"),
+        ("iam.amazonaws.com", "GetSAMLProvider", True, "discovery"),
     ],
 )
 def test_tactics(source, name, read_only, expected):
