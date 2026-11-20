@@ -9,9 +9,13 @@ Tick the boxes as you go. If a box cannot be ticked, stop and read why before go
 ## 0. Before anything
 
 - [ ] **The account is the right one.** Run `aws sts get-caller-identity --profile <profile>` and compare the account id with
-      the one you mean. A sandbox in an organization still obeys the organization's service control policies (SCPs): they
-      can deny reads and creates you expect to work (here: `DescribeTrails`, creating a bucket, creating a Lambda
-      function). An SCP denial shows in the error as "explicit deny in a service control policy".
+      the one you mean. A sandbox in an organization still obeys the organization's service control policies (SCPs). Ours
+      was a **region rule**: in two regions only global-style services (IAM, STS, Config, KMS and a few more) were
+      allowed, and one region was open. A service that looks blocked may be blocked only in the region you tried, so
+      probe the same read-only call in every region the SCP allows before deciding that something is denied, and
+      build the defenses, buckets and functions of a simulation in the open region. An SCP denial shows in the error as
+      "explicit deny in a service control policy". Do not edit an SCP to get around it: it is usually attached to the whole
+      organization.
 - [ ] **Two separate principals, both narrow.** An *intruder* (stands in for the leaked credential) and a *responder* (a role
       assumed for the response). Limit what each can touch to a naming prefix such as `ft-*`, and allow the intruder to
       attach only ReadOnlyAccess. An inline policy can grant anything, so do not let the intruder write one.
@@ -132,10 +136,9 @@ If the response needs one of these, expect to finish by hand and read the dry ru
 
 | not run | why it matters |
 |---|---|
-| `start_logging`, `start_config_recorder`, `enable_guardduty`, `enable_security_hub` | they need a trail or paid services; the account's SCP may also block them |
 | `delete_user_policy`, `delete_role_policy`, `delete_group_policy` | the intruder would need to write inline policies, which can grant anything |
 | `delete_access_key` | no plan contains this step, so a dry run cannot include it |
-| bucket and Lambda function identity (creation date; ARN, code hash, last modified) | an SCP denied creating either; their deletion has run on another account |
+| bucket and Lambda function identity (creation date; ARN, code hash, last modified) | not yet run: they need a bucket and a function made in the open region (their deletion has run on another account) |
 | roles used through Identity Center, and the coverage heuristics on real logs | no run produced them |
 
 Failures show up as a stopped step, not a silent change: a dry run that cannot read a target or is not allowed fails, a

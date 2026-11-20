@@ -7,7 +7,7 @@ runs. Use a dedicated sandbox account: nothing here should touch production.
 ## 1. Set up the sandbox
 
 - A sandbox AWS account with a CloudTrail trail (multi-region, management events, read and write) delivering to S3.
-  If the account cannot have one (an organization's SCP denying `s3:CreateBucket`, for example), skip it: CloudTrail
+  If the account cannot have one (an organization's region rule denying `s3:CreateBucket` in your region, for example), skip it: CloudTrail
   event history keeps 90 days of management events in every account, and `--lookup-events` reads it. Use the
   event-history command in step 3 instead of the S3 one.
 - Two principals:
@@ -114,8 +114,10 @@ key listed buckets.
 
 ## Results of the second real run (identity, journal, activity check)
 
-Run in a dedicated sandbox account that is a member of an organization. A service control policy there denied
-`cloudtrail:DescribeTrails` but not `LookupEvents`, so there was no trail and everything used event history. Two
+Run in a dedicated sandbox account that is a member of an organization. A service control policy there was a region
+rule: in `us-east-1` it allowed only global-style services (so `cloudtrail:DescribeTrails` was denied and
+`LookupEvents` was allowed), and `us-east-2` was open. This run worked in `us-east-1` with no trail, so everything used
+event history. Two
 principals as in step 1, with narrow policies (the intruder could only make `ft-*` users, keys and ReadOnlyAccess
 attachments; the responder could only change `ft-*` users and the intruder).
 
@@ -142,7 +144,8 @@ attachments; the responder could only change `ft-*` users and the intruder).
   starts, and event history answered `InvalidTimeRangeException`. The check now says there is nothing after the scope to
   look at yet.
 - Not checked in that run: roles, instance profiles, a Lambda function, and a bucket's creation date through
-  `list_buckets`. The account's SCP explicitly denied creating a bucket and a function, so those two stay unchecked.
+  `list_buckets`. The region used (`us-east-1`) denied creating a bucket and a function; the open region was not used
+  for them in this run.
 
 ### The same account, plain IAM operations
 
@@ -163,6 +166,24 @@ user (all named `ft-cov-*`, with the intruder's extra permissions limited to tho
   permission to write inline policies, which can grant anything; and `delete_access_key`, which no plan contains.
 - A gotcha: a key that was just re-enabled, or a policy that was just added, can take a few seconds to take effect
   (`InvalidClientTokenId`, `AccessDenied`). Wait and try again before suspecting the tool.
+
+### The same account, the logging and detection restores
+
+An organization region rule had made the services look blocked: the earlier attempts were all in `us-east-1`. In the open
+region, `us-east-2`, the admin made a trail with its log bucket, an AWS Config recorder limited to IAM roles (to keep it
+nearly free) with a delivery channel and bucket, a GuardDuty detector, and Security Hub without the default standards,
+all named `ft-*` (about forty lines of CLI; a teardown removes them and the buckets). The intruder stopped the trail and
+the recorder, deleted the detector and disabled the hub (five calls in three seconds). Event history in `us-east-2` showed
+them after about two minutes, and the scope took both regions.
+
+- Passed: the plan had a restore step for each, and the dry run read the real state of each ("not recording", "not
+  logging", "no GuardDuty detector", "not enabled") with every permission allowed. Executing worked: the recorder was
+  started, the trail was logging, a detector was created (the old one's id and findings are gone, as the plan says) and
+  Security Hub was enabled. The account, read directly, agreed, and a second dry run reported every step already done.
+- Gotchas: an IAM user's inline policies share a 2,048 character budget, so a policy for the intruder went in as a
+  customer-managed policy; `securityhub describe-hub` answers `InvalidAccessException` when the hub is simply not
+  enabled (the tool treats that as "not enabled"); the services' own service-linked roles are created on first use;
+  GuardDuty and Security Hub have free trials and Config charges for what it records, so tear it all down after.
 
 ## Real samples as fixtures
 
