@@ -91,6 +91,13 @@ order, reads each target again first (anything already put right is skipped, and
 the dry run checked stops the run), stops at the first failure, and writes
 `response.json`: every step, its result and when it was made.
 
+Before the first change it creates a **step journal** next to the response, `response.<first 16 of the dry run's sha256>.journal.jsonl`
+(one JSON object per line). A step's `starting` line is on disk before its change is made and its result after, so a
+run that is killed halfway leaves a record of which step may be partly made; `response.json` cites the journal's hash.
+There is no resume: read the journal, check that target, and run a new dry run (its probes report what is already done).
+The same file stops a dry run being executed twice: **the guard is per folder (the folder of `--out`), not shared
+between machines**, and `--force` does not override it.
+
 **Safeguards.**
 
 - No shell, ever: every change is a boto3 call with typed parameters. The AWS CLI text in the plan is for people.
