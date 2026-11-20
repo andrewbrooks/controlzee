@@ -16,3 +16,10 @@ from controlzee import argcheck
 def test_trailing_newline_is_refused(call) -> None:
     with pytest.raises(argcheck.ArgError):
         call()
+
+
+def test_non_ascii_look_alikes_are_refused() -> None:
+    with pytest.raises(argcheck.ArgError):
+        argcheck.profile("prпfile")
+    with pytest.raises(argcheck.ArgError):
+        argcheck.s3_url("s3://my-bucket/café")

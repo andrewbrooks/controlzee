@@ -12,10 +12,10 @@ from typing import Final
 
 from controlzee.respond.ops import SHAPES
 
-PROFILE: Final = re.compile(r"^[\w.+@-]{1,64}$")
+PROFILE: Final = re.compile(r"^[\w.+@-]{1,64}$", re.ASCII)
 BUCKET: Final = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
 PREFIX: Final = re.compile(
-    r"^[\w!\-.*'()/=+@,;:&$ ]{0,1024}$"
+    r"^[\w!\-.*'()/=+@,;:&$ ]{0,1024}$", re.ASCII
 )  # S3's "safe" key characters, plus a few common ones
 ACTION_ID: Final = re.compile(r"^A\d{2,4}$")
 APPROVAL: Final = re.compile(r"^[0-9a-f]{12,64}$")

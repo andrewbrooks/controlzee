@@ -748,3 +748,13 @@ def test_a_trailing_newline_is_not_part_of_any_name_or_principal():
         "responseElements": None,
     }
     assert issued_by(fn, "lambda.amazonaws.com", "CreateFunction20150331") is None
+
+
+def test_older_shapes_refuse_non_ascii_look_alikes() -> None:
+    from controlzee.taint import rules
+
+    assert not rules._ACCOUNT.fullmatch("١" * 12)
+    assert not rules._ROLE_NAME.fullmatch("rоle")
+    assert not rules._FUNCTION_NAME.fullmatch("fé")
+    assert not rules._IAM_PRINCIPAL.fullmatch("arn:awsx:iam::111122223333:root")
+    assert rules._IAM_PRINCIPAL.fullmatch("arn:aws-cn:iam::111122223333:root")

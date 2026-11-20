@@ -51,7 +51,7 @@ PROVIDER: Final = "provider_arn"  # an OIDC or SAML provider a tainted call crea
 CHANGED_PROVIDER: Final = "changed_provider"  # an existing provider a tainted call changed
 KINDS: Final = (ACCESS_KEY, PRINCIPAL, ROLE, INSTANCE, FUNCTION, TRUSTED_BY, PROVIDER, CHANGED_PROVIDER)
 API_VERSION: Final = re.compile(r"\d{8}(v\d+)?$")  # Lambda logs event names like CreateFunction20150331
-_FUNCTION_NAME: Final = re.compile(r"^[\w-]{1,64}$")
+_FUNCTION_NAME: Final = re.compile(r"^[\w-]{1,64}$", re.ASCII)
 # Not a taint: the role an AssumeRole call obtained a session of (assumedRoleUser.assumedRoleId is "<roleId>:<session>").
 # The call is made by whoever assumes the role, often from another account and with no tainted key, so this is how the
 # entry into a role the attacker created is found.
@@ -90,9 +90,11 @@ SAML_SUBJECT_PATH: Final = (
 WEB_PROVIDER_PATH: Final = ("provider",)
 WEB_SUBJECT_PATH: Final = ("subjectFromWebIdentityToken",)
 SAML_PROVIDER_REQUEST_PATH: Final = ("principalArn",)  # documented: requestParameters of AssumeRoleWithSAML
-_ROLE_NAME: Final = re.compile(r"^[\w+=,.@-]{1,64}$")
-_ACCOUNT: Final = re.compile(r"^\d{12}$")
-_IAM_PRINCIPAL: Final = re.compile(r"^arn:aws[\w-]*:iam::(\d{12}):(root|(?:user|role)/[\w+=,./@-]{1,512})$")
+_ROLE_NAME: Final = re.compile(r"^[\w+=,.@-]{1,64}$", re.ASCII)
+_ACCOUNT: Final = re.compile(r"^\d{12}$", re.ASCII)
+_IAM_PRINCIPAL: Final = re.compile(
+    r"^arn:aws(?:-cn|-us-gov)?:iam::(\d{12}):(root|(?:user|role)/[\w+=,./@-]{1,512})$", re.ASCII
+)
 MAX_TRUST_POLICY: Final = 20_000  # characters of a logged policy document that are read; AWS allows far less
 MAX_TRUST_PRINCIPALS: Final = 50
 
