@@ -17,7 +17,7 @@ from controlzee.respond.ops import OPS, Ctx
 from controlzee.respond.run import RespondError, dry_run, execute
 from controlzee.scope import ScopeOptions, build_scope
 from controlzee.seed.spec import assemble, load_iocs_file
-from tests.fake_aws import Account, Function, Group, Role, User
+from tests.fake_aws import Account, Function, Group, Provider, Role, User
 
 ADMIN = "arn:aws:iam::aws:policy/AdministratorAccess"
 T0 = datetime(2026, 10, 27, 12, 0, tzinfo=UTC)
@@ -846,6 +846,10 @@ def test_a_bucket_filled_after_the_dry_run_stops_execute_without_deleting_anythi
         ("delete_bucket", {"bucket": "x;rm -rf /"}),
         ("delete_lambda_function", {"function": "a b"}),
         ("delete_lambda_function", {"function": "arn:aws:lambda:us-east-1:1:function:f"}),
+        ("delete_oidc_provider", {"provider_arn": "arn:aws:iam::111122223333:saml-provider/AttackerIdP"}),
+        ("delete_saml_provider", {"provider_arn": "arn:aws:iam::111122223333:oidc-provider/idp.example.com"}),
+        ("delete_oidc_provider", {"provider_arn": "arn:aws:iam::111122223333:oidc-provider/a|b"}),
+        ("delete_saml_provider", {"provider_arn": "arn:aws:iam::111122223333:saml-provider/a|b"}),
     ],
 )
 def test_bucket_and_function_names_must_have_their_documented_form(op, args):
@@ -1083,6 +1087,9 @@ def test_the_dry_run_shows_the_identity_under_each_step(fixtures, monkeypatch, t
     assert "identity: user_create_date=2026-01-15T09:30:00.000+00:00, user_id=AIDABACKDOORSVC" in r.stdout
 
 
+OIDC_ARN = "arn:aws:iam::111122223333:oidc-provider/idp.example.com"
+SAML_ARN = "arn:aws:iam::111122223333:saml-provider/AttackerIdP"
+
 # one example target of every operation: every op must be listed, so a new one cannot skip this test
 _EXAMPLES = {
     "deactivate_access_key": ({"user": "u-one", "key": "AKIAIOSFODNN7EXAMPLE"}, None),
@@ -1101,6 +1108,8 @@ _EXAMPLES = {
     "remove_user_from_group": ({"user": "u-one", "group": "g-one"}, None),
     "delete_user": ({"user": "u-one"}, None),
     "delete_role": ({"role": "r-one"}, None),
+    "delete_oidc_provider": ({"provider_arn": OIDC_ARN}, None),
+    "delete_saml_provider": ({"provider_arn": SAML_ARN}, None),
     "disassociate_instance_profile": ({"instance": "i-0a1b2c3d4e5f60718"}, "us-east-1"),
     "stop_instance": ({"instance": "i-0a1b2c3d4e5f60718"}, "us-east-1"),
     "snapshot_instance": ({"instance": "i-0a1b2c3d4e5f60718"}, "us-east-1"),
@@ -1139,6 +1148,8 @@ def _everything_exists():
         },
         functions={"fn-one"},
         buckets={"bucket-one": []},
+        oidc_providers={OIDC_ARN: Provider()},
+        saml_providers={SAML_ARN: Provider()},
     )
 
 
