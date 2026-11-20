@@ -137,7 +137,6 @@ If the response needs one of these, expect to finish by hand and read the dry ru
 | not run | why it matters |
 |---|---|
 | `delete_user_policy`, `delete_role_policy`, `delete_group_policy` | the intruder would need to write inline policies, which can grant anything |
-| `delete_access_key` | no plan contains this step, so a dry run cannot include it |
 | bucket and Lambda function identity (creation date; ARN, code hash, last modified) | not yet run: they need a bucket and a function made in the open region (their deletion has run on another account) |
 | roles used through Identity Center, and the coverage heuristics on real logs | no run produced them |
 

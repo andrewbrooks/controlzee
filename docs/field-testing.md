@@ -163,7 +163,7 @@ user (all named `ft-cov-*`, with the intruder's extra permissions limited to tho
   and a group deleted and made again under the same names between a dry run and its execute both gave `drifted`, exit 5,
   and the new objects kept their policies.
 - Not run: `delete_user_policy`, `delete_role_policy` and `delete_group_policy`, because the intruder would need
-  permission to write inline policies, which can grant anything; and `delete_access_key`, which no plan contains.
+  permission to write inline policies, which can grant anything.
 - A gotcha: a key that was just re-enabled, or a policy that was just added, can take a few seconds to take effect
   (`InvalidClientTokenId`, `AccessDenied`). Wait and try again before suspecting the tool.
 
@@ -184,6 +184,15 @@ them after about two minutes, and the scope took both regions.
   customer-managed policy; `securityhub describe-hub` answers `InvalidAccessException` when the hub is simply not
   enabled (the tool treats that as "not enabled"); the services' own service-linked roles are created on first use;
   GuardDuty and Security Hub have free trials and Config charges for what it records, so tear it all down after.
+
+### Deleting a key the attacker made on an existing user
+
+`delete_access_key` was in the operation list but no plan emitted it. The plan now deletes, in the eradicate phase, a key
+the attacker made on a user they did not make (after deactivating it in contain). On the sandbox the admin made a user,
+the intruder made a key on it, and the scope's plan had the deactivate step and the new delete step; the simulator
+allowed `iam:DeleteAccessKey` on the user, execute ran both, the user had no keys when read directly, and a second dry
+run found everything already done. A key on an attacker-made user is left to the delete-user step, and a key the attacker
+only used is not deleted (its owner needs a replacement first).
 
 ## Real samples as fixtures
 
