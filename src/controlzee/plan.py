@@ -534,10 +534,29 @@ class _Builder:
             op, principal_arg, other_arg = self._UNDO[act]
             self.run(draft, [(op, {principal_arg: who, other_arg: policy}, None)])
             return
+        if act == "iam:UpdateAssumeRolePolicy":
+            named = sorted(
+                t.value.partition("|")[2]
+                for t in self.scope.taint.identities
+                if t.kind == "trusted_by" and t.value.partition("|")[0] == who
+            )
+            draft.caution = (
+                "restore the role's previous trust policy by hand: the logs show the new one, not the old"
+                + (f"; the new policy names: {', '.join(named)}" if named else "")
+                + ". A call into the role by a principal it names that had not assumed it before the change is followed"
+                " as the attacker's"
+            )
+            self.manual(
+                draft,
+                lambda: [
+                    f"aws iam get-role --role-name {q('iam', who)} --query Role.AssumeRolePolicyDocument",
+                    f"aws iam update-assume-role-policy --role-name {q('iam', who)} "
+                    "--policy-document file://PREVIOUS_TRUST_POLICY.json",
+                ],
+            )
+            return
         draft.caution = (
-            "restore the role's previous trust policy by hand: the logs show the new one, not the old"
-            if act == "iam:UpdateAssumeRolePolicy"
-            else "restore the previous version by hand: the logs show the change but not what it replaced"
+            "restore the previous version by hand: the logs show the change but not what it replaced"
         )
         self.manual(draft)
 

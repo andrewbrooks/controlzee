@@ -263,6 +263,32 @@ def _instance_role_use(scope: Scope) -> list[InstanceRoleUse]:
     return out
 
 
+def _trust_policy_notes(scope: Scope) -> list[str]:
+    """One note for each role whose trust policy a tainted call changed: who the new policy names. A policy that names
+    everyone ("*") is called out, since any principal that can reach STS can then assume the role."""
+    named: dict[str, list[str]] = defaultdict(list)
+    for t in scope.taint.identities:
+        if t.kind == "trusted_by":
+            role, _, principal = t.value.partition("|")
+            named[role].append(principal)
+    notes = []
+    for role, principals in sorted(named.items()):
+        everyone = "*" in principals
+        listed = ", ".join(sorted(p for p in principals if p != "*"))
+        notes.append(
+            f"the trust policy of role {role} was changed and "
+            + (
+                "names everyone (*)"
+                + (f", {listed}" if listed else "")
+                + ": any principal that can reach STS can assume it"
+                if everyone
+                else f"names {listed}"
+            )
+            + "; the logs hold the new policy and not the old, so which of these were added is not shown"
+        )
+    return notes
+
+
 def exposure(scope: Scope) -> Exposure:
     groups: dict[tuple[str, str, str, str], list[Event]] = defaultdict(list)
     changes: list[PrivilegeChange] = []
@@ -317,6 +343,7 @@ def exposure(scope: Scope) -> Exposure:
         )
     if scope.coverage.unlogged_accounts:
         notes.append("activity reached account(s) with no logs in the inputs; exposure there is unknown")
+    notes += _trust_policy_notes(scope)
     stolen = _instance_role_use(scope)
     if stolen:
         notes.append(

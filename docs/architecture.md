@@ -70,8 +70,19 @@ adding every event that acted as one (by access key, principal id, role-id prefi
 session name). An event cannot act as an identity before the event that issued it. Each event and identity is reached
 once, by its shortest chain; an identity reached from a strong seed is strong.
 
-An `AssumeRole` call also records which role it obtained a session of. That is how the entry into a role the attacker
-created is found when the caller is another account with no tainted key.
+An `AssumeRole` call also records which role it obtained a session of, and who called (`assumed_by`: the role name, the
+caller's account, ARN and session issuer, taken from `userIdentity` when the record is indexed, because a cross-account
+caller is logged with an account id and no ARN). That is how the entry into a role the attacker created is found when the
+caller is another account with no tainted key.
+
+`iam:UpdateAssumeRolePolicy` is read the same way: each AWS principal of the `Allow` statements of the logged document
+becomes a `trusted_by` identity, "<role name>|<principal>" (an account, a user or role ARN, or `*`; the document is
+size-capped and every value shape-checked). `acting_as` takes an optional index of these by role, and a later `AssumeRole`
+row into that role by a caller the policy names is attacker-reachable, unless that caller (its role if it is a session,
+else its ARN or account) had assumed the role before the change: the log shows the new policy and not the old, so history
+is what separates a principal the change added from one that was already trusted. The history is read from the rows the
+first time it is needed. The session the call hands out is then followed by the existing credential rule. The activity
+check does not use `trusted_by` identities, since it has no history to apply that test.
 
 Measured on 1M synthetic rows: about 0.4 s per round. Most chains are a few rounds deep.
 

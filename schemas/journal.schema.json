@@ -43,7 +43,7 @@
           "type": "string"
         },
         "schema_version": {
-          "default": "0.3",
+          "default": "0.4",
           "title": "Schema Version",
           "type": "string"
         },
@@ -187,7 +187,7 @@
       "type": "object"
     }
   },
-  "$id": "https://controlzee.invalid/schemas/journal-0.3.json",
+  "$id": "https://controlzee.invalid/schemas/journal-0.4.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Any one line of the step journal.",
   "discriminator": {

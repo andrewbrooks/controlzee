@@ -1,0 +1,176 @@
+{
+  "actions": [
+    {
+      "account": "111122223333",
+      "caution": "the key's legitimate owner will stop working until it has a replacement (see the recover steps)",
+      "commands": [
+        "aws iam update-access-key --user-name ci-deploy --access-key-id AKIAIOSFODNN7LEAKED --status Inactive"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "8bb4cd19-45aa-5db0-ae36-93addf041786",
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228"
+      ],
+      "id": "A01",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "key": "AKIAIOSFODNN7LEAKED",
+            "user": "ci-deploy"
+          },
+          "op": "deactivate_access_key",
+          "region": null
+        }
+      ],
+      "phase": "contain",
+      "target": "access key AKIAIOSFODNN7LEAKED of user ci-deploy (account 111122223333)",
+      "title": "Deactivate an access key the attacker used",
+      "why": "2 in-scope call(s) were made with it"
+    },
+    {
+      "account": "111122223333",
+      "caution": "this also ends legitimate sessions of the role; they can assume it again",
+      "commands": [
+        "aws iam put-role-policy --role-name ops-admin --policy-name controlzee-revoke-older-sessions --policy-document '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"DateLessThan\":{\"aws:TokenIssueTime\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\"}}}]}'"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+        "50ee173c-5c13-5689-97cd-ef168207f84c"
+      ],
+      "id": "A02",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "after": "2026-10-20T12:24:00Z",
+            "role": "ops-admin"
+          },
+          "op": "revoke_role_sessions",
+          "region": null
+        }
+      ],
+      "phase": "contain",
+      "target": "role ops-admin (account 111122223333)",
+      "title": "Revoke the role's active sessions",
+      "why": "2 in-scope call(s) were made with sessions of this role"
+    },
+    {
+      "account": null,
+      "caution": "sources: S3 server access logs, CloudTrail data events on another trail, VPC flow logs",
+      "commands": [],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [],
+      "id": "A03",
+      "on_request": false,
+      "operations": [],
+      "phase": "investigate",
+      "target": "S3 and other data-plane activity",
+      "title": "Look for object-level access elsewhere",
+      "why": "the inputs have no data events, so reads of objects, secrets in Lambda and the like are invisible here"
+    },
+    {
+      "account": "111122223333",
+      "caution": "restore the role's previous trust policy by hand: the logs show the new one, not the old; the new policy names: account:444455556666, arn:aws:iam::111122223333:role/deploy-role. A call into the role by a principal it names that had not assumed it before the change is followed as the attacker's",
+      "commands": [
+        "aws iam get-role --role-name ops-admin --query Role.AssumeRolePolicyDocument",
+        "aws iam update-assume-role-policy --role-name ops-admin --policy-document file://PREVIOUS_TRUST_POLICY.json"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228"
+      ],
+      "id": "A04",
+      "on_request": false,
+      "operations": [],
+      "phase": "eradicate",
+      "target": "role ops-admin",
+      "title": "Undo a permission change",
+      "why": "iam:UpdateAssumeRolePolicy by an in-scope call"
+    },
+    {
+      "account": "111122223333",
+      "caution": "rotation needs a rotation function; otherwise set a new value and update its users",
+      "commands": [
+        "aws secretsmanager rotate-secret --region us-east-1 --secret-id prod/db"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "50ee173c-5c13-5689-97cd-ef168207f84c"
+      ],
+      "id": "A05",
+      "on_request": false,
+      "operations": [],
+      "phase": "recover",
+      "target": "secret prod/db",
+      "title": "Rotate a secret the attacker read",
+      "why": "read by an in-scope call"
+    },
+    {
+      "account": "111122223333",
+      "caution": "only once the attacker's access is gone; respond runs this step only when it is named with --steps",
+      "commands": [
+        "aws iam delete-role-policy --role-name ops-admin --policy-name controlzee-revoke-older-sessions"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+        "50ee173c-5c13-5689-97cd-ef168207f84c"
+      ],
+      "id": "A06",
+      "on_request": true,
+      "operations": [
+        {
+          "args": {
+            "role": "ops-admin"
+          },
+          "op": "lift_role_revocation",
+          "region": null
+        }
+      ],
+      "phase": "recover",
+      "target": "role ops-admin",
+      "title": "Lift the session revocation once the incident is over",
+      "why": "the deny on older credentials stays until it is removed; legitimate users of this role may need it gone"
+    },
+    {
+      "account": "111122223333",
+      "caution": "the new secret is shown once: create it where the owner's secret store can take it, and find out how the old one leaked",
+      "commands": [
+        "aws iam create-access-key --user-name ci-deploy",
+        "aws iam delete-access-key --user-name ci-deploy --access-key-id AKIAIOSFODNN7LEAKED"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "8bb4cd19-45aa-5db0-ae36-93addf041786",
+        "d554bd6b-07d7-5564-b3ed-5c98efd37228"
+      ],
+      "id": "A07",
+      "on_request": false,
+      "operations": [],
+      "phase": "recover",
+      "target": "user ci-deploy, replacing AKIAIOSFODNN7LEAKED",
+      "title": "Give the key's owner a new key, then delete the old one",
+      "why": "its key was deactivated in the contain steps"
+    }
+  ],
+  "notes": [
+    "steps with operations can be carried out by `controlzee respond` after a dry run and your approval; the others are for a person. Either way, review each one first",
+    "work through the phases in order; within contain, act quickly, since the attacker may notice"
+  ],
+  "plan_sha256": "95e2eb87c4493efc56c7296f0dd09864e6dda2ef69b2c40c1c1c594920e68deb",
+  "schema_version": "0.4",
+  "scope_sha256": "60efe7243500687a88fff9f514752bbfb77e205e88ad0ba9aaadffe82dc427ec",
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}

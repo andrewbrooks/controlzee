@@ -25,6 +25,7 @@ SCENARIOS = {
     "04_log_tampering": (scenarios.scenario_04_log_tampering, 0),
     "06_lambda": (scenarios.scenario_06_lambda, 0),
     "05_weak_ioc": (scenarios.scenario_05_weak_ioc, 3),  # every third file gzipped, to exercise both formats
+    "07_trust_backdoor": (scenarios.scenario_07_trust_backdoor, 0),
 }
 
 

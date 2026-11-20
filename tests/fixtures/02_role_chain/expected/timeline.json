@@ -418,8 +418,8 @@
       }
     ]
   },
-  "schema_version": "0.3",
-  "scope_sha256": "3b31fb92f2edb9772bb74131407f8880e052587d4b69d4c7c183ef01ad0c4d74",
+  "schema_version": "0.4",
+  "scope_sha256": "acf2b63ee548b974e894e0060415192b0798c4511ed03e1d7badb66c9b5c3a4b",
   "tactics": [
     {
       "events": 1,
@@ -452,7 +452,7 @@
       "tactic": "lateral-movement"
     }
   ],
-  "timeline_sha256": "41ffc2413f12a65ee3cc1e58abcf161d23e2bab99a9b083dc2bce385edb7278d",
+  "timeline_sha256": "f8ea315426ba05071fb0ed4eb17e6bfa37768c169b899d521fff6020b8bdba5c",
   "tool": {
     "name": "controlzee",
     "version": "0.1.0.dev0"

@@ -50,7 +50,9 @@ class ScopedEvent(Model):
     via: str | None = None  # the tainted identity the event acted as, "<kind>:<value>"
 
 
-IdentityKind = Literal["access_key_id", "principal_id", "role_id", "instance_id", "function_name"]
+IdentityKind = Literal[
+    "access_key_id", "principal_id", "role_id", "instance_id", "function_name", "trusted_by"
+]
 
 
 class TaintedIdentity(Model):

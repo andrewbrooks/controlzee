@@ -207,12 +207,20 @@ event made with it joins the scope, and so on from there:
 | `sts:AssumeRole`, `sts:GetSessionToken`, `sts:GetFederationToken` | the temporary key |
 | `ec2:RunInstances` with an instance profile | the instance's role sessions |
 | `lambda:CreateFunction`, `UpdateFunctionCode`, `UpdateFunctionConfiguration` | the function's execution-role sessions (named after the function), from the change onwards |
+| `iam:UpdateAssumeRolePolicy` on an existing role | an `AssumeRole` into that role, after the change, by a principal the new policy names (an account, a user or role ARN, or `*`) that had not assumed the role before, and the session it receives |
+
+A changed trust policy is read as a whole: the log holds the new policy and not the old, so which principals the change
+added is not shown. A caller counts as added if the policy names it and it had not assumed that role earlier in the logs.
+With logs that start at the incident there is no earlier history, so every named caller looks new: the plan step lists the
+principals and says so. Service and federated principals, `Deny` statements and conditions (an external id, a source IP)
+are not read. The dry run's check for activity after the scope does not use these entries, since it has no history to
+tell a legitimate caller from a new one.
 
 Each followed event says which identity it acted as (`via`) and the chain of event ids back to its seed; `taint.identities`
 lists everything followed. Confidence carries over: what a weak seed obtained stays weak. The seed window does not limit
 propagation, since a key the attacker created is theirs whenever it is used. `--no-propagate` turns this off.
 
-Not followed: existing roles the attacker merely assumed (only their own session is), passwords set on existing users,
+Not followed: existing roles the attacker merely assumed (only their own session is; a changed trust policy is the exception above), passwords set on existing users,
 ECS task roles, and anything outside these rules. IAM Identity Center has no taint rule: its role sessions are named after
 the user, so seed with the user name (`--principal-id user@example.com` matches the session-name part), and its changes
 (assignments, permission sets, identity store users) are classified in the timeline.

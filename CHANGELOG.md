@@ -4,6 +4,15 @@ Versions are `0.x`: output formats (schemas) may change between releases.
 
 ## Unreleased
 
+- Taint follows a trust-policy backdoor: when a tainted call changes the trust policy of an existing role
+  (`iam:UpdateAssumeRolePolicy`), a later `AssumeRole` into that role by a principal the new policy names (an account, a user
+  or role ARN, or `*`) joins the scope, and so does everything done with the session it receives, unless that caller had
+  assumed the role before the change. The log holds the new policy and not the old, so history is how a principal the change
+  added is told from one already trusted. Such identities have the new kind `trusted_by` ("<role name>|<principal>"), the
+  manual plan step to restore the trust policy lists the principals and gives the commands, and the exposure notes say who the
+  new policy names (`*` is called out). Schema version 0.4; a 0.3 scope or dry run must be made again. Service and federated
+  principals, `Deny` statements and trust conditions are not read.
+
 - The plan deletes an access key the attacker made on an existing user (a disruptive eradicate step, after the contain step
   that deactivates it). `delete_access_key` was in the operation list but no plan emitted it, so no dry run could contain
   it. A key on a user the attacker made is left to the delete-user step, and a key the attacker only used is not deleted.

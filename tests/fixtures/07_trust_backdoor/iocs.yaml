@@ -1,0 +1,4 @@
+# Scenario 7: a leaked CI key rewrites the trust policy of an existing role to let an outside account assume it.
+version: 1
+indicators:
+  leaked_key: {type: access_key_id, value: AKIAIOSFODNN7LEAKED}

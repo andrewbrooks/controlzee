@@ -1,0 +1,269 @@
+{
+  "actors": [
+    {
+      "access_keys": [
+        "AKIAIOSFODNN7LEAKED"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+      "confidence": "strong",
+      "events": 2,
+      "first_event_time": "2026-10-20T12:00:00Z",
+      "label": "user/ci-deploy",
+      "last_event_time": "2026-10-20T12:02:00Z",
+      "principal_id": "AIDA5D934EC130750BA8C",
+      "source_ips": [
+        "198.51.100.77"
+      ],
+      "tainted": false,
+      "user_agents": [
+        "python-requests/2.31.0"
+      ]
+    },
+    {
+      "access_keys": [],
+      "account": "444455556666",
+      "arn": null,
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-20T12:20:00Z",
+      "label": "account 444455556666",
+      "last_event_time": "2026-10-20T12:20:00Z",
+      "principal_id": "AIDA3E9B9DAE7F624607E",
+      "source_ips": [
+        "198.51.100.78"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "python-requests/2.31.0"
+      ]
+    },
+    {
+      "access_keys": [
+        "ASIAIOSFODNN7EXT001"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:sts::111122223333:assumed-role/ops-admin/persist",
+      "confidence": "strong",
+      "events": 2,
+      "first_event_time": "2026-10-20T12:22:00Z",
+      "label": "assumed-role/ops-admin/persist",
+      "last_event_time": "2026-10-20T12:24:00Z",
+      "principal_id": "AROAB1F1090D40114DE6E:persist",
+      "source_ips": [
+        "198.51.100.78"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "python-requests/2.31.0"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "account": "111122223333",
+      "action": "sts:GetCallerIdentity",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "8bb4cd19-45aa-5db0-ae36-93addf041786",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T12:00:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:UpdateAssumeRolePolicy",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [
+        "role ops-admin"
+      ],
+      "time": "2026-10-20T12:02:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "sts:AssumeRole",
+      "actor": "account 444455556666",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "b2177994-d66c-53bd-8801-5261f0f910a8",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.78",
+      "tactic": "lateral-movement",
+      "targets": [
+        "role arn:aws:iam::111122223333:role/ops-admin"
+      ],
+      "time": "2026-10-20T12:20:00Z",
+      "via": "trusted_by:ops-admin|account:444455556666"
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:ListUsers",
+      "actor": "assumed-role/ops-admin/persist",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "2ffe710f-fbb1-5679-86f8-d41da46a5f2c",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.78",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-20T12:22:00Z",
+      "via": "access_key_id:ASIAIOSFODNN7EXT001"
+    },
+    {
+      "account": "111122223333",
+      "action": "secretsmanager:GetSecretValue",
+      "actor": "assumed-role/ops-admin/persist",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "50ee173c-5c13-5689-97cd-ef168207f84c",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.78",
+      "tactic": "credential-access",
+      "targets": [
+        "secret prod/db"
+      ],
+      "time": "2026-10-20T12:24:00Z",
+      "via": "access_key_id:ASIAIOSFODNN7EXT001"
+    }
+  ],
+  "exposure": {
+    "accounts": [
+      "111122223333"
+    ],
+    "admin_granted": false,
+    "credentials_read": [
+      "secret prod/db"
+    ],
+    "instance_role_use": [],
+    "notes": [
+      "1 secret(s) or parameter(s) were read: treat their values as known to the attacker",
+      "the inputs have no data events, so object-level S3 access (and similar) cannot be listed here",
+      "the trust policy of role ops-admin was changed and names account:444455556666, arn:aws:iam::111122223333:role/deploy-role; the logs hold the new policy and not the old, so which of these were added is not shown"
+    ],
+    "privilege_changes": [
+      {
+        "action": "iam:UpdateAssumeRolePolicy",
+        "admin": false,
+        "event_id": "d554bd6b-07d7-5564-b3ed-5c98efd37228",
+        "outcome": "ok",
+        "policy": null,
+        "principal": "role ops-admin",
+        "time": "2026-10-20T12:02:00Z"
+      }
+    ],
+    "resources": [
+      {
+        "access": "write",
+        "actions": [
+          "iam:UpdateAssumeRolePolicy"
+        ],
+        "event_ids": [
+          "d554bd6b-07d7-5564-b3ed-5c98efd37228"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-20T12:02:00Z",
+        "last_event_time": "2026-10-20T12:02:00Z",
+        "name": "ops-admin",
+        "service": "iam",
+        "type": "role"
+      },
+      {
+        "access": "read",
+        "actions": [
+          "secretsmanager:GetSecretValue"
+        ],
+        "event_ids": [
+          "50ee173c-5c13-5689-97cd-ef168207f84c"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-20T12:24:00Z",
+        "last_event_time": "2026-10-20T12:24:00Z",
+        "name": "prod/db",
+        "service": "secretsmanager",
+        "type": "secret"
+      },
+      {
+        "access": "assume",
+        "actions": [
+          "sts:AssumeRole"
+        ],
+        "event_ids": [
+          "b2177994-d66c-53bd-8801-5261f0f910a8"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-20T12:20:00Z",
+        "last_event_time": "2026-10-20T12:20:00Z",
+        "name": "arn:aws:iam::111122223333:role/ops-admin",
+        "service": "sts",
+        "type": "role"
+      }
+    ]
+  },
+  "schema_version": "0.4",
+  "scope_sha256": "60efe7243500687a88fff9f514752bbfb77e205e88ad0ba9aaadffe82dc427ec",
+  "tactics": [
+    {
+      "events": 1,
+      "failed": 0,
+      "first_event_time": "2026-10-20T12:02:00Z",
+      "tactic": "persistence"
+    },
+    {
+      "events": 1,
+      "failed": 0,
+      "first_event_time": "2026-10-20T12:24:00Z",
+      "tactic": "credential-access"
+    },
+    {
+      "events": 2,
+      "failed": 0,
+      "first_event_time": "2026-10-20T12:00:00Z",
+      "tactic": "discovery"
+    },
+    {
+      "events": 1,
+      "failed": 0,
+      "first_event_time": "2026-10-20T12:20:00Z",
+      "tactic": "lateral-movement"
+    }
+  ],
+  "timeline_sha256": "a952a757fbd844c31fa8d4e38aae5ddca66be192e88ab272933d19d7c220ca88",
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}
