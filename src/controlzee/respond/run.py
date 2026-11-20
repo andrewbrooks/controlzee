@@ -8,7 +8,8 @@ resource-based policies, so execute can still be refused: it then stops at that 
 
 execute runs exactly the steps of an approved dry run: the approval must match the dry run's hash, the dry run must
 have passed and be recent, and the caller must be the same principal in the same account. Each step's state is read
-again first, so something already put right is skipped rather than repeated. It stops at the first failure.
+again first, so something already put right is skipped rather than repeated, and a target that is no longer the resource
+the dry run checked (the same name, made again by someone else) is left alone. It stops at the first failure.
 """
 
 from __future__ import annotations
@@ -318,6 +319,7 @@ def dry_run(
                 if problem != "the operation's arguments are not valid"
                 else o.op,
                 state=p.state if p else "unknown",
+                identity=p.identity if p else {},
                 already_done=bool(p and p.done),
                 checks=checks,
                 ok=problem is None,
@@ -364,6 +366,20 @@ def load_dry_run(doc: Any) -> DryRun:
         raise RespondError(f"the dry run does not match its schema: {clean(e, 200)}") from None
 
 
+def _drift(s: DryRunStep, probe: Probe) -> str:
+    """What differs between the target the dry run checked and the one found now (same name, different resource)."""
+    changed = [
+        f"{k} was {s.identity.get(k, 'absent')} at the dry run, is {probe.identity.get(k, 'absent')} now"
+        for k in sorted(set(s.identity) | set(probe.identity))
+        if s.identity.get(k) != probe.identity.get(k)
+    ]
+    return clean(
+        f"the target is not the one the dry run checked ({OPS[s.op].describe(s.args, s.region)}): "
+        f"{'; '.join(changed)}: run the dry run again; nothing was changed by this step",
+        600,
+    )
+
+
 def _refuse_edited(dr: DryRun, plan: Plan, caller: Caller, ctx: Ctx) -> None:
     """The dry run's steps must be exactly what this plan, rebuilt from the scope, yields for the dry run's own --steps and
     --allow-disruptive; the filters and the responder's own access are checked again. The seal is a hash anyone can
@@ -394,6 +410,10 @@ def _refuse_edited(dr: DryRun, plan: Plan, caller: Caller, ctx: Ctx) -> None:
             validate(s.op, s.args, s.region)
         except Unsafe:
             raise RespondError(f"step {clean(s.action_id)}: the arguments of {s.op} are not valid") from None
+        if s.identity and set(s.identity) != set(spec.identity_keys):
+            raise RespondError(
+                f"step {clean(s.action_id)}: the identity recorded for {s.op} is not what the operation records"
+            )
         if spec.disruptive and not dr.allow_disruptive:
             raise RespondError(
                 f"step {clean(s.action_id)} ({s.op}) is disruptive, but the dry run was not made with --allow-disruptive"
@@ -455,7 +475,7 @@ def execute(
 
     def record(
         s: DryRunStep,
-        result: Literal["done", "already done", "failed", "not run"],
+        result: Literal["done", "already done", "failed", "drifted", "not run"],
         detail: str,
         *,
         at: bool = True,
@@ -480,6 +500,8 @@ def execute(
                 step = record(s, "failed", clean(probe.problem, 400))
             elif probe.done:
                 step = record(s, "already done", "the target was already in the intended state")
+            elif probe.identity != s.identity:
+                step = record(s, "drifted", _drift(s, probe))
             else:
                 # permissions can change between the dry run and now, and earlier steps may have changed them: ask again
                 # right before the change, so a compound operation is not started that cannot be finished
@@ -507,7 +529,7 @@ def execute(
             step = record(s, "failed", f"{clean(e, 300)}; nothing was changed by this step")
         except Exception as e:  # recorded, not raised: changes already made must not be left without a record
             step = record(s, "failed", f"{_unexpected(e)}; the change may be partly made: check the target")
-        failed = step.result == "failed"
+        failed = step.result in ("failed", "drifted")
         progress(step)
         done.append(step)
     rec = ResponseRecord(

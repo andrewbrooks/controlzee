@@ -54,6 +54,13 @@
           "title": "Description",
           "type": "string"
         },
+        "identity": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Identity",
+          "type": "object"
+        },
         "ok": {
           "title": "Ok",
           "type": "boolean"
@@ -106,6 +113,7 @@
         "region",
         "description",
         "state",
+        "identity",
         "already_done",
         "checks",
         "ok",
@@ -163,7 +171,7 @@
       "type": "object"
     }
   },
-  "$id": "https://controlzee.invalid/schemas/dryrun-0.2.json",
+  "$id": "https://controlzee.invalid/schemas/dryrun-0.3.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
@@ -224,7 +232,7 @@
       "type": "array"
     },
     "schema_version": {
-      "default": "0.2",
+      "default": "0.3",
       "title": "Schema Version",
       "type": "string"
     },

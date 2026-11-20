@@ -454,6 +454,10 @@ def respond_dry_run(
         mark = "already done" if st.already_done else ("ok" if st.ok else "CANNOT RUN")
         out.print(f"  {st.action_id} [{mark}] {clean(st.description, 300)}")
         out.print(f"      now: {clean(st.state, 300)}")
+        if st.identity:
+            out.print(
+                f"      identity: {clean(', '.join(f'{k}={v}' for k, v in sorted(st.identity.items())), 300)}"
+            )
         for c in st.checks:
             out.print(
                 f"      {'allowed' if c.decision == 'allowed' else 'DENIED '} {clean(c.action)} on {clean(c.resource, 300)}"
@@ -551,7 +555,10 @@ def respond_execute(
     out.print(f"Wrote {out_path}")
     if not rec.completed:
         err.print(
-            Text("Stopped: a step failed; later steps were not run. See the record above.", style="bold red")
+            Text(
+                "Stopped: a step failed or its target had changed; later steps were not run. See the record above.",
+                style="bold red",
+            )
         )
         raise typer.Exit(5)
     out.print(

@@ -11,10 +11,11 @@ from controlzee.cli import app
 from controlzee.model.plan import Plan
 from controlzee.model.respond import DryRun, ResponseRecord
 from controlzee.plan import build_plan
+from controlzee.respond.ops import OPS, Ctx
 from controlzee.respond.run import RespondError, dry_run, execute
 from controlzee.scope import ScopeOptions, build_scope
 from controlzee.seed.spec import assemble, load_iocs_file
-from tests.fake_aws import Account, Role, User
+from tests.fake_aws import Account, Function, Group, Role, User
 
 ADMIN = "arn:aws:iam::aws:policy/AdministratorAccess"
 T0 = datetime(2026, 10, 27, 12, 0, tzinfo=UTC)
@@ -885,3 +886,254 @@ def test_the_region_comes_from_the_step_then_the_arn_then_the_home_region(monkey
     assert simulate(ctx, who, [bucket]) == {
         bucket: "explicitDeny"
     }  # neither: the home region, which the policy does not allow
+
+
+# ---- identity: the target is the resource the dry run checked, not just one with the same name
+
+
+def _with_actions(fixtures, monkeypatch, scenario, *actions):
+    """`scenario` with more plan steps, given as (id, op, args, region, disruptive): no scenario gives these."""
+    scope = scope_of(fixtures, scenario)
+    real = build_plan(scope)
+    extra = [
+        dict(
+            real["actions"][0],
+            id=i,
+            title=f"Extra step {i}",
+            operations=[{"op": op, "args": args, "region": region}],
+            disruptive=disruptive,
+            on_request=False,
+        )
+        for i, op, args, region, disruptive in actions
+    ]
+    monkeypatch.setattr(
+        "controlzee.respond.run.build_plan", lambda s: {**real, "actions": [*real["actions"], *extra]}
+    )
+    return scope
+
+
+def _results(rec):
+    return [s.result for s in rec.steps]
+
+
+def test_a_user_made_again_under_the_same_name_is_not_touched(fixtures, monkeypatch):
+    acct = Account(
+        users={
+            "ci-deploy": User(uid="AIDAEXAMPLE0", keys={"AKIAIOSFODNN7LEAKED": "Active"}),
+            "backdoor-svc": User(
+                uid="AIDAEXAMPLE1", keys={"AKIAIOSFODNN7BKDOOR": "Active"}, attached={ADMIN}
+            ),
+        }
+    )
+    dr = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch)
+    assert dr.steps[0].identity == {
+        "user_id": "AIDAEXAMPLE1",
+        "user_create_date": "2026-01-15T09:30:00.000+00:00",
+    }
+    doc = dr.model_dump(mode="json")
+    # someone deletes backdoor-svc and makes it again, with a key of its own
+    acct.users["backdoor-svc"] = User(
+        uid="AIDAEXAMPLE2", keys={"AKIAIOSFODNN7BKDOOR": "Active"}, attached={ADMIN}
+    )
+    rec = run(doc)
+    assert not rec.completed and _results(rec) == ["drifted", "not run", "not run"]
+    assert (
+        "user_id was AIDAEXAMPLE1 at the dry run, is AIDAEXAMPLE2 now: run the dry run again"
+        in rec.steps[0].detail
+    )
+    assert "deactivate access key AKIAIOSFODNN7BKDOOR of user backdoor-svc" in rec.steps[0].detail
+    assert acct.calls == [] and acct.users["ci-deploy"].keys == {"AKIAIOSFODNN7LEAKED": "Active"}
+
+
+def test_a_role_made_again_under_the_same_name_is_not_touched(fixtures, monkeypatch):
+    acct = account_02()
+    acct.roles["ops-admin"] = Role(uid="AROAEXAMPLE1")
+    scope = scope_of(fixtures, "02_role_chain")
+    doc = check(scope, acct, monkeypatch).model_dump(mode="json")
+    first = next(i for i, s in enumerate(doc["steps"]) if s["args"].get("role") == "ops-admin")
+    acct.roles["ops-admin"] = Role(uid="AROAEXAMPLE2")
+    rec = run(doc)
+    results = _results(rec)
+    assert results[first] == "drifted" and set(results[:first]) <= {"done", "already done"}
+    assert set(results[first + 1 :]) == {"not run"}
+    assert "role_id was AROAEXAMPLE1 at the dry run, is AROAEXAMPLE2 now" in rec.steps[first].detail
+    assert ("role", "ops-admin", "controlzee-revoke-older-sessions") not in acct.documents
+
+
+def test_a_function_whose_code_changed_is_not_deleted(fixtures, monkeypatch):
+    scope = scope_of(fixtures, "06_lambda")
+    step = next(
+        a.id
+        for a in Plan.model_validate(build_plan(scope)).actions
+        if a.title == "Delete a Lambda function the attacker created"
+    )
+    acct = _account_06()
+    dr = check(scope, acct, monkeypatch, chosen={step}, allow_disruptive=True)
+    assert set(dr.steps[0].identity) == {"function_arn", "code_sha256", "last_modified"}
+    acct.function_meta["exfil-fn"] = Function(code_sha256="bmV3Y29kZQ==")
+    rec = run(dr.model_dump(mode="json"))
+    assert _results(rec) == ["drifted"] and "code_sha256 was " in rec.steps[0].detail
+    assert "exfil-fn" in acct.functions and acct.calls == []
+
+
+def test_a_bucket_made_again_is_not_deleted(fixtures, monkeypatch):
+    scope = _bucket_scope(fixtures, monkeypatch)
+    acct = account_01()
+    acct.buckets = {"attacker-staging": []}
+    doc = check(scope, acct, monkeypatch, chosen={"A99"}, allow_disruptive=True).model_dump(mode="json")
+    assert doc["steps"][0]["identity"] == {"bucket_creation_date": "2026-01-15T09:30:00.000+00:00"}
+    acct.bucket_created["attacker-staging"] = datetime(2026, 10, 27, 12, 1, tzinfo=UTC)
+    rec = run(doc)
+    assert _results(rec) == ["drifted"] and "bucket_creation_date was" in rec.steps[0].detail
+    assert "attacker-staging" in acct.buckets
+
+
+def test_a_bucket_of_another_account_fails_the_dry_run(fixtures, monkeypatch):
+    scope = _bucket_scope(fixtures, monkeypatch)
+    acct = account_01()
+    acct.buckets = {"attacker-staging": []}
+    acct.install(monkeypatch)
+    from tests import fake_aws
+
+    monkeypatch.setattr(fake_aws.FakeClient, "_s3_list_buckets", lambda self, op, **kw: {"Buckets": []})
+    dr = DryRun.model_validate(
+        dry_run(
+            scope,
+            profile=None,
+            home_region="us-east-1",
+            clock=lambda: T0,
+            chosen={"A99"},
+            allow_disruptive=True,
+        )
+    )
+    assert not dr.passed and "not in this account's bucket list" in dr.problems[0]
+
+
+def test_deactivating_then_deleting_the_same_key_is_not_drift(fixtures, monkeypatch):
+    key = {"user": "ci-deploy", "key": "AKIAIOSFODNN7LEAKED"}
+    scope = _with_actions(
+        fixtures,
+        monkeypatch,
+        "01_leaked_key",
+        ("A97", "deactivate_access_key", key, None, False),
+        ("A98", "delete_access_key", key, None, True),
+    )
+    acct = account_01()
+    dr = check(scope, acct, monkeypatch, chosen={"A97", "A98"}, allow_disruptive=True)
+    assert dr.passed
+    rec = run(dr.model_dump(mode="json"))
+    assert _results(rec) == ["done", "done"] and acct.users["ci-deploy"].keys == {}
+
+
+def test_a_target_deleted_after_the_dry_run_is_already_done_not_drift(fixtures, monkeypatch):
+    acct = account_01()
+    doc = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch).model_dump(mode="json")
+    del acct.users["backdoor-svc"]
+    rec = run(doc)
+    assert rec.completed and _results(rec) == ["already done", "done", "already done"]
+
+
+def test_a_target_made_after_the_dry_run_is_drift(fixtures, monkeypatch):
+    acct = account_01()
+    del acct.users["backdoor-svc"]
+    doc = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch).model_dump(mode="json")
+    assert doc["steps"][0]["identity"] == {} and doc["steps"][0]["already_done"]
+    acct.users["backdoor-svc"] = User(keys={"AKIAIOSFODNN7BKDOOR": "Active"}, attached={ADMIN})
+    rec = run(doc)
+    assert _results(rec) == ["drifted", "not run", "not run"]
+    assert "user_id was absent at the dry run" in rec.steps[0].detail
+
+
+def test_a_step_already_in_place_still_records_which_resource_it_is(fixtures, monkeypatch):
+    acct = account_01()
+    acct.users["backdoor-svc"].keys["AKIAIOSFODNN7BKDOOR"] = "Inactive"
+    dr = check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch)
+    assert dr.steps[0].already_done and set(dr.steps[0].identity) == {"user_id", "user_create_date"}
+
+
+def test_execute_refuses_an_identity_the_operation_does_not_record(fixtures, monkeypatch):
+    doc = check(scope_of(fixtures, "01_leaked_key"), account_01(), monkeypatch).model_dump(mode="json")
+    doc["steps"][0]["identity"] = {"role_id": "AROAEXAMPLE1"}
+    doc["dryrun_sha256"] = ""
+    doc = canonical.seal(doc, "dryrun_sha256")
+    with pytest.raises(RespondError, match="identity recorded for deactivate_access_key"):
+        run(doc)
+
+
+def test_the_dry_run_shows_the_identity_under_each_step(fixtures, monkeypatch, tmp_path):
+    account_01().install(monkeypatch)
+    scope = fixtures / "01_leaked_key/expected/scope.json"
+    r = cli("respond", "dry-run", scope, "-o", tmp_path / "dryrun.json")
+    assert r.exit_code == 0, r.output
+    assert "identity: user_create_date=2026-01-15T09:30:00.000+00:00, user_id=AIDABACKDOORSVC" in r.stdout
+
+
+# one example target of every operation: every op must be listed, so a new one cannot skip this test
+_EXAMPLES = {
+    "deactivate_access_key": ({"user": "u-one", "key": "AKIAIOSFODNN7EXAMPLE"}, None),
+    "delete_access_key": ({"user": "u-one", "key": "AKIAIOSFODNN7EXAMPLE"}, None),
+    "revoke_user_sessions": ({"user": "u-one", "after": "2026-10-20T10:04:00Z"}, None),
+    "revoke_role_sessions": ({"role": "r-one", "after": "2026-10-20T10:04:00Z"}, None),
+    "lift_user_revocation": ({"user": "u-one"}, None),
+    "lift_role_revocation": ({"role": "r-one"}, None),
+    "delete_login_profile": ({"user": "u-one"}, None),
+    "detach_user_policy": ({"user": "u-one", "policy_arn": ADMIN}, None),
+    "detach_role_policy": ({"role": "r-one", "policy_arn": ADMIN}, None),
+    "detach_group_policy": ({"group": "g-one", "policy_arn": ADMIN}, None),
+    "delete_user_policy": ({"user": "u-one", "policy": "inline-one"}, None),
+    "delete_role_policy": ({"role": "r-one", "policy": "inline-one"}, None),
+    "delete_group_policy": ({"group": "g-one", "policy": "inline-one"}, None),
+    "remove_user_from_group": ({"user": "u-one", "group": "g-one"}, None),
+    "delete_user": ({"user": "u-one"}, None),
+    "delete_role": ({"role": "r-one"}, None),
+    "disassociate_instance_profile": ({"instance": "i-0a1b2c3d4e5f60718"}, "us-east-1"),
+    "stop_instance": ({"instance": "i-0a1b2c3d4e5f60718"}, "us-east-1"),
+    "snapshot_instance": ({"instance": "i-0a1b2c3d4e5f60718"}, "us-east-1"),
+    "terminate_instance": ({"instance": "i-0a1b2c3d4e5f60718"}, "us-east-1"),
+    "delete_lambda_function": ({"function": "fn-one"}, "us-east-1"),
+    "delete_bucket": ({"bucket": "bucket-one"}, "us-east-1"),
+    "start_logging": ({"trail": "trail-one"}, "us-east-1"),
+    "start_config_recorder": ({"recorder": "default"}, "us-east-1"),
+    "enable_guardduty": ({}, "us-east-1"),
+    "enable_security_hub": ({}, "us-east-1"),
+}
+
+
+def test_every_operation_has_an_example_here():
+    assert set(_EXAMPLES) == set(OPS)
+
+
+def _everything_exists():
+    return Account(
+        users={
+            "u-one": User(
+                keys={"AKIAIOSFODNN7EXAMPLE": "Active"},
+                login=True,
+                attached={ADMIN},
+                inline={"inline-one"},
+                groups={"g-one"},
+            )
+        },
+        roles={"IncidentResponder": Role(), "r-one": Role(attached={ADMIN}, inline={"inline-one"})},
+        group_meta={"g-one": Group()},
+        trails={"trail-one": False},
+        recorders={"default": False},
+        detectors={"det-one": "DISABLED"},
+        instances={
+            "i-0a1b2c3d4e5f60718": {"state": "running", "assoc": ["iip-assoc-1"], "volumes": ["vol-0abc"]}
+        },
+        functions={"fn-one"},
+        buckets={"bucket-one": []},
+    )
+
+
+@pytest.mark.parametrize("op", sorted(OPS))
+def test_a_probe_returns_exactly_the_keys_its_operation_declares(op, monkeypatch):
+    args, region = _EXAMPLES[op]
+    ctx = Ctx(account="111122223333", partition="aws", profile=None, home_region="us-east-1")
+    spec = OPS[op]
+    assert isinstance(spec.identity_keys, tuple)
+    _everything_exists().install(monkeypatch)
+    assert set(spec.probe(ctx, args, region).identity) == set(spec.identity_keys)
+    Account().install(monkeypatch)  # nothing exists
+    assert spec.probe(ctx, args, region).identity == {}

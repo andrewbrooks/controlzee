@@ -120,7 +120,16 @@ what is attached so every needed action is checked. `respond/run.py`:
   `iam:GetRole` to turn a role session into its role ARN), probes, and asks `iam:SimulatePrincipalPolicy` about every
   pair, grouped by resource. Anything not "allowed", and any probe that cannot read, fails it.
 - `execute` checks the dry run's seal, that it is not dated in the future, that it was made from the `--scope` given and that its steps are exactly what the plan rebuilt from that scope gives (an edited, re-sealed file cannot add an operation; the `--approve` hash is what ties execution to what was reviewed), version, pass, age and approval prefix, and that the caller is the same principal
-  and account; then per step: validate again, probe again, apply, record, stop at the first failure.
+  and account; then per step: validate again, probe again, compare identity, simulate again, apply, record, stop at the
+  first failure (a `failed` or `drifted` step).
+
+Execute is optimistic concurrency: read, compare, then act. The dry run reads each target and records its identity (the
+ids and creation dates AWS never reuses); execute reads it again just before the change and acts only if the two
+agree, the same idea as Terraform refreshing state before it applies. The check is on identity, not state: a key that
+is already inactive is "already done", while a user deleted and made again under the same name is a different
+resource and ends the run as `drifted`. No operation changes a resource's identity (a delete makes the next probe report
+"done"), so earlier steps in a run cannot cause false drift. `OpSpec.identity_keys` lists the keys of each operation
+(empty only where the arguments already name something AWS never reuses), and a test holds every probe to them.
 
 Nothing is executed through a shell. `argcheck.py` holds the patterns for command-line values that reach AWS.
 `dryrun.json` and `response.json` are the one exception to "no wall-clock time in artifacts": when the check and each
