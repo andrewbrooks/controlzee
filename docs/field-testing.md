@@ -15,7 +15,8 @@ runs. Use a dedicated sandbox account: nothing here should touch production.
     narrow policy that allows only the calls in step 2.
   - **`IncidentResponder`**: an IAM role you assume for the response. It needs `sts:GetCallerIdentity`,
     `iam:SimulatePrincipalPolicy`, `iam:GetRole`, the read calls (`iam:Get*`, `iam:List*`, `cloudtrail:GetTrailStatus`,
-    `ec2:Describe*`) and the change calls for the steps you will run.
+    `cloudtrail:LookupEvents` for the activity check, `ec2:Describe*`, and `s3:ListAllMyBuckets`, `s3:ListBucket` and
+    `lambda:GetFunction` if you will delete a bucket or function) and the change calls for the steps you will run.
 
 ## 2. Make some activity
 
@@ -71,6 +72,10 @@ aws iam list-access-keys --user-name ft-created-user     # Inactive
 
 Run the dry run again: every step should now be "already done".
 
+To check the activity warning, make one more call with the `test-intruder` key after the scope was built, wait for it to
+show in event history (it took one to two minutes in the second real run), and run the dry run again: it must warn and
+list the call. Give `scope` a `--window` that has ended, since a window ending at or after now leaves nothing to check.
+
 ## 5. Clean up
 
 Delete `ft-created-user` (or run the eradicate steps with `--allow-disruptive`), the test role's deny policy (the lift
@@ -106,6 +111,34 @@ key listed buckets.
 - Found and fixed: calls in the same second were listed out of order (CloudTrail times have one-second precision), and an
   SCP that denied `iam:GetLoginProfile` made `delete_user` fail its dry run with no way forward.
 - Still unchecked on real events: assumed roles, instance profiles, Lambda, Identity Center and the coverage heuristics.
+
+## Results of the second real run (identity, journal, activity check)
+
+Run in a dedicated sandbox account that is a member of an organization. A service control policy there denied
+`cloudtrail:DescribeTrails` but not `LookupEvents`, so there was no trail and everything used event history. Two
+principals as in step 1, with narrow policies (the intruder could only make `ft-*` users, keys and ReadOnlyAccess
+attachments; the responder could only change `ft-*` users and the intruder).
+
+- Passed: the dry run recorded the real ids and creation dates of each user (`user_id` and `user_create_date`). A user
+  deleted and made again under the same name between a dry run and an execute gave `drifted`, exit 5, with the new user
+  untouched. The journal held a header and a result line, and no `starting` line, since the change was never attempted.
+- Passed: a normal execute wrote its journal with mode 0600, the journal's result lines equalled the response's steps and
+  `journal_sha256` equalled the file's hash. Executing the same dry run again was refused (exit 2) before any call to AWS.
+- Passed: a run killed with SIGKILL at the moment its journal ended in a `starting` line left no `response.json`, and the
+  journal said which step was in flight. That change had not been applied, which the journal cannot tell you (hence
+  "check the target"); a new dry run reported all three steps still to do, and its execute finished them. The kill was
+  timed by a small script that polled the journal and sent the signal when its last line was `starting`.
+- Passed: `delete_user` on a user with a key, through the tool.
+- Passed: the activity check. With no new calls it read the events of its window and said none were found. After the
+  intruder made another call it listed exactly that call (and, later, the calls that recreated a user), printed the
+  warning and still passed the dry run. With `cloudtrail:LookupEvents` removed from the role by a session policy it
+  warned that it could not run and the dry run still passed. Event history showed a call after 80 seconds to two
+  minutes, well inside the "about 15 minutes" the warning allows for.
+- Found and fixed: a scope whose `--window` ended in the future made the check ask for a window that ends before it
+  starts, and event history answered `InvalidTimeRangeException`. The check now says there is nothing after the scope to
+  look at yet.
+- Not checked: roles, instance profiles, a Lambda function, and a bucket's creation date through `list_buckets` (the
+  account had no bucket or function).
 
 ## Real samples as fixtures
 
