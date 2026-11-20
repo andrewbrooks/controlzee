@@ -14,13 +14,15 @@ from pathlib import Path
 
 from controlzee.ingest.index import R_ID, R_TS, EventIndex, FileEntry, Row
 from controlzee.ingest.parse import DEFAULT_MAX_FILE_BYTES, FileResult, index_chunk
-from controlzee.ingest.remote import LOG_SUFFIXES, LookupInput, RemoteError, S3Input
+from controlzee.ingest.remote import LOG_SUFFIXES, LookupInput, PrefetchedInput, RemoteError, S3Input
 from controlzee.ingest.source import LocalSource, Source
 
 PARALLEL_MIN_BYTES = 8 * 1024 * 1024  # below this a process pool costs more than it saves
 MAX_DEFAULT_WORKERS = 16  # measured: no gain beyond this (see docs/architecture.md)
 _SUFFIXES = LOG_SUFFIXES
-Input = Path | S3Input | LookupInput  # a local file or directory, an S3 prefix, or a region's event history
+Input = (
+    Path | S3Input | LookupInput | PrefetchedInput
+)  # a local path, an S3 prefix, event history, or files already fetched
 
 
 class IngestError(Exception):

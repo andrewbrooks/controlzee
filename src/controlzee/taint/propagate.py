@@ -14,7 +14,7 @@ Works on index rows only (no models): every round is one pass over the rows from
 from __future__ import annotations
 
 from bisect import bisect_left
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from operator import itemgetter
 
@@ -50,8 +50,9 @@ class Propagation:
     identities: list[Taint]  # in the order they were found: by round, then by issuing event
 
 
-def acting_as(row: Row, found: dict[tuple[str, str], Taint]) -> list[Taint]:
-    """Every tainted identity this event acted as, in a fixed order (key, principal, role, instance, function, role assumed)."""
+def acting_as[T](row: Row, found: Mapping[tuple[str, str], T]) -> list[T]:
+    """Every tainted identity this event acted as, in a fixed order (key, principal, role, instance, function, role assumed).
+    `found` maps (kind, value) to whatever the caller keeps about an identity; this returns those values."""
     keys: list[tuple[str, str]] = []
     if (ak := row[R_AK]) is not None:
         keys.append((ACCESS_KEY, ak))
