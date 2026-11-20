@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 UV ?= uv
 
-.PHONY: help setup lint format typecheck fixtures test check secrets audit-deps build
+.PHONY: coverage help setup lint format typecheck fixtures test check secrets audit-deps build
 
 help: ## List the available tasks
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -26,6 +26,9 @@ fixtures: ## Check the committed fixtures match their builders
 
 test: ## The whole suite (no network)
 	$(UV) run --no-sync pytest -q
+
+coverage: ## The suite with a coverage report (no threshold yet)
+	$(UV) run --no-sync pytest -q --cov=controlzee --cov-report=term
 
 check: lint typecheck fixtures test ## Everything CI checks
 

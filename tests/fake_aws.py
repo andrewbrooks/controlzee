@@ -59,6 +59,18 @@ class Group:
 
 
 @dataclass
+class Provider:
+    """An OIDC or SAML identity provider: its creation date and what the real Get call returns of it."""
+
+    created: datetime = CREATED
+    url: str = "idp.example.com"  # OIDC issuer
+    clients: tuple[str, ...] = ("sts.amazonaws.com",)  # OIDC client ids
+    thumbprints: tuple[str, ...] = ("9e99a48a9960b14926bb7f3b02e22da2b0ab7280",)  # OIDC
+    valid_until: datetime = datetime(2027, 1, 15, 9, 30, tzinfo=UTC)  # SAML
+    metadata: str = "<EntityDescriptor>SAML-METADATA-DOCUMENT</EntityDescriptor>"  # SAML
+
+
+@dataclass
 class Function:
     code_sha256: str = "Zm9vYmFyMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA="
     last_modified: str = "2026-01-15T09:30:00.000+0000"
@@ -79,6 +91,8 @@ class Account:
     bucket_created: dict[str, datetime] = field(
         default_factory=dict
     )  # bucket name -> creation date (default CREATED)
+    oidc_providers: dict[str, Provider] = field(default_factory=dict)  # provider ARN -> provider
+    saml_providers: dict[str, Provider] = field(default_factory=dict)  # provider ARN -> provider
     group_meta: dict[str, Group] = field(default_factory=dict)  # group name -> its id and creation date
     function_meta: dict[str, Function] = field(
         default_factory=dict
@@ -389,6 +403,39 @@ class FakeClient:
         if r.attached or r.inline or r.profiles:
             raise _err("DeleteConflict", op)
         del self.acct.roles[RoleName]
+        return {}
+
+    def _provider(self, op: str, providers: dict[str, Provider], arn: str) -> Provider:
+        if arn not in providers:
+            raise _err("NoSuchEntity", op)
+        return providers[arn]
+
+    def _iam_get_open_id_connect_provider(self, op: str, OpenIDConnectProviderArn: str) -> Any:  # noqa: N803
+        p = self._provider(op, self.acct.oidc_providers, OpenIDConnectProviderArn)
+        return {
+            "Url": p.url,
+            "ClientIDList": list(p.clients),
+            "ThumbprintList": list(p.thumbprints),
+            "CreateDate": p.created,
+        }
+
+    def _iam_delete_open_id_connect_provider(self, op: str, OpenIDConnectProviderArn: str) -> Any:  # noqa: N803
+        self._provider(op, self.acct.oidc_providers, OpenIDConnectProviderArn)
+        del self.acct.oidc_providers[OpenIDConnectProviderArn]
+        return {}
+
+    def _iam_get_saml_provider(self, op: str, SAMLProviderArn: str) -> Any:  # noqa: N803
+        p = self._provider(op, self.acct.saml_providers, SAMLProviderArn)
+        return {
+            "SAMLProviderUUID": "00000000-0000-4000-8000-000000000000",
+            "SAMLMetadataDocument": p.metadata,
+            "CreateDate": p.created,
+            "ValidUntil": p.valid_until,
+        }
+
+    def _iam_delete_saml_provider(self, op: str, SAMLProviderArn: str) -> Any:  # noqa: N803
+        self._provider(op, self.acct.saml_providers, SAMLProviderArn)
+        del self.acct.saml_providers[SAMLProviderArn]
         return {}
 
     def _iam_simulate_principal_policy(

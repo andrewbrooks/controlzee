@@ -208,17 +208,21 @@ event made with it joins the scope, and so on from there:
 | `ec2:RunInstances` with an instance profile | the instance's role sessions |
 | `lambda:CreateFunction`, `UpdateFunctionCode`, `UpdateFunctionConfiguration` | the function's execution-role sessions (named after the function), from the change onwards |
 | `iam:UpdateAssumeRolePolicy` on an existing role | an `AssumeRole` into that role, after the change, by a principal the new policy names (an account, a user or role ARN, or `*`) that had not assumed the role before, and the session it receives |
+| `iam:CreateOpenIDConnectProvider`, `iam:CreateSAMLProvider` | every `AssumeRoleWithWebIdentity` / `AssumeRoleWithSAML` through the new provider, and the session it receives |
+| `iam:AddClientIDToOpenIDConnectProvider`, `iam:UpdateOpenIDConnectProviderThumbprint`, `iam:UpdateSAMLProvider` | a login through that provider after the change by a subject not seen through it before, and its session |
 
 A changed trust policy is read as a whole: the log holds the new policy and not the old, so which principals the change
 added is not shown. A caller counts as added if the policy names it and it had not assumed that role earlier in the logs.
 With logs that start at the incident there is no earlier history, so every named caller looks new: the plan step lists the
-principals and says so. Service and federated principals, `Deny` statements and conditions (an external id, a source IP)
+principals and says so. Federated principals that are OIDC or SAML provider ARNs are read the same way (a login through that provider into the role); other federated and service principals, `Deny` statements and conditions (an external id, a source IP)
 are not read. The dry run's check for activity after the scope does not use these entries, since it has no history to
 tell a legitimate caller from a new one.
 
 Each followed event says which identity it acted as (`via`) and the chain of event ids back to its seed; `taint.identities`
 lists everything followed. Confidence carries over: what a weak seed obtained stays weak. The seed window does not limit
 propagation, since a key the attacker created is theirs whenever it is used. `--no-propagate` turns this off.
+
+A provider the attacker created is deleted by the plan; one they only changed is not (the logs hold the new settings, not the old), so the plan gives a manual restore step. After a provider is changed, a forged token for a subject that had logged in through it before cannot be told from the real login, so review every login through it after the change; the same holds for a trust policy that names a provider.
 
 Not followed: existing roles the attacker merely assumed (only their own session is; a changed trust policy is the exception above), passwords set on existing users,
 ECS task roles, and anything outside these rules. IAM Identity Center has no taint rule: its role sessions are named after

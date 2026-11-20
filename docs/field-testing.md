@@ -245,6 +245,19 @@ and the responder assumed the role again.
 - Not tested live: an outside account (a caller logged as `AWSAccount` with no ARN). That case is covered by the generated
   scenario and by a test that reads the real captured Stratus record, and not by a live run.
 
+### Identity providers
+
+The intruder created and changed an OIDC provider (a real public issuer, so IAM could validate it) and a SAML provider
+(made-up metadata), and made one failed `AssumeRoleWithWebIdentity` call.
+
+- Passed: the field names of all five management calls matched the contract. The scope built from event history held the
+  calls, and the plan had one delete step per created provider and the "find the roles" steps. The dry run read each
+  provider's real state and `CreateDate`, and the simulator allowed the two delete actions on those ARNs. Execute deleted
+  both; the provider lists were then empty.
+- Not tested live: a successful `AssumeRoleWithWebIdentity` or `AssumeRoleWithSAML` (it needs a public identity provider that
+  signs a token or assertion), so the login records' shape rests on AWS's documentation and a generated scenario; the SAML
+  login shape is unverified. A failed unauthenticated `AssumeRoleWith*` call does not appear in event history at all.
+
 ## Real samples as fixtures
 
 Committed fixtures are generated (see `tests/builders/`). Real records are welcome as an addition, not a replacement:

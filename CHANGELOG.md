@@ -4,6 +4,26 @@ Versions are `0.x`: output formats (schemas) may change between releases.
 
 ## Unreleased
 
+- Identity providers (W3b, part A). Taint follows a login path the attacker plants. An OIDC or SAML provider created by a
+  tainted call (`iam:CreateOpenIDConnectProvider`, `iam:CreateSAMLProvider`) becomes a `provider_arn` identity, and every
+  later `AssumeRoleWithWebIdentity` / `AssumeRoleWithSAML` through it, with the session it hands out, joins the scope. A
+  provider a tainted call only changed (`AddClientIDToOpenIDConnectProvider`, `UpdateOpenIDConnectProviderThumbprint`,
+  `UpdateSAMLProvider`) becomes `changed_provider`: a login through it is followed only for a subject not seen through it
+  before the change. The trust-policy reading of the previous entry now also reads `Federated` principals that are
+  provider ARNs. Two new operations, `delete_oidc_provider` and `delete_saml_provider` (disruptive, global, identity-checked
+  on the provider's `CreateDate`), and the plan deletes a provider the attacker **created**, with a read-only step to find
+  the roles that trust it. A provider the attacker only changed is never deleted: it gets a manual restore step. Needs
+  `iam:GetOpenIDConnectProvider`, `iam:DeleteOpenIDConnectProvider`, `iam:GetSAMLProvider` and `iam:DeleteSAMLProvider`.
+  The provider calls are classified as persistence. Run on a real account; the five management records were captured.
+  Known blind spot: after a provider is changed, a forged token for a subject that had logged in through it before cannot be
+  told from the real login (this holds for a trust policy that names a provider too); the plan step and exposure note say
+  so. Not verified on real records: the `AssumeRoleWithSAML` login shape, and a successful `AssumeRoleWithWebIdentity`
+  (both need a public identity provider). Roles Anywhere is classified only; taint and a response come in a later change.
+
+- Hardening found in review: every argument shape and command-line value check uses `fullmatch` (Python's `$` accepted a
+  trailing newline) and the shapes are ASCII-only, so look-alike letters and digits are refused. Provider ARN partitions are
+  limited to `aws`, `aws-cn` and `aws-us-gov`. `pytest-cov` is a dev dependency (`make coverage`; CI prints the report, no threshold).
+
 - Taint follows a trust-policy backdoor: when a tainted call changes the trust policy of an existing role
   (`iam:UpdateAssumeRolePolicy`), a later `AssumeRole` into that role by a principal the new policy names (an account, a user
   or role ARN, or `*`) joins the scope, and so does everything done with the session it receives, unless that caller had

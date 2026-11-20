@@ -75,6 +75,15 @@ caller's account, ARN and session issuer, taken from `userIdentity` when the rec
 caller is logged with an account id and no ARN). That is how the entry into a role the attacker created is found when the
 caller is another account with no tainted key.
 
+Identity providers: a tainted `Create*Provider` call makes a `provider_arn` identity and a tainted `Add/Update*` call a
+`changed_provider` one (ARNs shape-checked with `fullmatch`, ASCII only). A successful `AssumeRoleWithWebIdentity` or
+`AssumeRoleWithSAML` row carries two facts, `assumed_via` ("<provider arn>|<subject>"; subject empty if it cannot be kept
+safely, and the login is still followed) and `assumed_via_role`; they are row facts and never identities. A login through a
+created provider is attacker-reachable with no history filter; through a changed provider, or a role whose trust policy now
+names a `federated:<arn>` entry, only if the subject was not seen through that provider (and role) before the change.
+`delete_oidc_provider` / `delete_saml_provider` take the ARN, probe with `get_*_provider` and carry the `CreateDate` as
+identity facts. The plan emits them only for a provider created by an in-scope `Create*Provider` call.
+
 `iam:UpdateAssumeRolePolicy` is read the same way: each AWS principal of the `Allow` statements of the logged document
 becomes a `trusted_by` identity, "<role name>|<principal>" (an account, a user or role ARN, or `*`; the document is
 size-capped and every value shape-checked). `acting_as` takes an optional index of these by role, and a later `AssumeRole`

@@ -12,6 +12,7 @@ step manual, with the reason. Building a plan never calls AWS.
 
 from __future__ import annotations
 
+import shlex
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
@@ -22,14 +23,40 @@ from controlzee.model.common import Confidence, tool_info
 from controlzee.model.event import Event
 from controlzee.model.plan import Operation, Phase, Plan, PlanAction
 from controlzee.model.scope import Scope, ScopedEvent
-from controlzee.respond.ops import OPS, Unsafe, q, validate
-from controlzee.timeline import exposure
+from controlzee.respond.ops import OPS, SHAPES, Unsafe, check, q, validate
+from controlzee.taint.rules import CHANGED_PROVIDER, PROVIDER
+from controlzee.timeline import exposure, trusted_principal
 from controlzee.timeutil import format_time_us, parse_time_us
 
 LISTED_EVIDENCE = 10
 PHASES: tuple[Phase, ...] = ("contain", "investigate", "eradicate", "recover")
 
 Op = tuple[str, dict[str, Any], str | None]  # (operation, arguments, region)
+
+# Only these calls make a provider the attacker's own. A provider that was merely changed, or only named by a trust
+# policy, is a legitimate one until proven otherwise, and a plan never deletes it.
+_PROVIDER_CREATES = frozenset({"iam:CreateOpenIDConnectProvider", "iam:CreateSAMLProvider"})
+# ARN shape (see `respond.ops.SHAPES`) -> (the delete operation, what people call it, its `get-` subcommand)
+_PROVIDER_KINDS: dict[str, tuple[str, str, str]] = {
+    "oidc_arn": (
+        "delete_oidc_provider",
+        "OIDC",
+        "get-open-id-connect-provider --open-id-connect-provider-arn",
+    ),
+    "saml_arn": ("delete_saml_provider", "SAML", "get-saml-provider --saml-provider-arn"),
+}
+
+
+def _provider_kind(arn: str) -> str | None:
+    """The shape kind ("oidc_arn" or "saml_arn") `arn` has exactly, else None. The type decides the operation."""
+    return next((k for k in _PROVIDER_KINDS if SHAPES[k].fullmatch(arn)), None)
+
+
+def _roles_trusting(kind: str, arn: str) -> str:
+    """A read-only command listing the roles whose trust policy names the provider. The ARN is checked against its shape
+    (which has no quote or control character) before it goes into the query, and the whole query is shell-quoted."""
+    query = f"Roles[?contains(to_string(AssumeRolePolicyDocument), '{check(kind, arn)}')].RoleName"
+    return f"aws iam list-roles --query {shlex.quote(query)} --output text"
 
 
 @dataclass
@@ -104,6 +131,8 @@ class _Builder:
         self.functions: dict[
             str, tuple[ScopedEvent, bool]
         ] = {}  # function name -> (first call, created by the attacker)
+        self.created_providers: dict[str, ScopedEvent] = {}  # provider ARN -> the call that created it
+        self.changed_providers: dict[str, ScopedEvent] = {}  # provider ARN -> the first call that changed it
         self.created_buckets: dict[str, ScopedEvent] = {}  # bucket name -> the first successful CreateBucket
         self.revoked: list[
             tuple[str, str, str | None, list[ScopedEvent]]
@@ -131,6 +160,10 @@ class _Builder:
                     self.created_keys[t.value] = (owner, s)
             elif t.rule == "ec2:RunInstances":
                 self.instances[t.value] = s
+            elif t.kind == PROVIDER and t.rule in _PROVIDER_CREATES:
+                self.created_providers.setdefault(t.value, s)
+            elif t.kind == CHANGED_PROVIDER:
+                self.changed_providers.setdefault(t.value, s)
             elif t.kind == "function_name":
                 self.functions[t.value] = (s, t.rule == "lambda:CreateFunction")
 
@@ -375,6 +408,7 @@ class _Builder:
                     "--http-tokens required",
                 ],
             )
+        self.provider_trust_lookups()
         for instance, s in sorted(self.instances.items()):
             r = s.event.aws_region
             self.run(
@@ -448,6 +482,7 @@ class _Builder:
                 ),
                 [("delete_role", {"role": name}, None)],
             )
+        self.providers()
         self.lambda_functions()
         for name, s in sorted(self.created_buckets.items()):
             r = s.event.aws_region
@@ -477,6 +512,77 @@ class _Builder:
                     caution="only after its disks are preserved",
                 ),
                 [("terminate_instance", {"instance": instance}, r)],
+            )
+
+    def providers(self) -> None:
+        """Delete an identity provider the attacker created; only review one it changed. A provider is deleted only when
+        an in-scope Create call made it: one the attacker changed or that a trust policy names is legitimate until proven
+        otherwise, and deleting it would end every login through it."""
+        for arn, s in sorted(self.created_providers.items()):
+            kind = _provider_kind(arn)
+            draft = _Draft(
+                "eradicate",
+                "Delete an identity provider the attacker created",
+                f"provider {arn}",
+                "created by an in-scope call; anyone holding a token it signs can assume the roles that trust it, "
+                "and the sessions obtained through it were followed",
+                [s],
+                s.event.recipient_account_id,
+                caution="deleting it ends every login through it, and the roles that trust it keep a dangling trust "
+                "statement: list those roles first (see the investigate steps) and remove the statement from each",
+            )
+            if kind is None:
+                self.manual(draft, lambda: self._not_a_provider())
+                continue
+            self.run(draft, [(_PROVIDER_KINDS[kind][0], {"provider_arn": arn}, None)])
+        for arn, s in sorted(self.changed_providers.items()):
+            if arn in self.created_providers:
+                continue  # deleted above
+            kind = _provider_kind(arn)
+            draft = _Draft(
+                "eradicate",
+                "Restore an identity provider the attacker changed",
+                f"provider {arn}",
+                "an in-scope call changed its settings (thumbprint, client ids or metadata); logins through it by "
+                "people not seen using it before the change were followed",
+                [s],
+                s.event.recipient_account_id,
+                caution="the logs show the change but not what it replaced: restore the previous settings from your "
+                "records. Never delete it: it is not shown to be the attacker's, and every legitimate login through it "
+                "would stop. Blind spot: a forged token for a subject that had logged in through it before the change "
+                "cannot be told from that person's real login, so the plan does not follow it: review every login "
+                "through this provider after the change",
+            )
+            self.manual(draft, lambda k=kind, a=arn: self._get_provider(k, a))
+
+    @staticmethod
+    def _not_a_provider() -> list[str]:
+        raise Unsafe("provider ARN")
+
+    @staticmethod
+    def _get_provider(kind: str | None, arn: str) -> list[str]:
+        if kind is None:
+            raise Unsafe("provider ARN")
+        return [f"aws iam {_PROVIDER_KINDS[kind][2]} {q(kind, arn)}"]
+
+    def provider_trust_lookups(self) -> None:
+        """Before anything is deleted: which roles name the provider, read only."""
+        for arn, s in sorted(self.created_providers.items()):
+            kind = _provider_kind(arn)
+            if kind is None:
+                continue  # the eradicate step already says why it is manual
+            self.manual(
+                _Draft(
+                    "investigate",
+                    "Find the roles that trust an identity provider the attacker created",
+                    f"provider {arn}",
+                    "deleting the provider breaks every login through it; these roles are the ones a login through it "
+                    "could reach, and their trust statements for it should go too",
+                    [s],
+                    s.event.recipient_account_id,
+                    caution="read only; run it in the account that holds the provider",
+                ),
+                lambda k=kind, a=arn: [_roles_trusting(k, a)],
             )
 
     def lambda_functions(self) -> None:
@@ -536,7 +642,7 @@ class _Builder:
             return
         if act == "iam:UpdateAssumeRolePolicy":
             named = sorted(
-                t.value.partition("|")[2]
+                trusted_principal(t.value.partition("|")[2])
                 for t in self.scope.taint.identities
                 if t.kind == "trusted_by" and t.value.partition("|")[0] == who
             )

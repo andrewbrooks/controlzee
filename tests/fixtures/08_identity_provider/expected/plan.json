@@ -1,0 +1,638 @@
+{
+  "actions": [
+    {
+      "account": "111122223333",
+      "caution": "the key's legitimate owner will stop working until it has a replacement (see the recover steps)",
+      "commands": [
+        "aws iam update-access-key --user-name ci-deploy --access-key-id AKIAIOSFODNN7LEAKED --status Inactive"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "ea972266-d206-5a49-9154-6b3c92801147",
+        "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+        "731349d0-3d9c-5690-a136-e4fa9ed4ebb4",
+        "dd737b72-7fa2-5f4c-8905-86e2df905521",
+        "b28638c9-2b83-5857-ba09-3d580928864b",
+        "b0c2bd4b-a6bc-560d-8699-fc56e34c77d4",
+        "cf538fa5-c998-5d89-b11a-3f998e59f186",
+        "ff758e4f-6b76-51e2-9b12-ef0d3c0583d6",
+        "dffede70-4239-5e48-a130-510c0252371b",
+        "295d6971-f41c-5133-aa3b-ef76c46d8c25"
+      ],
+      "id": "A01",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "key": "AKIAIOSFODNN7LEAKED",
+            "user": "ci-deploy"
+          },
+          "op": "deactivate_access_key",
+          "region": null
+        }
+      ],
+      "phase": "contain",
+      "target": "access key AKIAIOSFODNN7LEAKED of user ci-deploy (account 111122223333)",
+      "title": "Deactivate an access key the attacker used",
+      "why": "13 in-scope call(s) were made with it"
+    },
+    {
+      "account": "111122223333",
+      "caution": "this also ends legitimate sessions of the role; they can assume it again",
+      "commands": [
+        "aws iam put-role-policy --role-name build-role --policy-name controlzee-revoke-older-sessions --policy-document '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"DateLessThan\":{\"aws:TokenIssueTime\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\"}}}]}'"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "911bddd2-9631-5e28-b741-9ec8043bb041"
+      ],
+      "id": "A02",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "after": "2026-10-21T10:37:00Z",
+            "role": "build-role"
+          },
+          "op": "revoke_role_sessions",
+          "region": null
+        }
+      ],
+      "phase": "contain",
+      "target": "role build-role (account 111122223333)",
+      "title": "Revoke the role's active sessions",
+      "why": "1 in-scope call(s) were made with sessions of this role"
+    },
+    {
+      "account": "111122223333",
+      "caution": "this also ends legitimate sessions of the role; they can assume it again",
+      "commands": [
+        "aws iam put-role-policy --role-name ci-web-role --policy-name controlzee-revoke-older-sessions --policy-document '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"DateLessThan\":{\"aws:TokenIssueTime\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\"}}}]}'"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "61097096-7e03-5cf1-9b63-c5307d005ca7"
+      ],
+      "id": "A03",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "after": "2026-10-21T10:31:00Z",
+            "role": "ci-web-role"
+          },
+          "op": "revoke_role_sessions",
+          "region": null
+        }
+      ],
+      "phase": "contain",
+      "target": "role ci-web-role (account 111122223333)",
+      "title": "Revoke the role's active sessions",
+      "why": "1 in-scope call(s) were made with sessions of this role"
+    },
+    {
+      "account": "111122223333",
+      "caution": "this also ends legitimate sessions of the role; they can assume it again",
+      "commands": [
+        "aws iam put-role-policy --role-name data-reader --policy-name controlzee-revoke-older-sessions --policy-document '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"DateLessThan\":{\"aws:TokenIssueTime\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\"}}}]}'"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "c0739cb2-1b9c-5360-a391-839a05383129"
+      ],
+      "id": "A04",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "after": "2026-10-21T10:51:00Z",
+            "role": "data-reader"
+          },
+          "op": "revoke_role_sessions",
+          "region": null
+        }
+      ],
+      "phase": "contain",
+      "target": "role data-reader (account 111122223333)",
+      "title": "Revoke the role's active sessions",
+      "why": "1 in-scope call(s) were made with sessions of this role"
+    },
+    {
+      "account": "111122223333",
+      "caution": "this also ends legitimate sessions of the role; they can assume it again",
+      "commands": [
+        "aws iam put-role-policy --role-name saml-admin --policy-name controlzee-revoke-older-sessions --policy-document '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"DateLessThan\":{\"aws:TokenIssueTime\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\"}}}]}'"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "6b010987-f1d9-5215-a84b-64f2cf35f730"
+      ],
+      "id": "A05",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "after": "2026-10-21T10:22:00Z",
+            "role": "saml-admin"
+          },
+          "op": "revoke_role_sessions",
+          "region": null
+        }
+      ],
+      "phase": "contain",
+      "target": "role saml-admin (account 111122223333)",
+      "title": "Revoke the role's active sessions",
+      "why": "1 in-scope call(s) were made with sessions of this role"
+    },
+    {
+      "account": "111122223333",
+      "caution": "this also ends legitimate sessions of the role; they can assume it again",
+      "commands": [
+        "aws iam put-role-policy --role-name saml-ro --policy-name controlzee-revoke-older-sessions --policy-document '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"DateLessThan\":{\"aws:TokenIssueTime\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\"}}}]}'"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "edfcae7d-87a4-5150-bd8f-b35a639c5864"
+      ],
+      "id": "A06",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "after": "2026-10-21T10:41:00Z",
+            "role": "saml-ro"
+          },
+          "op": "revoke_role_sessions",
+          "region": null
+        }
+      ],
+      "phase": "contain",
+      "target": "role saml-ro (account 111122223333)",
+      "title": "Revoke the role's active sessions",
+      "why": "1 in-scope call(s) were made with sessions of this role"
+    },
+    {
+      "account": "111122223333",
+      "caution": "this also ends legitimate sessions of the role; they can assume it again",
+      "commands": [
+        "aws iam put-role-policy --role-name web-deploy --policy-name controlzee-revoke-older-sessions --policy-document '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Action\":\"*\",\"Resource\":\"*\",\"Condition\":{\"DateLessThan\":{\"aws:TokenIssueTime\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\"}}}]}'"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "89229325-1421-5b58-9b97-8db4d04d3723",
+        "26643249-5bff-5ac7-b83d-0c717faca211",
+        "392b0429-543f-5b03-aae8-0d544fd3c5c4",
+        "b7f97c53-c765-54c8-b343-962a21fc8f0c"
+      ],
+      "id": "A07",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "after": "2026-10-21T10:15:30Z",
+            "role": "web-deploy"
+          },
+          "op": "revoke_role_sessions",
+          "region": null
+        }
+      ],
+      "phase": "contain",
+      "target": "role web-deploy (account 111122223333)",
+      "title": "Revoke the role's active sessions",
+      "why": "4 in-scope call(s) were made with sessions of this role"
+    },
+    {
+      "account": null,
+      "caution": "sources: S3 server access logs, CloudTrail data events on another trail, VPC flow logs",
+      "commands": [],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [],
+      "id": "A08",
+      "on_request": false,
+      "operations": [],
+      "phase": "investigate",
+      "target": "S3 and other data-plane activity",
+      "title": "Look for object-level access elsewhere",
+      "why": "the inputs have no data events, so reads of objects, secrets in Lambda and the like are invisible here"
+    },
+    {
+      "account": "111122223333",
+      "caution": "read only; run it in the account that holds the provider",
+      "commands": [
+        "aws iam list-roles --query 'Roles[?contains(to_string(AssumeRolePolicyDocument), '\"'\"'arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com'\"'\"')].RoleName' --output text"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "1e53ffdd-8f58-549b-a23f-5584b5fdb45b"
+      ],
+      "id": "A09",
+      "on_request": false,
+      "operations": [],
+      "phase": "investigate",
+      "target": "provider arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com",
+      "title": "Find the roles that trust an identity provider the attacker created",
+      "why": "deleting the provider breaks every login through it; these roles are the ones a login through it could reach, and their trust statements for it should go too"
+    },
+    {
+      "account": "111122223333",
+      "caution": "read only; run it in the account that holds the provider",
+      "commands": [
+        "aws iam list-roles --query 'Roles[?contains(to_string(AssumeRolePolicyDocument), '\"'\"'arn:aws:iam::111122223333:saml-provider/attacker-idp'\"'\"')].RoleName' --output text"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "731349d0-3d9c-5690-a136-e4fa9ed4ebb4"
+      ],
+      "id": "A10",
+      "on_request": false,
+      "operations": [],
+      "phase": "investigate",
+      "target": "provider arn:aws:iam::111122223333:saml-provider/attacker-idp",
+      "title": "Find the roles that trust an identity provider the attacker created",
+      "why": "deleting the provider breaks every login through it; these roles are the ones a login through it could reach, and their trust statements for it should go too"
+    },
+    {
+      "account": "111122223333",
+      "caution": "restore the role's previous trust policy by hand: the logs show the new one, not the old; the new policy names: logins through identity provider arn:aws:iam::111122223333:oidc-provider/login.corp.example.com. A call into the role by a principal it names that had not assumed it before the change is followed as the attacker's",
+      "commands": [
+        "aws iam get-role --role-name data-reader --query Role.AssumeRolePolicyDocument",
+        "aws iam update-assume-role-policy --role-name data-reader --policy-document file://PREVIOUS_TRUST_POLICY.json"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "dd737b72-7fa2-5f4c-8905-86e2df905521"
+      ],
+      "id": "A11",
+      "on_request": false,
+      "operations": [],
+      "phase": "eradicate",
+      "target": "role data-reader",
+      "title": "Undo a permission change",
+      "why": "iam:UpdateAssumeRolePolicy by an in-scope call"
+    },
+    {
+      "account": "111122223333",
+      "caution": "deleting it ends every login through it, and the roles that trust it keep a dangling trust statement: list those roles first (see the investigate steps) and remove the statement from each",
+      "commands": [
+        "aws iam get-open-id-connect-provider --open-id-connect-provider-arn arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com",
+        "aws iam delete-open-id-connect-provider --open-id-connect-provider-arn arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+      ],
+      "confidence": "strong",
+      "disruptive": true,
+      "evidence": [
+        "1e53ffdd-8f58-549b-a23f-5584b5fdb45b"
+      ],
+      "id": "A12",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "provider_arn": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+          },
+          "op": "delete_oidc_provider",
+          "region": null
+        }
+      ],
+      "phase": "eradicate",
+      "target": "provider arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com",
+      "title": "Delete an identity provider the attacker created",
+      "why": "created by an in-scope call; anyone holding a token it signs can assume the roles that trust it, and the sessions obtained through it were followed"
+    },
+    {
+      "account": "111122223333",
+      "caution": "deleting it ends every login through it, and the roles that trust it keep a dangling trust statement: list those roles first (see the investigate steps) and remove the statement from each",
+      "commands": [
+        "aws iam get-saml-provider --saml-provider-arn arn:aws:iam::111122223333:saml-provider/attacker-idp",
+        "aws iam delete-saml-provider --saml-provider-arn arn:aws:iam::111122223333:saml-provider/attacker-idp"
+      ],
+      "confidence": "strong",
+      "disruptive": true,
+      "evidence": [
+        "731349d0-3d9c-5690-a136-e4fa9ed4ebb4"
+      ],
+      "id": "A13",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "provider_arn": "arn:aws:iam::111122223333:saml-provider/attacker-idp"
+          },
+          "op": "delete_saml_provider",
+          "region": null
+        }
+      ],
+      "phase": "eradicate",
+      "target": "provider arn:aws:iam::111122223333:saml-provider/attacker-idp",
+      "title": "Delete an identity provider the attacker created",
+      "why": "created by an in-scope call; anyone holding a token it signs can assume the roles that trust it, and the sessions obtained through it were followed"
+    },
+    {
+      "account": "111122223333",
+      "caution": "the logs show the change but not what it replaced: restore the previous settings from your records. Never delete it: it is not shown to be the attacker's, and every legitimate login through it would stop. Blind spot: a forged token for a subject that had logged in through it before the change cannot be told from that person's real login, so the plan does not follow it: review every login through this provider after the change",
+      "commands": [
+        "aws iam get-open-id-connect-provider --open-id-connect-provider-arn arn:aws:iam::111122223333:oidc-provider/build.example.com"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "4c2f1448-6ca5-55e6-8892-e4046e9dd4a6"
+      ],
+      "id": "A14",
+      "on_request": false,
+      "operations": [],
+      "phase": "eradicate",
+      "target": "provider arn:aws:iam::111122223333:oidc-provider/build.example.com",
+      "title": "Restore an identity provider the attacker changed",
+      "why": "an in-scope call changed its settings (thumbprint, client ids or metadata); logins through it by people not seen using it before the change were followed"
+    },
+    {
+      "account": "111122223333",
+      "caution": "the logs show the change but not what it replaced: restore the previous settings from your records. Never delete it: it is not shown to be the attacker's, and every legitimate login through it would stop. Blind spot: a forged token for a subject that had logged in through it before the change cannot be told from that person's real login, so the plan does not follow it: review every login through this provider after the change",
+      "commands": [
+        "aws iam get-open-id-connect-provider --open-id-connect-provider-arn arn:aws:iam::111122223333:oidc-provider/ci.example.com"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "6283ba6f-7b9e-502c-b01b-8f939064c63e"
+      ],
+      "id": "A15",
+      "on_request": false,
+      "operations": [],
+      "phase": "eradicate",
+      "target": "provider arn:aws:iam::111122223333:oidc-provider/ci.example.com",
+      "title": "Restore an identity provider the attacker changed",
+      "why": "an in-scope call changed its settings (thumbprint, client ids or metadata); logins through it by people not seen using it before the change were followed"
+    },
+    {
+      "account": "111122223333",
+      "caution": "the logs show the change but not what it replaced: restore the previous settings from your records. Never delete it: it is not shown to be the attacker's, and every legitimate login through it would stop. Blind spot: a forged token for a subject that had logged in through it before the change cannot be told from that person's real login, so the plan does not follow it: review every login through this provider after the change",
+      "commands": [
+        "aws iam get-saml-provider --saml-provider-arn arn:aws:iam::111122223333:saml-provider/corp-sso-2"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "2a294808-4bd1-5c08-ba2b-2b899f45874f"
+      ],
+      "id": "A16",
+      "on_request": false,
+      "operations": [],
+      "phase": "eradicate",
+      "target": "provider arn:aws:iam::111122223333:saml-provider/corp-sso-2",
+      "title": "Restore an identity provider the attacker changed",
+      "why": "an in-scope call changed its settings (thumbprint, client ids or metadata); logins through it by people not seen using it before the change were followed"
+    },
+    {
+      "account": "111122223333",
+      "caution": "rotation needs a rotation function; otherwise set a new value and update its users",
+      "commands": [
+        "aws secretsmanager rotate-secret --region us-east-1 --secret-id prod/arnonly",
+        "aws secretsmanager rotate-secret --region us-east-1 --secret-id prod/build",
+        "aws secretsmanager rotate-secret --region us-east-1 --secret-id prod/ci",
+        "aws secretsmanager rotate-secret --region us-east-1 --secret-id prod/data",
+        "aws secretsmanager rotate-secret --region us-east-1 --secret-id prod/db",
+        "aws secretsmanager rotate-secret --region us-east-1 --secret-id prod/issuer",
+        "aws secretsmanager rotate-secret --region us-east-1 --secret-id prod/pipe",
+        "aws secretsmanager rotate-secret --region us-east-1 --secret-id prod/saml",
+        "aws secretsmanager rotate-secret --region us-east-1 --secret-id prod/saml2"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "89229325-1421-5b58-9b97-8db4d04d3723",
+        "26643249-5bff-5ac7-b83d-0c717faca211",
+        "392b0429-543f-5b03-aae8-0d544fd3c5c4",
+        "b7f97c53-c765-54c8-b343-962a21fc8f0c",
+        "6b010987-f1d9-5215-a84b-64f2cf35f730",
+        "61097096-7e03-5cf1-9b63-c5307d005ca7",
+        "911bddd2-9631-5e28-b741-9ec8043bb041",
+        "edfcae7d-87a4-5150-bd8f-b35a639c5864",
+        "c0739cb2-1b9c-5360-a391-839a05383129"
+      ],
+      "id": "A17",
+      "on_request": false,
+      "operations": [],
+      "phase": "recover",
+      "target": "9 secrets: secret prod/arnonly, secret prod/build, secret prod/ci, ...",
+      "title": "Rotate the 9 secrets the attacker read",
+      "why": "each read by an in-scope call"
+    },
+    {
+      "account": "111122223333",
+      "caution": "only once the attacker's access is gone; respond runs this step only when it is named with --steps",
+      "commands": [
+        "aws iam delete-role-policy --role-name build-role --policy-name controlzee-revoke-older-sessions"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "911bddd2-9631-5e28-b741-9ec8043bb041"
+      ],
+      "id": "A18",
+      "on_request": true,
+      "operations": [
+        {
+          "args": {
+            "role": "build-role"
+          },
+          "op": "lift_role_revocation",
+          "region": null
+        }
+      ],
+      "phase": "recover",
+      "target": "role build-role",
+      "title": "Lift the session revocation once the incident is over",
+      "why": "the deny on older credentials stays until it is removed; legitimate users of this role may need it gone"
+    },
+    {
+      "account": "111122223333",
+      "caution": "only once the attacker's access is gone; respond runs this step only when it is named with --steps",
+      "commands": [
+        "aws iam delete-role-policy --role-name ci-web-role --policy-name controlzee-revoke-older-sessions"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "61097096-7e03-5cf1-9b63-c5307d005ca7"
+      ],
+      "id": "A19",
+      "on_request": true,
+      "operations": [
+        {
+          "args": {
+            "role": "ci-web-role"
+          },
+          "op": "lift_role_revocation",
+          "region": null
+        }
+      ],
+      "phase": "recover",
+      "target": "role ci-web-role",
+      "title": "Lift the session revocation once the incident is over",
+      "why": "the deny on older credentials stays until it is removed; legitimate users of this role may need it gone"
+    },
+    {
+      "account": "111122223333",
+      "caution": "only once the attacker's access is gone; respond runs this step only when it is named with --steps",
+      "commands": [
+        "aws iam delete-role-policy --role-name data-reader --policy-name controlzee-revoke-older-sessions"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "c0739cb2-1b9c-5360-a391-839a05383129"
+      ],
+      "id": "A20",
+      "on_request": true,
+      "operations": [
+        {
+          "args": {
+            "role": "data-reader"
+          },
+          "op": "lift_role_revocation",
+          "region": null
+        }
+      ],
+      "phase": "recover",
+      "target": "role data-reader",
+      "title": "Lift the session revocation once the incident is over",
+      "why": "the deny on older credentials stays until it is removed; legitimate users of this role may need it gone"
+    },
+    {
+      "account": "111122223333",
+      "caution": "only once the attacker's access is gone; respond runs this step only when it is named with --steps",
+      "commands": [
+        "aws iam delete-role-policy --role-name saml-admin --policy-name controlzee-revoke-older-sessions"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "6b010987-f1d9-5215-a84b-64f2cf35f730"
+      ],
+      "id": "A21",
+      "on_request": true,
+      "operations": [
+        {
+          "args": {
+            "role": "saml-admin"
+          },
+          "op": "lift_role_revocation",
+          "region": null
+        }
+      ],
+      "phase": "recover",
+      "target": "role saml-admin",
+      "title": "Lift the session revocation once the incident is over",
+      "why": "the deny on older credentials stays until it is removed; legitimate users of this role may need it gone"
+    },
+    {
+      "account": "111122223333",
+      "caution": "only once the attacker's access is gone; respond runs this step only when it is named with --steps",
+      "commands": [
+        "aws iam delete-role-policy --role-name saml-ro --policy-name controlzee-revoke-older-sessions"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "edfcae7d-87a4-5150-bd8f-b35a639c5864"
+      ],
+      "id": "A22",
+      "on_request": true,
+      "operations": [
+        {
+          "args": {
+            "role": "saml-ro"
+          },
+          "op": "lift_role_revocation",
+          "region": null
+        }
+      ],
+      "phase": "recover",
+      "target": "role saml-ro",
+      "title": "Lift the session revocation once the incident is over",
+      "why": "the deny on older credentials stays until it is removed; legitimate users of this role may need it gone"
+    },
+    {
+      "account": "111122223333",
+      "caution": "only once the attacker's access is gone; respond runs this step only when it is named with --steps",
+      "commands": [
+        "aws iam delete-role-policy --role-name web-deploy --policy-name controlzee-revoke-older-sessions"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "89229325-1421-5b58-9b97-8db4d04d3723",
+        "26643249-5bff-5ac7-b83d-0c717faca211",
+        "392b0429-543f-5b03-aae8-0d544fd3c5c4",
+        "b7f97c53-c765-54c8-b343-962a21fc8f0c"
+      ],
+      "id": "A23",
+      "on_request": true,
+      "operations": [
+        {
+          "args": {
+            "role": "web-deploy"
+          },
+          "op": "lift_role_revocation",
+          "region": null
+        }
+      ],
+      "phase": "recover",
+      "target": "role web-deploy",
+      "title": "Lift the session revocation once the incident is over",
+      "why": "the deny on older credentials stays until it is removed; legitimate users of this role may need it gone"
+    },
+    {
+      "account": "111122223333",
+      "caution": "the new secret is shown once: create it where the owner's secret store can take it, and find out how the old one leaked",
+      "commands": [
+        "aws iam create-access-key --user-name ci-deploy",
+        "aws iam delete-access-key --user-name ci-deploy --access-key-id AKIAIOSFODNN7LEAKED"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "ea972266-d206-5a49-9154-6b3c92801147",
+        "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+        "731349d0-3d9c-5690-a136-e4fa9ed4ebb4",
+        "dd737b72-7fa2-5f4c-8905-86e2df905521",
+        "b28638c9-2b83-5857-ba09-3d580928864b",
+        "b0c2bd4b-a6bc-560d-8699-fc56e34c77d4",
+        "cf538fa5-c998-5d89-b11a-3f998e59f186",
+        "ff758e4f-6b76-51e2-9b12-ef0d3c0583d6",
+        "dffede70-4239-5e48-a130-510c0252371b",
+        "295d6971-f41c-5133-aa3b-ef76c46d8c25"
+      ],
+      "id": "A24",
+      "on_request": false,
+      "operations": [],
+      "phase": "recover",
+      "target": "user ci-deploy, replacing AKIAIOSFODNN7LEAKED",
+      "title": "Give the key's owner a new key, then delete the old one",
+      "why": "its key was deactivated in the contain steps"
+    }
+  ],
+  "notes": [
+    "steps with operations can be carried out by `controlzee respond` after a dry run and your approval; the others are for a person. Either way, review each one first",
+    "work through the phases in order; within contain, act quickly, since the attacker may notice"
+  ],
+  "plan_sha256": "9ca909766d3efda81b26d76b840c49d3b65d7fecf75feb48081eff1d7ae8370b",
+  "schema_version": "0.4",
+  "scope_sha256": "7eb292e580ed37c932b8aed5ac28508e624b758b1979215ec630128db8aae17f",
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}

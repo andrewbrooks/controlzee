@@ -1,0 +1,1297 @@
+{
+  "actors": [
+    {
+      "access_keys": [
+        "AKIAIOSFODNN7LEAKED"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+      "confidence": "strong",
+      "events": 13,
+      "first_event_time": "2026-10-21T10:00:00Z",
+      "label": "user/ci-deploy",
+      "last_event_time": "2026-10-21T10:08:00Z",
+      "principal_id": "AIDA5D934EC130750BA8C",
+      "source_ips": [
+        "198.51.100.77"
+      ],
+      "tainted": false,
+      "user_agents": [
+        "python-requests/2.31.0"
+      ]
+    },
+    {
+      "access_keys": [],
+      "account": null,
+      "arn": null,
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:10:00Z",
+      "label": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com:sts.example.com:attacker-sub-1",
+      "last_event_time": "2026-10-21T10:10:00Z",
+      "principal_id": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com:sts.example.com:attacker-sub-1",
+      "source_ips": [
+        "198.51.100.90"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-sdk-go/1.44.0"
+      ]
+    },
+    {
+      "access_keys": [
+        "ASIAIOSFODNN7ATK01A"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-web",
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:12:00Z",
+      "label": "assumed-role/web-deploy/atk-web",
+      "last_event_time": "2026-10-21T10:12:00Z",
+      "principal_id": "AROA51A2ADF90BE9BFA6E:atk-web",
+      "source_ips": [
+        "198.51.100.90"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-cli/2.15.0"
+      ]
+    },
+    {
+      "access_keys": [],
+      "account": null,
+      "arn": null,
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:13:00Z",
+      "label": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com:sts.example.com:evil|sub",
+      "last_event_time": "2026-10-21T10:13:00Z",
+      "principal_id": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com:sts.example.com:evil|sub",
+      "source_ips": [
+        "198.51.100.90"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-sdk-go/1.44.0"
+      ]
+    },
+    {
+      "access_keys": [
+        "ASIAIOSFODNN7ATK01B"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-pipe",
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:13:30Z",
+      "label": "assumed-role/web-deploy/atk-pipe",
+      "last_event_time": "2026-10-21T10:13:30Z",
+      "principal_id": "AROA51A2ADF90BE9BFA6E:atk-pipe",
+      "source_ips": [
+        "198.51.100.90"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-cli/2.15.0"
+      ]
+    },
+    {
+      "access_keys": [],
+      "account": null,
+      "arn": null,
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:14:00Z",
+      "label": "token.attacker.example.com:sts.example.com:attacker-sub-1b",
+      "last_event_time": "2026-10-21T10:14:00Z",
+      "principal_id": "token.attacker.example.com:sts.example.com:attacker-sub-1b",
+      "source_ips": [
+        "198.51.100.90"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-sdk-go/1.44.0"
+      ]
+    },
+    {
+      "access_keys": [
+        "ASIAIOSFODNN7ATK01C"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-iss",
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:14:30Z",
+      "label": "assumed-role/web-deploy/atk-iss",
+      "last_event_time": "2026-10-21T10:14:30Z",
+      "principal_id": "AROA51A2ADF90BE9BFA6E:atk-iss",
+      "source_ips": [
+        "198.51.100.90"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-cli/2.15.0"
+      ]
+    },
+    {
+      "access_keys": [],
+      "account": null,
+      "arn": null,
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:15:00Z",
+      "label": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com:sts.example.com:attacker-sub-1c",
+      "last_event_time": "2026-10-21T10:15:00Z",
+      "principal_id": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com:sts.example.com:attacker-sub-1c",
+      "source_ips": [
+        "198.51.100.90"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-sdk-go/1.44.0"
+      ]
+    },
+    {
+      "access_keys": [
+        "ASIAIOSFODNN7ATK01D"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-arn",
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:15:30Z",
+      "label": "assumed-role/web-deploy/atk-arn",
+      "last_event_time": "2026-10-21T10:15:30Z",
+      "principal_id": "AROA51A2ADF90BE9BFA6E:atk-arn",
+      "source_ips": [
+        "198.51.100.90"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-cli/2.15.0"
+      ]
+    },
+    {
+      "access_keys": [],
+      "account": null,
+      "arn": null,
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:20:00Z",
+      "label": "AROAC71959ACA2AAD6325:attacker@evil.example",
+      "last_event_time": "2026-10-21T10:20:00Z",
+      "principal_id": "AROAC71959ACA2AAD6325:attacker@evil.example",
+      "source_ips": [
+        "198.51.100.91"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-sdk-go/1.44.0"
+      ]
+    },
+    {
+      "access_keys": [
+        "ASIAIOSFODNN7SAMLA1"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:sts::111122223333:assumed-role/saml-admin/atk-saml",
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:22:00Z",
+      "label": "assumed-role/saml-admin/atk-saml",
+      "last_event_time": "2026-10-21T10:22:00Z",
+      "principal_id": "AROAC71959ACA2AAD6325:atk-saml",
+      "source_ips": [
+        "198.51.100.91"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-cli/2.15.0"
+      ]
+    },
+    {
+      "access_keys": [],
+      "account": null,
+      "arn": null,
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:30:00Z",
+      "label": "arn:aws:iam::111122223333:oidc-provider/ci.example.com:sts.example.com:attacker-sub-3",
+      "last_event_time": "2026-10-21T10:30:00Z",
+      "principal_id": "arn:aws:iam::111122223333:oidc-provider/ci.example.com:sts.example.com:attacker-sub-3",
+      "source_ips": [
+        "198.51.100.90"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-sdk-go/1.44.0"
+      ]
+    },
+    {
+      "access_keys": [
+        "ASIAIOSFODNN7CHG001"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:sts::111122223333:assumed-role/ci-web-role/atk-ci",
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:31:00Z",
+      "label": "assumed-role/ci-web-role/atk-ci",
+      "last_event_time": "2026-10-21T10:31:00Z",
+      "principal_id": "AROA03D10AA5F9EF88038:atk-ci",
+      "source_ips": [
+        "198.51.100.90"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-cli/2.15.0"
+      ]
+    },
+    {
+      "access_keys": [],
+      "account": null,
+      "arn": null,
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:36:00Z",
+      "label": "arn:aws:iam::111122223333:oidc-provider/build.example.com:sts.example.com:attacker-sub-3b",
+      "last_event_time": "2026-10-21T10:36:00Z",
+      "principal_id": "arn:aws:iam::111122223333:oidc-provider/build.example.com:sts.example.com:attacker-sub-3b",
+      "source_ips": [
+        "198.51.100.90"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-sdk-go/1.44.0"
+      ]
+    },
+    {
+      "access_keys": [
+        "ASIAIOSFODNN7BLD002"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:sts::111122223333:assumed-role/build-role/atk-build",
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:37:00Z",
+      "label": "assumed-role/build-role/atk-build",
+      "last_event_time": "2026-10-21T10:37:00Z",
+      "principal_id": "AROAB05F7A44196F8A544:atk-build",
+      "source_ips": [
+        "198.51.100.90"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-cli/2.15.0"
+      ]
+    },
+    {
+      "access_keys": [],
+      "account": null,
+      "arn": null,
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:40:00Z",
+      "label": "AROA84B0409CF8DD80180:mallory@evil.example",
+      "last_event_time": "2026-10-21T10:40:00Z",
+      "principal_id": "AROA84B0409CF8DD80180:mallory@evil.example",
+      "source_ips": [
+        "198.51.100.91"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-sdk-go/1.44.0"
+      ]
+    },
+    {
+      "access_keys": [
+        "ASIAIOSFODNN7SAMLM1"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:sts::111122223333:assumed-role/saml-ro/atk-saml2",
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:41:00Z",
+      "label": "assumed-role/saml-ro/atk-saml2",
+      "last_event_time": "2026-10-21T10:41:00Z",
+      "principal_id": "AROA84B0409CF8DD80180:atk-saml2",
+      "source_ips": [
+        "198.51.100.91"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-cli/2.15.0"
+      ]
+    },
+    {
+      "access_keys": [],
+      "account": null,
+      "arn": null,
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:50:00Z",
+      "label": "arn:aws:iam::111122223333:oidc-provider/login.corp.example.com:sts.example.com:attacker-sub-5",
+      "last_event_time": "2026-10-21T10:50:00Z",
+      "principal_id": "arn:aws:iam::111122223333:oidc-provider/login.corp.example.com:sts.example.com:attacker-sub-5",
+      "source_ips": [
+        "198.51.100.90"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-sdk-go/1.44.0"
+      ]
+    },
+    {
+      "access_keys": [
+        "ASIAIOSFODNN7DRA001"
+      ],
+      "account": "111122223333",
+      "arn": "arn:aws:sts::111122223333:assumed-role/data-reader/atk-data",
+      "confidence": "strong",
+      "events": 1,
+      "first_event_time": "2026-10-21T10:51:00Z",
+      "label": "assumed-role/data-reader/atk-data",
+      "last_event_time": "2026-10-21T10:51:00Z",
+      "principal_id": "AROAE97A7DD30BE371102:atk-data",
+      "source_ips": [
+        "198.51.100.90"
+      ],
+      "tainted": true,
+      "user_agents": [
+        "aws-cli/2.15.0"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "account": "111122223333",
+      "action": "sts:GetCallerIdentity",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "ea972266-d206-5a49-9154-6b3c92801147",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "discovery",
+      "targets": [],
+      "time": "2026-10-21T10:00:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:CreateOpenIDConnectProvider",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [],
+      "time": "2026-10-21T10:01:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:CreateSAMLProvider",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "731349d0-3d9c-5690-a136-e4fa9ed4ebb4",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [],
+      "time": "2026-10-21T10:02:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:UpdateAssumeRolePolicy",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "dd737b72-7fa2-5f4c-8905-86e2df905521",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [
+        "role data-reader"
+      ],
+      "time": "2026-10-21T10:03:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:CreateOpenIDConnectProvider",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "b28638c9-2b83-5857-ba09-3d580928864b",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "LimitExceeded",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [],
+      "time": "2026-10-21T10:04:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:CreateOpenIDConnectProvider",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "b0c2bd4b-a6bc-560d-8699-fc56e34c77d4",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [],
+      "time": "2026-10-21T10:05:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:CreateOpenIDConnectProvider",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "cf538fa5-c998-5d89-b11a-3f998e59f186",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [],
+      "time": "2026-10-21T10:05:12Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:CreateOpenIDConnectProvider",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "ff758e4f-6b76-51e2-9b12-ef0d3c0583d6",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [],
+      "time": "2026-10-21T10:05:24Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:CreateOpenIDConnectProvider",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "dffede70-4239-5e48-a130-510c0252371b",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [],
+      "time": "2026-10-21T10:05:36Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:CreateSAMLProvider",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "295d6971-f41c-5133-aa3b-ef76c46d8c25",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [],
+      "time": "2026-10-21T10:05:48Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:AddClientIDToOpenIDConnectProvider",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "6283ba6f-7b9e-502c-b01b-8f939064c63e",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [],
+      "time": "2026-10-21T10:06:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:UpdateOpenIDConnectProviderThumbprint",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "4c2f1448-6ca5-55e6-8892-e4046e9dd4a6",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [],
+      "time": "2026-10-21T10:07:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "iam:UpdateSAMLProvider",
+      "actor": "user/ci-deploy",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "2a294808-4bd1-5c08-ba2b-2b899f45874f",
+      "kind": "event",
+      "note": null,
+      "origin": "seed",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.77",
+      "tactic": "persistence",
+      "targets": [],
+      "time": "2026-10-21T10:08:00Z",
+      "via": null
+    },
+    {
+      "account": "111122223333",
+      "action": "sts:AssumeRoleWithWebIdentity",
+      "actor": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com:sts.example.com:attacker-sub-1",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "231ad8cc-b446-5070-b2bf-30c49d43c5e2",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "lateral-movement",
+      "targets": [
+        "role arn:aws:iam::111122223333:role/web-deploy"
+      ],
+      "time": "2026-10-21T10:10:00Z",
+      "via": "provider_arn:arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+    },
+    {
+      "account": "111122223333",
+      "action": "secretsmanager:GetSecretValue",
+      "actor": "assumed-role/web-deploy/atk-web",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "89229325-1421-5b58-9b97-8db4d04d3723",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "credential-access",
+      "targets": [
+        "secret prod/db"
+      ],
+      "time": "2026-10-21T10:12:00Z",
+      "via": "access_key_id:ASIAIOSFODNN7ATK01A"
+    },
+    {
+      "account": "111122223333",
+      "action": "sts:AssumeRoleWithWebIdentity",
+      "actor": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com:sts.example.com:evil|sub",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "06f25fbb-c171-5a46-92b8-1b7babf13e04",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "lateral-movement",
+      "targets": [
+        "role arn:aws:iam::111122223333:role/web-deploy"
+      ],
+      "time": "2026-10-21T10:13:00Z",
+      "via": "provider_arn:arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+    },
+    {
+      "account": "111122223333",
+      "action": "secretsmanager:GetSecretValue",
+      "actor": "assumed-role/web-deploy/atk-pipe",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "26643249-5bff-5ac7-b83d-0c717faca211",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "credential-access",
+      "targets": [
+        "secret prod/pipe"
+      ],
+      "time": "2026-10-21T10:13:30Z",
+      "via": "access_key_id:ASIAIOSFODNN7ATK01B"
+    },
+    {
+      "account": "111122223333",
+      "action": "sts:AssumeRoleWithWebIdentity",
+      "actor": "token.attacker.example.com:sts.example.com:attacker-sub-1b",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "24e1ac5d-49ce-53e9-a0b3-e0654c8c6f96",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "lateral-movement",
+      "targets": [
+        "role arn:aws:iam::111122223333:role/web-deploy"
+      ],
+      "time": "2026-10-21T10:14:00Z",
+      "via": "provider_arn:arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+    },
+    {
+      "account": "111122223333",
+      "action": "secretsmanager:GetSecretValue",
+      "actor": "assumed-role/web-deploy/atk-iss",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "392b0429-543f-5b03-aae8-0d544fd3c5c4",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "credential-access",
+      "targets": [
+        "secret prod/issuer"
+      ],
+      "time": "2026-10-21T10:14:30Z",
+      "via": "access_key_id:ASIAIOSFODNN7ATK01C"
+    },
+    {
+      "account": "111122223333",
+      "action": "sts:AssumeRoleWithWebIdentity",
+      "actor": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com:sts.example.com:attacker-sub-1c",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "c76f14b3-7fc6-5549-a468-18936832728b",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "lateral-movement",
+      "targets": [
+        "role arn:aws:iam::111122223333:role/web-deploy"
+      ],
+      "time": "2026-10-21T10:15:00Z",
+      "via": "provider_arn:arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+    },
+    {
+      "account": "111122223333",
+      "action": "secretsmanager:GetSecretValue",
+      "actor": "assumed-role/web-deploy/atk-arn",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "b7f97c53-c765-54c8-b343-962a21fc8f0c",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "credential-access",
+      "targets": [
+        "secret prod/arnonly"
+      ],
+      "time": "2026-10-21T10:15:30Z",
+      "via": "access_key_id:ASIAIOSFODNN7ATK01D"
+    },
+    {
+      "account": "111122223333",
+      "action": "sts:AssumeRoleWithSAML",
+      "actor": "AROAC71959ACA2AAD6325:attacker@evil.example",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "020f2058-bef7-56bf-aa42-f8660750fd5c",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.91",
+      "tactic": "lateral-movement",
+      "targets": [
+        "role arn:aws:iam::111122223333:role/saml-admin"
+      ],
+      "time": "2026-10-21T10:20:00Z",
+      "via": "provider_arn:arn:aws:iam::111122223333:saml-provider/attacker-idp"
+    },
+    {
+      "account": "111122223333",
+      "action": "secretsmanager:GetSecretValue",
+      "actor": "assumed-role/saml-admin/atk-saml",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "6b010987-f1d9-5215-a84b-64f2cf35f730",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.91",
+      "tactic": "credential-access",
+      "targets": [
+        "secret prod/saml"
+      ],
+      "time": "2026-10-21T10:22:00Z",
+      "via": "access_key_id:ASIAIOSFODNN7SAMLA1"
+    },
+    {
+      "account": "111122223333",
+      "action": "sts:AssumeRoleWithWebIdentity",
+      "actor": "arn:aws:iam::111122223333:oidc-provider/ci.example.com:sts.example.com:attacker-sub-3",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "227dd789-d0f9-5c95-94df-e09ec0fa7c4e",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "lateral-movement",
+      "targets": [
+        "role arn:aws:iam::111122223333:role/ci-web-role"
+      ],
+      "time": "2026-10-21T10:30:00Z",
+      "via": "changed_provider:arn:aws:iam::111122223333:oidc-provider/ci.example.com"
+    },
+    {
+      "account": "111122223333",
+      "action": "secretsmanager:GetSecretValue",
+      "actor": "assumed-role/ci-web-role/atk-ci",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "61097096-7e03-5cf1-9b63-c5307d005ca7",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "credential-access",
+      "targets": [
+        "secret prod/ci"
+      ],
+      "time": "2026-10-21T10:31:00Z",
+      "via": "access_key_id:ASIAIOSFODNN7CHG001"
+    },
+    {
+      "account": "111122223333",
+      "action": "sts:AssumeRoleWithWebIdentity",
+      "actor": "arn:aws:iam::111122223333:oidc-provider/build.example.com:sts.example.com:attacker-sub-3b",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "0917512d-d59a-5b71-94a1-169b666fade8",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "lateral-movement",
+      "targets": [
+        "role arn:aws:iam::111122223333:role/build-role"
+      ],
+      "time": "2026-10-21T10:36:00Z",
+      "via": "changed_provider:arn:aws:iam::111122223333:oidc-provider/build.example.com"
+    },
+    {
+      "account": "111122223333",
+      "action": "secretsmanager:GetSecretValue",
+      "actor": "assumed-role/build-role/atk-build",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "911bddd2-9631-5e28-b741-9ec8043bb041",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "credential-access",
+      "targets": [
+        "secret prod/build"
+      ],
+      "time": "2026-10-21T10:37:00Z",
+      "via": "access_key_id:ASIAIOSFODNN7BLD002"
+    },
+    {
+      "account": "111122223333",
+      "action": "sts:AssumeRoleWithSAML",
+      "actor": "AROA84B0409CF8DD80180:mallory@evil.example",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "431d17fe-e67a-50d0-854d-08b8ff90f490",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.91",
+      "tactic": "lateral-movement",
+      "targets": [
+        "role arn:aws:iam::111122223333:role/saml-ro"
+      ],
+      "time": "2026-10-21T10:40:00Z",
+      "via": "changed_provider:arn:aws:iam::111122223333:saml-provider/corp-sso-2"
+    },
+    {
+      "account": "111122223333",
+      "action": "secretsmanager:GetSecretValue",
+      "actor": "assumed-role/saml-ro/atk-saml2",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "edfcae7d-87a4-5150-bd8f-b35a639c5864",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.91",
+      "tactic": "credential-access",
+      "targets": [
+        "secret prod/saml2"
+      ],
+      "time": "2026-10-21T10:41:00Z",
+      "via": "access_key_id:ASIAIOSFODNN7SAMLM1"
+    },
+    {
+      "account": "111122223333",
+      "action": "sts:AssumeRoleWithWebIdentity",
+      "actor": "arn:aws:iam::111122223333:oidc-provider/login.corp.example.com:sts.example.com:attacker-sub-5",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "e55f68b0-5856-5617-b6c6-c89e403c2e6c",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "lateral-movement",
+      "targets": [
+        "role arn:aws:iam::111122223333:role/data-reader"
+      ],
+      "time": "2026-10-21T10:50:00Z",
+      "via": "trusted_by:data-reader|federated:arn:aws:iam::111122223333:oidc-provider/login.corp.example.com"
+    },
+    {
+      "account": "111122223333",
+      "action": "secretsmanager:GetSecretValue",
+      "actor": "assumed-role/data-reader/atk-data",
+      "confidence": "strong",
+      "end": null,
+      "event_id": "c0739cb2-1b9c-5360-a391-839a05383129",
+      "kind": "event",
+      "note": null,
+      "origin": "propagated",
+      "outcome": "ok",
+      "region": "us-east-1",
+      "source_ip": "198.51.100.90",
+      "tactic": "credential-access",
+      "targets": [
+        "secret prod/data"
+      ],
+      "time": "2026-10-21T10:51:00Z",
+      "via": "access_key_id:ASIAIOSFODNN7DRA001"
+    }
+  ],
+  "exposure": {
+    "accounts": [
+      "111122223333"
+    ],
+    "admin_granted": false,
+    "credentials_read": [
+      "secret prod/arnonly",
+      "secret prod/build",
+      "secret prod/ci",
+      "secret prod/data",
+      "secret prod/db",
+      "secret prod/issuer",
+      "secret prod/pipe",
+      "secret prod/saml",
+      "secret prod/saml2"
+    ],
+    "instance_role_use": [],
+    "notes": [
+      "9 secret(s) or parameter(s) were read: treat their values as known to the attacker",
+      "the inputs have no data events, so object-level S3 access (and similar) cannot be listed here",
+      "the trust policy of role data-reader was changed and names logins through identity provider arn:aws:iam::111122223333:oidc-provider/login.corp.example.com; the logs hold the new policy and not the old, so which of these were added is not shown",
+      "identity provider arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com was created by an in-scope call: anyone holding a token it signs can assume the roles that trust it, with no AWS access key; deactivating keys and deleting users does not close this",
+      "identity provider arn:aws:iam::111122223333:saml-provider/attacker-idp was created by an in-scope call: anyone holding a token it signs can assume the roles that trust it, with no AWS access key; deactivating keys and deleting users does not close this",
+      "identity provider arn:aws:iam::111122223333:oidc-provider/build.example.com existed before and was changed by an in-scope call (thumbprint, client id or metadata): the attacker may be able to sign in through it as someone new; the logs show the change and not the previous settings. Blind spot: a forged token for a subject that had logged in through it before the change cannot be told from the real login, so such logins are not followed: review every login through this provider after the change",
+      "identity provider arn:aws:iam::111122223333:oidc-provider/ci.example.com existed before and was changed by an in-scope call (thumbprint, client id or metadata): the attacker may be able to sign in through it as someone new; the logs show the change and not the previous settings. Blind spot: a forged token for a subject that had logged in through it before the change cannot be told from the real login, so such logins are not followed: review every login through this provider after the change",
+      "identity provider arn:aws:iam::111122223333:saml-provider/corp-sso-2 existed before and was changed by an in-scope call (thumbprint, client id or metadata): the attacker may be able to sign in through it as someone new; the logs show the change and not the previous settings. Blind spot: a forged token for a subject that had logged in through it before the change cannot be told from the real login, so such logins are not followed: review every login through this provider after the change"
+    ],
+    "privilege_changes": [
+      {
+        "action": "iam:UpdateAssumeRolePolicy",
+        "admin": false,
+        "event_id": "dd737b72-7fa2-5f4c-8905-86e2df905521",
+        "outcome": "ok",
+        "policy": null,
+        "principal": "role data-reader",
+        "time": "2026-10-21T10:03:00Z"
+      }
+    ],
+    "resources": [
+      {
+        "access": "write",
+        "actions": [
+          "iam:UpdateAssumeRolePolicy"
+        ],
+        "event_ids": [
+          "dd737b72-7fa2-5f4c-8905-86e2df905521"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-21T10:03:00Z",
+        "last_event_time": "2026-10-21T10:03:00Z",
+        "name": "data-reader",
+        "service": "iam",
+        "type": "role"
+      },
+      {
+        "access": "read",
+        "actions": [
+          "secretsmanager:GetSecretValue"
+        ],
+        "event_ids": [
+          "b7f97c53-c765-54c8-b343-962a21fc8f0c"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-21T10:15:30Z",
+        "last_event_time": "2026-10-21T10:15:30Z",
+        "name": "prod/arnonly",
+        "service": "secretsmanager",
+        "type": "secret"
+      },
+      {
+        "access": "read",
+        "actions": [
+          "secretsmanager:GetSecretValue"
+        ],
+        "event_ids": [
+          "911bddd2-9631-5e28-b741-9ec8043bb041"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-21T10:37:00Z",
+        "last_event_time": "2026-10-21T10:37:00Z",
+        "name": "prod/build",
+        "service": "secretsmanager",
+        "type": "secret"
+      },
+      {
+        "access": "read",
+        "actions": [
+          "secretsmanager:GetSecretValue"
+        ],
+        "event_ids": [
+          "61097096-7e03-5cf1-9b63-c5307d005ca7"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-21T10:31:00Z",
+        "last_event_time": "2026-10-21T10:31:00Z",
+        "name": "prod/ci",
+        "service": "secretsmanager",
+        "type": "secret"
+      },
+      {
+        "access": "read",
+        "actions": [
+          "secretsmanager:GetSecretValue"
+        ],
+        "event_ids": [
+          "c0739cb2-1b9c-5360-a391-839a05383129"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-21T10:51:00Z",
+        "last_event_time": "2026-10-21T10:51:00Z",
+        "name": "prod/data",
+        "service": "secretsmanager",
+        "type": "secret"
+      },
+      {
+        "access": "read",
+        "actions": [
+          "secretsmanager:GetSecretValue"
+        ],
+        "event_ids": [
+          "89229325-1421-5b58-9b97-8db4d04d3723"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-21T10:12:00Z",
+        "last_event_time": "2026-10-21T10:12:00Z",
+        "name": "prod/db",
+        "service": "secretsmanager",
+        "type": "secret"
+      },
+      {
+        "access": "read",
+        "actions": [
+          "secretsmanager:GetSecretValue"
+        ],
+        "event_ids": [
+          "392b0429-543f-5b03-aae8-0d544fd3c5c4"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-21T10:14:30Z",
+        "last_event_time": "2026-10-21T10:14:30Z",
+        "name": "prod/issuer",
+        "service": "secretsmanager",
+        "type": "secret"
+      },
+      {
+        "access": "read",
+        "actions": [
+          "secretsmanager:GetSecretValue"
+        ],
+        "event_ids": [
+          "26643249-5bff-5ac7-b83d-0c717faca211"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-21T10:13:30Z",
+        "last_event_time": "2026-10-21T10:13:30Z",
+        "name": "prod/pipe",
+        "service": "secretsmanager",
+        "type": "secret"
+      },
+      {
+        "access": "read",
+        "actions": [
+          "secretsmanager:GetSecretValue"
+        ],
+        "event_ids": [
+          "6b010987-f1d9-5215-a84b-64f2cf35f730"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-21T10:22:00Z",
+        "last_event_time": "2026-10-21T10:22:00Z",
+        "name": "prod/saml",
+        "service": "secretsmanager",
+        "type": "secret"
+      },
+      {
+        "access": "read",
+        "actions": [
+          "secretsmanager:GetSecretValue"
+        ],
+        "event_ids": [
+          "edfcae7d-87a4-5150-bd8f-b35a639c5864"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-21T10:41:00Z",
+        "last_event_time": "2026-10-21T10:41:00Z",
+        "name": "prod/saml2",
+        "service": "secretsmanager",
+        "type": "secret"
+      },
+      {
+        "access": "assume",
+        "actions": [
+          "sts:AssumeRoleWithWebIdentity"
+        ],
+        "event_ids": [
+          "0917512d-d59a-5b71-94a1-169b666fade8"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-21T10:36:00Z",
+        "last_event_time": "2026-10-21T10:36:00Z",
+        "name": "arn:aws:iam::111122223333:role/build-role",
+        "service": "sts",
+        "type": "role"
+      },
+      {
+        "access": "assume",
+        "actions": [
+          "sts:AssumeRoleWithWebIdentity"
+        ],
+        "event_ids": [
+          "227dd789-d0f9-5c95-94df-e09ec0fa7c4e"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-21T10:30:00Z",
+        "last_event_time": "2026-10-21T10:30:00Z",
+        "name": "arn:aws:iam::111122223333:role/ci-web-role",
+        "service": "sts",
+        "type": "role"
+      },
+      {
+        "access": "assume",
+        "actions": [
+          "sts:AssumeRoleWithWebIdentity"
+        ],
+        "event_ids": [
+          "e55f68b0-5856-5617-b6c6-c89e403c2e6c"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-21T10:50:00Z",
+        "last_event_time": "2026-10-21T10:50:00Z",
+        "name": "arn:aws:iam::111122223333:role/data-reader",
+        "service": "sts",
+        "type": "role"
+      },
+      {
+        "access": "assume",
+        "actions": [
+          "sts:AssumeRoleWithSAML"
+        ],
+        "event_ids": [
+          "020f2058-bef7-56bf-aa42-f8660750fd5c"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-21T10:20:00Z",
+        "last_event_time": "2026-10-21T10:20:00Z",
+        "name": "arn:aws:iam::111122223333:role/saml-admin",
+        "service": "sts",
+        "type": "role"
+      },
+      {
+        "access": "assume",
+        "actions": [
+          "sts:AssumeRoleWithSAML"
+        ],
+        "event_ids": [
+          "431d17fe-e67a-50d0-854d-08b8ff90f490"
+        ],
+        "events": 1,
+        "failed": 0,
+        "first_event_time": "2026-10-21T10:40:00Z",
+        "last_event_time": "2026-10-21T10:40:00Z",
+        "name": "arn:aws:iam::111122223333:role/saml-ro",
+        "service": "sts",
+        "type": "role"
+      },
+      {
+        "access": "assume",
+        "actions": [
+          "sts:AssumeRoleWithWebIdentity"
+        ],
+        "event_ids": [
+          "231ad8cc-b446-5070-b2bf-30c49d43c5e2",
+          "06f25fbb-c171-5a46-92b8-1b7babf13e04",
+          "24e1ac5d-49ce-53e9-a0b3-e0654c8c6f96",
+          "c76f14b3-7fc6-5549-a468-18936832728b"
+        ],
+        "events": 4,
+        "failed": 0,
+        "first_event_time": "2026-10-21T10:10:00Z",
+        "last_event_time": "2026-10-21T10:15:00Z",
+        "name": "arn:aws:iam::111122223333:role/web-deploy",
+        "service": "sts",
+        "type": "role"
+      }
+    ]
+  },
+  "schema_version": "0.4",
+  "scope_sha256": "7eb292e580ed37c932b8aed5ac28508e624b758b1979215ec630128db8aae17f",
+  "tactics": [
+    {
+      "events": 11,
+      "failed": 1,
+      "first_event_time": "2026-10-21T10:01:00Z",
+      "tactic": "persistence"
+    },
+    {
+      "events": 9,
+      "failed": 0,
+      "first_event_time": "2026-10-21T10:12:00Z",
+      "tactic": "credential-access"
+    },
+    {
+      "events": 1,
+      "failed": 0,
+      "first_event_time": "2026-10-21T10:00:00Z",
+      "tactic": "discovery"
+    },
+    {
+      "events": 9,
+      "failed": 0,
+      "first_event_time": "2026-10-21T10:10:00Z",
+      "tactic": "lateral-movement"
+    }
+  ],
+  "timeline_sha256": "2bbb214553fc47ba6948b3d5d51231ce4f054f683f38f544cc0e83cb02056a14",
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}

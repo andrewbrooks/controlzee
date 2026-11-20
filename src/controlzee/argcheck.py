@@ -12,10 +12,10 @@ from typing import Final
 
 from controlzee.respond.ops import SHAPES
 
-PROFILE: Final = re.compile(r"^[\w.+@-]{1,64}$")
+PROFILE: Final = re.compile(r"^[\w.+@-]{1,64}$", re.ASCII)
 BUCKET: Final = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
 PREFIX: Final = re.compile(
-    r"^[\w!\-.*'()/=+@,;:&$ ]{0,1024}$"
+    r"^[\w!\-.*'()/=+@,;:&$ ]{0,1024}$", re.ASCII
 )  # S3's "safe" key characters, plus a few common ones
 ACTION_ID: Final = re.compile(r"^A\d{2,4}$")
 APPROVAL: Final = re.compile(r"^[0-9a-f]{12,64}$")
@@ -26,22 +26,22 @@ class ArgError(ValueError):
 
 
 def profile(value: str | None) -> str | None:
-    if value is not None and not PROFILE.match(value):
+    if value is not None and not PROFILE.fullmatch(value):
         raise ArgError("--aws-profile must be a profile name (letters, digits and . _ + @ -, at most 64)")
     return value
 
 
 def region(value: str, option: str) -> str:
-    if not SHAPES["region"].match(value):
+    if not SHAPES["region"].fullmatch(value):
         raise ArgError(f"{option} must be an AWS region such as us-east-1")
     return value
 
 
 def s3_url(value: str) -> str:
     bucket, _, prefix = value[5:].partition("/")
-    if not BUCKET.match(bucket) or ".." in bucket:
+    if not BUCKET.fullmatch(bucket) or ".." in bucket:
         raise ArgError("an s3:// URL must name a valid bucket: s3://bucket/prefix")
-    if not PREFIX.match(prefix):
+    if not PREFIX.fullmatch(prefix):
         raise ArgError("the S3 prefix contains characters controlzee does not accept")
     return value
 
@@ -51,14 +51,14 @@ def steps(value: str | None) -> set[str] | None:
     if value is None:
         return None
     ids = [s.strip() for s in value.split(",") if s.strip()]
-    if not ids or any(not ACTION_ID.match(i) for i in ids):
+    if not ids or any(not ACTION_ID.fullmatch(i) for i in ids):
         raise ArgError("--steps takes plan step ids separated by commas, such as A01,A03")
     return set(ids)
 
 
 def approval(value: str) -> str:
     v = value.strip().lower()
-    if not APPROVAL.match(v):
+    if not APPROVAL.fullmatch(v):
         raise ArgError(
             "--approve takes the dry run's sha256 (at least its first 12 hex characters), as printed by the dry run"
         )

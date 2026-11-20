@@ -970,7 +970,9 @@
             "role_id",
             "instance_id",
             "function_name",
-            "trusted_by"
+            "trusted_by",
+            "provider_arn",
+            "changed_provider"
           ],
           "title": "Kind",
           "type": "string"

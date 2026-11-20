@@ -101,7 +101,7 @@ and the instance operations (remove the instance profile, stop, snapshot, termin
 have (see `docs/field-testing.md`) detaching a user, group and role policy, removing a user from a group, deleting a
 console password, a user and a role, revoking and lifting a user's sessions, deleting a key the attacker made on an
 existing user, the four logging and detection restores and the three operations that delete an inline policy
-(`delete_user_policy`, `delete_role_policy`, `delete_group_policy`). All 26 `respond` operations have now run on a real
+(`delete_user_policy`, `delete_role_policy`, `delete_group_policy`). All 28 `respond` operations have now run on a real
 account.
 
 **Logging and detection restoration.** `start_logging`, `start_config_recorder`, `enable_guardduty` and
