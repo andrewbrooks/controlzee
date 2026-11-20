@@ -395,7 +395,7 @@
       "outcome": "ok",
       "region": "us-east-1",
       "source_ip": "198.51.100.77",
-      "tactic": "other",
+      "tactic": "persistence",
       "targets": [],
       "time": "2026-10-21T10:01:00Z",
       "via": null
@@ -413,7 +413,7 @@
       "outcome": "ok",
       "region": "us-east-1",
       "source_ip": "198.51.100.77",
-      "tactic": "other",
+      "tactic": "persistence",
       "targets": [],
       "time": "2026-10-21T10:02:00Z",
       "via": null
@@ -451,7 +451,7 @@
       "outcome": "LimitExceeded",
       "region": "us-east-1",
       "source_ip": "198.51.100.77",
-      "tactic": "other",
+      "tactic": "persistence",
       "targets": [],
       "time": "2026-10-21T10:04:00Z",
       "via": null
@@ -469,7 +469,7 @@
       "outcome": "ok",
       "region": "us-east-1",
       "source_ip": "198.51.100.77",
-      "tactic": "other",
+      "tactic": "persistence",
       "targets": [],
       "time": "2026-10-21T10:05:00Z",
       "via": null
@@ -487,7 +487,7 @@
       "outcome": "ok",
       "region": "us-east-1",
       "source_ip": "198.51.100.77",
-      "tactic": "other",
+      "tactic": "persistence",
       "targets": [],
       "time": "2026-10-21T10:05:12Z",
       "via": null
@@ -505,7 +505,7 @@
       "outcome": "ok",
       "region": "us-east-1",
       "source_ip": "198.51.100.77",
-      "tactic": "other",
+      "tactic": "persistence",
       "targets": [],
       "time": "2026-10-21T10:05:24Z",
       "via": null
@@ -523,7 +523,7 @@
       "outcome": "ok",
       "region": "us-east-1",
       "source_ip": "198.51.100.77",
-      "tactic": "other",
+      "tactic": "persistence",
       "targets": [],
       "time": "2026-10-21T10:05:36Z",
       "via": null
@@ -541,7 +541,7 @@
       "outcome": "ok",
       "region": "us-east-1",
       "source_ip": "198.51.100.77",
-      "tactic": "other",
+      "tactic": "persistence",
       "targets": [],
       "time": "2026-10-21T10:05:48Z",
       "via": null
@@ -559,7 +559,7 @@
       "outcome": "ok",
       "region": "us-east-1",
       "source_ip": "198.51.100.77",
-      "tactic": "other",
+      "tactic": "persistence",
       "targets": [],
       "time": "2026-10-21T10:06:00Z",
       "via": null
@@ -577,7 +577,7 @@
       "outcome": "ok",
       "region": "us-east-1",
       "source_ip": "198.51.100.77",
-      "tactic": "other",
+      "tactic": "persistence",
       "targets": [],
       "time": "2026-10-21T10:07:00Z",
       "via": null
@@ -595,7 +595,7 @@
       "outcome": "ok",
       "region": "us-east-1",
       "source_ip": "198.51.100.77",
-      "tactic": "other",
+      "tactic": "persistence",
       "targets": [],
       "time": "2026-10-21T10:08:00Z",
       "via": null
@@ -981,7 +981,12 @@
     "notes": [
       "9 secret(s) or parameter(s) were read: treat their values as known to the attacker",
       "the inputs have no data events, so object-level S3 access (and similar) cannot be listed here",
-      "the trust policy of role data-reader was changed and names federated:arn:aws:iam::111122223333:oidc-provider/login.corp.example.com; the logs hold the new policy and not the old, so which of these were added is not shown"
+      "the trust policy of role data-reader was changed and names logins through identity provider arn:aws:iam::111122223333:oidc-provider/login.corp.example.com; the logs hold the new policy and not the old, so which of these were added is not shown",
+      "identity provider arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com was created by an in-scope call: anyone holding a token it signs can assume the roles that trust it, with no AWS access key; deactivating keys and deleting users does not close this",
+      "identity provider arn:aws:iam::111122223333:saml-provider/attacker-idp was created by an in-scope call: anyone holding a token it signs can assume the roles that trust it, with no AWS access key; deactivating keys and deleting users does not close this",
+      "identity provider arn:aws:iam::111122223333:oidc-provider/build.example.com existed before and was changed by an in-scope call (thumbprint, client id or metadata): the attacker may be able to sign in through it as someone new; the logs show the change and not the previous settings",
+      "identity provider arn:aws:iam::111122223333:oidc-provider/ci.example.com existed before and was changed by an in-scope call (thumbprint, client id or metadata): the attacker may be able to sign in through it as someone new; the logs show the change and not the previous settings",
+      "identity provider arn:aws:iam::111122223333:saml-provider/corp-sso-2 existed before and was changed by an in-scope call (thumbprint, client id or metadata): the attacker may be able to sign in through it as someone new; the logs show the change and not the previous settings"
     ],
     "privilege_changes": [
       {
@@ -1260,9 +1265,9 @@
   "scope_sha256": "7eb292e580ed37c932b8aed5ac28508e624b758b1979215ec630128db8aae17f",
   "tactics": [
     {
-      "events": 1,
-      "failed": 0,
-      "first_event_time": "2026-10-21T10:03:00Z",
+      "events": 11,
+      "failed": 1,
+      "first_event_time": "2026-10-21T10:01:00Z",
       "tactic": "persistence"
     },
     {
@@ -1282,15 +1287,9 @@
       "failed": 0,
       "first_event_time": "2026-10-21T10:10:00Z",
       "tactic": "lateral-movement"
-    },
-    {
-      "events": 10,
-      "failed": 1,
-      "first_event_time": "2026-10-21T10:01:00Z",
-      "tactic": "other"
     }
   ],
-  "timeline_sha256": "2318fe6d6f2464e17acbdd273f02061e3309c12cd120be5edfb62a3ce37df1a7",
+  "timeline_sha256": "cf3f7be7e28a5c6119270a4c12a582cd68ed63b58103f75e02d9079dd3a37d4f",
   "tool": {
     "name": "controlzee",
     "version": "0.1.0.dev0"

@@ -225,7 +225,45 @@
     },
     {
       "account": "111122223333",
-      "caution": "restore the role's previous trust policy by hand: the logs show the new one, not the old; the new policy names: federated:arn:aws:iam::111122223333:oidc-provider/login.corp.example.com. A call into the role by a principal it names that had not assumed it before the change is followed as the attacker's",
+      "caution": "read only; run it in the account that holds the provider",
+      "commands": [
+        "aws iam list-roles --query 'Roles[?contains(to_string(AssumeRolePolicyDocument), '\"'\"'arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com'\"'\"')].RoleName' --output text"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "1e53ffdd-8f58-549b-a23f-5584b5fdb45b"
+      ],
+      "id": "A09",
+      "on_request": false,
+      "operations": [],
+      "phase": "investigate",
+      "target": "provider arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com",
+      "title": "Find the roles that trust an identity provider the attacker created",
+      "why": "deleting the provider breaks every login through it; these roles are the ones a login through it could reach, and their trust statements for it should go too"
+    },
+    {
+      "account": "111122223333",
+      "caution": "read only; run it in the account that holds the provider",
+      "commands": [
+        "aws iam list-roles --query 'Roles[?contains(to_string(AssumeRolePolicyDocument), '\"'\"'arn:aws:iam::111122223333:saml-provider/attacker-idp'\"'\"')].RoleName' --output text"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "731349d0-3d9c-5690-a136-e4fa9ed4ebb4"
+      ],
+      "id": "A10",
+      "on_request": false,
+      "operations": [],
+      "phase": "investigate",
+      "target": "provider arn:aws:iam::111122223333:saml-provider/attacker-idp",
+      "title": "Find the roles that trust an identity provider the attacker created",
+      "why": "deleting the provider breaks every login through it; these roles are the ones a login through it could reach, and their trust statements for it should go too"
+    },
+    {
+      "account": "111122223333",
+      "caution": "restore the role's previous trust policy by hand: the logs show the new one, not the old; the new policy names: logins through identity provider arn:aws:iam::111122223333:oidc-provider/login.corp.example.com. A call into the role by a principal it names that had not assumed it before the change is followed as the attacker's",
       "commands": [
         "aws iam get-role --role-name data-reader --query Role.AssumeRolePolicyDocument",
         "aws iam update-assume-role-policy --role-name data-reader --policy-document file://PREVIOUS_TRUST_POLICY.json"
@@ -235,13 +273,126 @@
       "evidence": [
         "dd737b72-7fa2-5f4c-8905-86e2df905521"
       ],
-      "id": "A09",
+      "id": "A11",
       "on_request": false,
       "operations": [],
       "phase": "eradicate",
       "target": "role data-reader",
       "title": "Undo a permission change",
       "why": "iam:UpdateAssumeRolePolicy by an in-scope call"
+    },
+    {
+      "account": "111122223333",
+      "caution": "deleting it ends every login through it, and the roles that trust it keep a dangling trust statement: list those roles first (see the investigate steps) and remove the statement from each",
+      "commands": [
+        "aws iam get-open-id-connect-provider --open-id-connect-provider-arn arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com",
+        "aws iam delete-open-id-connect-provider --open-id-connect-provider-arn arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+      ],
+      "confidence": "strong",
+      "disruptive": true,
+      "evidence": [
+        "1e53ffdd-8f58-549b-a23f-5584b5fdb45b"
+      ],
+      "id": "A12",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "provider_arn": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+          },
+          "op": "delete_oidc_provider",
+          "region": null
+        }
+      ],
+      "phase": "eradicate",
+      "target": "provider arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com",
+      "title": "Delete an identity provider the attacker created",
+      "why": "created by an in-scope call; anyone holding a token it signs can assume the roles that trust it, and the sessions obtained through it were followed"
+    },
+    {
+      "account": "111122223333",
+      "caution": "deleting it ends every login through it, and the roles that trust it keep a dangling trust statement: list those roles first (see the investigate steps) and remove the statement from each",
+      "commands": [
+        "aws iam get-saml-provider --saml-provider-arn arn:aws:iam::111122223333:saml-provider/attacker-idp",
+        "aws iam delete-saml-provider --saml-provider-arn arn:aws:iam::111122223333:saml-provider/attacker-idp"
+      ],
+      "confidence": "strong",
+      "disruptive": true,
+      "evidence": [
+        "731349d0-3d9c-5690-a136-e4fa9ed4ebb4"
+      ],
+      "id": "A13",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "provider_arn": "arn:aws:iam::111122223333:saml-provider/attacker-idp"
+          },
+          "op": "delete_saml_provider",
+          "region": null
+        }
+      ],
+      "phase": "eradicate",
+      "target": "provider arn:aws:iam::111122223333:saml-provider/attacker-idp",
+      "title": "Delete an identity provider the attacker created",
+      "why": "created by an in-scope call; anyone holding a token it signs can assume the roles that trust it, and the sessions obtained through it were followed"
+    },
+    {
+      "account": "111122223333",
+      "caution": "the logs show the change but not what it replaced: restore the previous settings from your records. Never delete it: it is not shown to be the attacker's, and every legitimate login through it would stop",
+      "commands": [
+        "aws iam get-open-id-connect-provider --open-id-connect-provider-arn arn:aws:iam::111122223333:oidc-provider/build.example.com"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "4c2f1448-6ca5-55e6-8892-e4046e9dd4a6"
+      ],
+      "id": "A14",
+      "on_request": false,
+      "operations": [],
+      "phase": "eradicate",
+      "target": "provider arn:aws:iam::111122223333:oidc-provider/build.example.com",
+      "title": "Restore an identity provider the attacker changed",
+      "why": "an in-scope call changed its settings (thumbprint, client ids or metadata); logins through it by people not seen using it before the change were followed"
+    },
+    {
+      "account": "111122223333",
+      "caution": "the logs show the change but not what it replaced: restore the previous settings from your records. Never delete it: it is not shown to be the attacker's, and every legitimate login through it would stop",
+      "commands": [
+        "aws iam get-open-id-connect-provider --open-id-connect-provider-arn arn:aws:iam::111122223333:oidc-provider/ci.example.com"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "6283ba6f-7b9e-502c-b01b-8f939064c63e"
+      ],
+      "id": "A15",
+      "on_request": false,
+      "operations": [],
+      "phase": "eradicate",
+      "target": "provider arn:aws:iam::111122223333:oidc-provider/ci.example.com",
+      "title": "Restore an identity provider the attacker changed",
+      "why": "an in-scope call changed its settings (thumbprint, client ids or metadata); logins through it by people not seen using it before the change were followed"
+    },
+    {
+      "account": "111122223333",
+      "caution": "the logs show the change but not what it replaced: restore the previous settings from your records. Never delete it: it is not shown to be the attacker's, and every legitimate login through it would stop",
+      "commands": [
+        "aws iam get-saml-provider --saml-provider-arn arn:aws:iam::111122223333:saml-provider/corp-sso-2"
+      ],
+      "confidence": "strong",
+      "disruptive": false,
+      "evidence": [
+        "2a294808-4bd1-5c08-ba2b-2b899f45874f"
+      ],
+      "id": "A16",
+      "on_request": false,
+      "operations": [],
+      "phase": "eradicate",
+      "target": "provider arn:aws:iam::111122223333:saml-provider/corp-sso-2",
+      "title": "Restore an identity provider the attacker changed",
+      "why": "an in-scope call changed its settings (thumbprint, client ids or metadata); logins through it by people not seen using it before the change were followed"
     },
     {
       "account": "111122223333",
@@ -270,7 +421,7 @@
         "edfcae7d-87a4-5150-bd8f-b35a639c5864",
         "c0739cb2-1b9c-5360-a391-839a05383129"
       ],
-      "id": "A10",
+      "id": "A17",
       "on_request": false,
       "operations": [],
       "phase": "recover",
@@ -289,7 +440,7 @@
       "evidence": [
         "911bddd2-9631-5e28-b741-9ec8043bb041"
       ],
-      "id": "A11",
+      "id": "A18",
       "on_request": true,
       "operations": [
         {
@@ -316,7 +467,7 @@
       "evidence": [
         "61097096-7e03-5cf1-9b63-c5307d005ca7"
       ],
-      "id": "A12",
+      "id": "A19",
       "on_request": true,
       "operations": [
         {
@@ -343,7 +494,7 @@
       "evidence": [
         "c0739cb2-1b9c-5360-a391-839a05383129"
       ],
-      "id": "A13",
+      "id": "A20",
       "on_request": true,
       "operations": [
         {
@@ -370,7 +521,7 @@
       "evidence": [
         "6b010987-f1d9-5215-a84b-64f2cf35f730"
       ],
-      "id": "A14",
+      "id": "A21",
       "on_request": true,
       "operations": [
         {
@@ -397,7 +548,7 @@
       "evidence": [
         "edfcae7d-87a4-5150-bd8f-b35a639c5864"
       ],
-      "id": "A15",
+      "id": "A22",
       "on_request": true,
       "operations": [
         {
@@ -427,7 +578,7 @@
         "392b0429-543f-5b03-aae8-0d544fd3c5c4",
         "b7f97c53-c765-54c8-b343-962a21fc8f0c"
       ],
-      "id": "A16",
+      "id": "A23",
       "on_request": true,
       "operations": [
         {
@@ -464,7 +615,7 @@
         "dffede70-4239-5e48-a130-510c0252371b",
         "295d6971-f41c-5133-aa3b-ef76c46d8c25"
       ],
-      "id": "A17",
+      "id": "A24",
       "on_request": false,
       "operations": [],
       "phase": "recover",
@@ -477,7 +628,7 @@
     "steps with operations can be carried out by `controlzee respond` after a dry run and your approval; the others are for a person. Either way, review each one first",
     "work through the phases in order; within contain, act quickly, since the attacker may notice"
   ],
-  "plan_sha256": "6a6657c01764902cabc4fd03bc23c12e3154d79ceef43f74123fcb7c0b739ee2",
+  "plan_sha256": "64aa6b1d41a51de3c088c49caf2dc4ecb3cd6feba0f62a04b1f31e9120487444",
   "schema_version": "0.4",
   "scope_sha256": "7eb292e580ed37c932b8aed5ac28508e624b758b1979215ec630128db8aae17f",
   "tool": {

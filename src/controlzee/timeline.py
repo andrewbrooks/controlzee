@@ -28,6 +28,7 @@ from controlzee.model.timeline import (
     Timeline,
     TimelineEntry,
 )
+from controlzee.taint.rules import CHANGED_PROVIDER, PROVIDER
 from controlzee.timeutil import parse_time_us
 
 LISTED_EVENT_IDS = 20
@@ -263,6 +264,13 @@ def _instance_role_use(scope: Scope) -> list[InstanceRoleUse]:
     return out
 
 
+def trusted_principal(principal: str) -> str:
+    """A `trusted_by` principal in plain words: a federated entry is a login through an identity provider."""
+    if principal.startswith("federated:"):
+        return f"logins through identity provider {principal.removeprefix('federated:')}"
+    return principal
+
+
 def _trust_policy_notes(scope: Scope) -> list[str]:
     """One note for each role whose trust policy a tainted call changed: who the new policy names. A policy that names
     everyone ("*") is called out, since any principal that can reach STS can then assume the role."""
@@ -274,7 +282,7 @@ def _trust_policy_notes(scope: Scope) -> list[str]:
     notes = []
     for role, principals in sorted(named.items()):
         everyone = "*" in principals
-        listed = ", ".join(sorted(p for p in principals if p != "*"))
+        listed = ", ".join(trusted_principal(p) for p in sorted(p for p in principals if p != "*"))
         notes.append(
             f"the trust policy of role {role} was changed and "
             + (
@@ -286,6 +294,28 @@ def _trust_policy_notes(scope: Scope) -> list[str]:
             )
             + "; the logs hold the new policy and not the old, so which of these were added is not shown"
         )
+    return notes
+
+
+def _provider_notes(scope: Scope) -> list[str]:
+    """One note for each identity provider a tainted call created or changed. A created provider is the attacker's own
+    way in; a changed one is legitimate, with settings the attacker may now control."""
+    created = sorted(t.value for t in scope.taint.identities if t.kind == PROVIDER)
+    created_set = set(created)
+    changed = sorted(
+        t.value for t in scope.taint.identities if t.kind == CHANGED_PROVIDER and t.value not in created_set
+    )
+    notes = [
+        f"identity provider {arn} was created by an in-scope call: anyone holding a token it signs can assume "
+        "the roles that trust it, with no AWS access key; deactivating keys and deleting users does not close this"
+        for arn in created
+    ]
+    notes += [
+        f"identity provider {arn} existed before and was changed by an in-scope call (thumbprint, client id or "
+        "metadata): the attacker may be able to sign in through it as someone new; the logs show the change and "
+        "not the previous settings"
+        for arn in changed
+    ]
     return notes
 
 
@@ -344,6 +374,7 @@ def exposure(scope: Scope) -> Exposure:
     if scope.coverage.unlogged_accounts:
         notes.append("activity reached account(s) with no logs in the inputs; exposure there is unknown")
     notes += _trust_policy_notes(scope)
+    notes += _provider_notes(scope)
     stolen = _instance_role_use(scope)
     if stolen:
         notes.append(

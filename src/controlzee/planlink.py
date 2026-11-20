@@ -1,6 +1,6 @@
 """Which identity of the graph a plan step is about, so the report can light them up together.
 
-Read off the step's operations (the user, role, access key, instance or function it names, by the name of the argument), never from free text. A step that is about something
+Read off the step's operations (the user, role, access key, instance, function or identity provider it names, by the name of the argument), never from free text. A step that is about something
 the attacker created and never used as an identity has nothing to light up, and gets no link. Display only: nothing here is saved.
 """
 
@@ -21,6 +21,12 @@ def _about(arg: str, value: str, actor: Actor) -> bool:
         return value in actor.access_keys
     if arg in ("instance", "function"):  # a role session named for the instance or the function
         return actor.label.startswith("assumed-role/") and actor.label.endswith("/" + value)
+    if (
+        arg == "provider_arn"
+    ):  # a login through the provider: CloudTrail names the caller "<provider arn>:<audience>:<subject>"
+        return any(
+            i is not None and i.startswith(value + ":") for i in (actor.arn, actor.principal_id, actor.label)
+        )
     return False
 
 
