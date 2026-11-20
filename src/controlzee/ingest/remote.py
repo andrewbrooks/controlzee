@@ -141,7 +141,6 @@ class LookupInput:
                 StartTime=self.start, EndTime=self.end, **limit
             )
             for page in pages:
-                truncated = "NextToken" in page and self.max_events is not None  # the last page decides
                 for ev in page.get("Events", []):
                     raw = ev.get("CloudTrailEvent")
                     if isinstance(raw, str):
@@ -151,6 +150,9 @@ class LookupInput:
                             records.append(
                                 {"unparseable": True}
                             )  # counted as a malformed record by the index pass
+            # botocore sets the resume token exactly when it cut events off, even partway through the service's last page
+            # (which then carries no NextToken of its own)
+            truncated = self.max_events is not None and pages.resume_token is not None
         except aws_errors() as e:
             raise RemoteError(f"cannot query CloudTrail event history in {self.region}: {e}") from None
 
@@ -163,9 +165,10 @@ class LookupInput:
         records.sort(key=order)
         return records, truncated
 
-    def source(self, records: list[dict[str, Any]]) -> Source:
+    def source(self, records: list[dict[str, Any]], rel: str | None = None) -> Source:
+        """The records as one log file. `rel` names it when several files of one region are read (time slices)."""
         data = orjson.dumps({"Records": records}, option=orjson.OPT_SORT_KEYS)
-        return MemorySource(f"lookup-events/{self.region}.json", data)
+        return MemorySource(rel or f"lookup-events/{self.region}.json", data)
 
     def list(self) -> tuple[list[Source], int]:
         return [self.source(self.fetch()[0])], 0

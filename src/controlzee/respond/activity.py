@@ -15,8 +15,10 @@ malformed records counted) and everything printed goes through `safety.clean`.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from controlzee.ingest.index import R_ID, R_NAME, R_REGION, R_SOURCE, R_TIME, R_TS, Row
 from controlzee.ingest.load import IngestOptions, load_index
@@ -94,18 +96,42 @@ def find_new_activity(rows: Sequence[Row], scope: Scope) -> tuple[list[NewActivi
 
 
 def regions_to_read(scope: Scope, home_region: str) -> tuple[list[str], list[str]]:
-    """(regions to query: the home region first, then the scope's other log regions in order; names that are not a
-    region, which only a hostile log would hold). Region names come from logs, so each must have the shape of one."""
+    """(regions to query, most in-scope events first: that is where the attacker was seen, and the home region comes
+    before the rest on a tie; names that are not a region, which only a hostile log would hold). Region names come
+    from logs, so each must have the shape of one."""
+    seen = Counter(e.event.aws_region for e in scope.events)
     wanted = {s.region for s in scope.coverage.streams} | {home_region}
     valid: list[str] = []
     invalid: list[str] = []
-    for region in [home_region, *sorted(wanted - {home_region})]:
+    for region in sorted(wanted, key=lambda r: (-seen[r], r != home_region, r)):
         try:
             check("region", region)
             valid.append(region)
         except Unsafe:
             invalid.append(region)
     return valid, invalid
+
+
+_HOUR = 3600
+_LONGEST_SLICE = 24 * _HOUR
+
+
+def _stamp(seconds: int) -> str:
+    return datetime.fromtimestamp(seconds, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def plan_slices(since: str, until: str) -> list[tuple[str, str]]:
+    """The window cut into (start, end) slices, earliest first: one hour, then two, four, eight and sixteen, then a day
+    each. The first hours after the scope are read in full before anything later, and a long quiet window costs a few
+    requests a region, not one an hour. Each end but the last is a second before the next start, so no event is in two."""
+    start, stop = parse_time_us(since) // 1_000_000, parse_time_us(until) // 1_000_000
+    slices: list[tuple[str, str]] = []
+    length = _HOUR
+    while start < stop:
+        end = min(start + length, stop)
+        slices.append((_stamp(start), _stamp(stop if end == stop else end - 1)))
+        start, length = end, min(length * 2, _LONGEST_SLICE)
+    return slices
 
 
 def _outcome(
@@ -117,6 +143,9 @@ def _outcome(
     regions: Sequence[str] = (),
     failed: Sequence[str] = (),
     unread: Sequence[str] = (),
+    slices_total: int = 0,
+    slices_read: int = 0,
+    last_time_read: str | None = None,
     events_read: int = 0,
     total: int = 0,
     complete: bool = False,
@@ -131,6 +160,9 @@ def _outcome(
                 "regions": list(regions),
                 "failed_regions": list(failed),
                 "unread_regions": list(unread),
+                "slices_total": slices_total,
+                "slices_read": slices_read,
+                "last_time_read": last_time_read,
                 "events_read": events_read,
                 "total_found": total,
                 "complete": complete,
@@ -195,28 +227,45 @@ def _check(
     progress: Callable[[str], None],
 ) -> Outcome:
     valid, invalid = regions_to_read(scope, home_region)
+    slices = plan_slices(since, until)
     sources: list[Source] = []
     read: list[str] = []
-    failed: dict[str, str] = {}
-    unread: list[str] = []
-    cut_short: list[str] = []
-    remaining = max_events  # one budget for every region, spent in order
-    for region in valid:
-        if remaining <= 0:
-            unread.append(region)
-            continue
-        progress(f"reading CloudTrail event history of {region}")
-        lookup = LookupInput(region, since, until, profile, max_events=remaining)
-        try:
-            records, truncated = lookup.fetch()
-        except RemoteError as e:
-            failed[region] = clean(e, 200)
-            continue
-        read.append(region)
-        sources.append(lookup.source(records))
-        remaining -= len(records)
-        if truncated:
-            cut_short.append(region)
+    failed: dict[str, str] = {}  # a region that fails once is not asked again
+    skipped_for_budget: set[str] = set()
+    first_incomplete: int | None = None  # the first slice that was not read in full
+    remaining = max_events  # one budget for every region and slice, spent earliest slice first
+    for n, (start, end) in enumerate(slices):
+        in_full = True
+        for region in valid:
+            if region in failed:
+                continue
+            if remaining <= 0:
+                skipped_for_budget.add(region)
+                in_full = False
+                continue
+            progress(
+                f"reading CloudTrail event history of {region}"
+                + (f" (slice {n + 1} of {len(slices)})" if len(slices) > 1 else "")
+            )
+            lookup = LookupInput(region, start, end, profile, max_events=remaining)
+            try:
+                records, truncated = lookup.fetch()
+            except RemoteError as e:
+                failed[region] = clean(e, 200)
+                continue
+            if region not in read:
+                read.append(region)
+            sources.append(lookup.source(records, f"lookup-events/{region}/{n:03d}.json"))
+            remaining -= len(records)
+            in_full = in_full and not truncated
+        if not in_full and first_incomplete is None:
+            first_incomplete = n
+        if remaining <= 0 and n + 1 < len(
+            slices
+        ):  # nothing more can be read: the rest of the window is unread
+            first_incomplete = n + 1 if first_incomplete is None else first_incomplete
+            skipped_for_budget.update(r for r in valid if r not in failed)
+            break
     failed_names = [*failed, *(f"{clean(r, 40)} (not a region name)" for r in invalid)]
     if not read:
         reason = next(iter(failed.values()), "no region to read")
@@ -228,12 +277,15 @@ def _check(
     found, total = find_new_activity(index.rows, scope)
     unparsed = index.malformed_records + sum(1 for f in index.files if f.status == "error")
 
+    slices_read = len(slices) if first_incomplete is None else first_incomplete
+    last_time_read = until if first_incomplete is None else slices[first_incomplete][0]
+    never_read = [r for r in valid if r not in read and r not in failed]
     parts: list[str] = []
-    if cut_short or unread:
+    if first_incomplete is not None:
         parts.append(
-            f"it read {len(index.rows)} events and stopped at the cap of {max_events} "
-            "(--activity-check-max-events), so the oldest events in the window were not read"
-            + (f"; not read at all: {', '.join(unread)}" if unread else "")
+            f"it read {len(index.rows)} events through {last_time_read} of {until} and stopped at the cap of "
+            f"{max_events} (--activity-check-max-events), so activity after {last_time_read} was not read"
+            + (f"; not read at all: {', '.join(never_read)}" if never_read else "")
         )
     if failed_names:
         parts.append(
@@ -258,7 +310,10 @@ def _check(
         until=until,
         regions=read,
         failed=failed_names,
-        unread=unread,
+        unread=[r for r in valid if r in skipped_for_budget],
+        slices_total=len(slices),
+        slices_read=slices_read,
+        last_time_read=last_time_read,
         events_read=len(index.rows),
         total=total,
         complete=not parts,

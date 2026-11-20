@@ -19,6 +19,17 @@
           "title": "Failed Regions",
           "type": "array"
         },
+        "last_time_read": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Last Time Read"
+        },
         "regions": {
           "items": {
             "type": "string"
@@ -36,6 +47,14 @@
             }
           ],
           "title": "Since"
+        },
+        "slices_read": {
+          "title": "Slices Read",
+          "type": "integer"
+        },
+        "slices_total": {
+          "title": "Slices Total",
+          "type": "integer"
         },
         "status": {
           "enum": [
@@ -77,6 +96,9 @@
         "regions",
         "failed_regions",
         "unread_regions",
+        "slices_total",
+        "slices_read",
+        "last_time_read",
         "events_read",
         "total_found",
         "complete"

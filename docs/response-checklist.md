@@ -63,7 +63,9 @@ Tick the boxes as you go. If a box cannot be ticked, stop and read why before go
       revocation.
 - [ ] **Read the warnings.** The one that matters most is *"tainted identities acted after this scope was built"*. It lists
       the calls. Go to section 4 first: contain, then scope again, before removing anything the attacker made. "Could
-      not check" and "incomplete" mean the check did not see everything; look at CloudTrail yourself.
+      not check" and "incomplete" mean the check did not see everything; look at CloudTrail yourself. An incomplete
+      check says how far it read ("through T of ..."): activity after T was not looked at. Raise
+      `--activity-check-max-events`, or look at CloudTrail from T onward.
 - [ ] A step that would cut off the responder's own credentials fails the dry run. Run the response as a different role, or
       leave that step out.
 - [ ] Note the dry run's sha256 (printed at the end). That hash is your approval.
