@@ -64,8 +64,12 @@ ASSUMED_BY: Final = "assumed_by"
 # of the role it gave a session of.
 ASSUMED_VIA: Final = "assumed_via"
 ASSUMED_VIA_ROLE: Final = "assumed_via_role"
-OIDC_ARN: Final = re.compile(r"^arn:aws[\w-]*:iam::\d{12}:oidc-provider/[\w./:@-]{1,400}$")
-SAML_ARN: Final = re.compile(r"^arn:aws[\w-]*:iam::\d{12}:saml-provider/[\w+=,.@-]{1,128}$")
+OIDC_ARN: Final = re.compile(
+    r"^arn:aws(?:-cn|-us-gov)?:iam::\d{12}:oidc-provider/[\w./:@-]{1,400}$", re.ASCII
+)
+SAML_ARN: Final = re.compile(
+    r"^arn:aws(?:-cn|-us-gov)?:iam::\d{12}:saml-provider/[\w+=,.@-]{1,128}$", re.ASCII
+)
 MAX_SUBJECT: Final = 256
 # Paths of the five provider-management calls: VERIFIED against real CloudTrail records (sandbox capture, 2026-11-20).
 # SAML_SUBJECT_PATH, the SAML login's `userIdentity` and its `responseElements` are still UNVERIFIED (a successful login needs a
@@ -127,7 +131,7 @@ def _function(request: Any, response: Any) -> list[tuple[str, str]]:
         value = _get(source, "functionName")
         if isinstance(value, str):
             name = value.split(":function:", 1)[-1].split(":")[0]
-            if _FUNCTION_NAME.match(name):
+            if _FUNCTION_NAME.fullmatch(name):
                 return [(FUNCTION, name)]
     return []
 
@@ -189,9 +193,9 @@ def trust_principals(document: Any) -> list[str]:
             for value in _as_list(aws)[:MAX_TRUST_PRINCIPALS]:
                 if value == "*":
                     found.add("*")
-                elif isinstance(value, str) and _ACCOUNT.match(value):
+                elif isinstance(value, str) and _ACCOUNT.fullmatch(value):
                     found.add(f"account:{value}")
-                elif isinstance(value, str) and (m := _IAM_PRINCIPAL.match(value)):
+                elif isinstance(value, str) and (m := _IAM_PRINCIPAL.fullmatch(value)):
                     found.add(f"account:{m.group(1)}" if m.group(2) == "root" else value)
         if isinstance(principal, dict) and _grants_federated(st):
             for value in _as_list(principal.get("Federated"))[:MAX_TRUST_PRINCIPALS]:
@@ -202,7 +206,7 @@ def trust_principals(document: Any) -> list[str]:
 
 def _trust_policy(request: Any, response: Any) -> list[tuple[str, str]]:
     role, document = _get(request, "roleName"), _get(request, "policyDocument")
-    if not (isinstance(role, str) and _ROLE_NAME.match(role)):
+    if not (isinstance(role, str) and _ROLE_NAME.fullmatch(role)):
         return []
     if isinstance(document, str):
         if len(document) > MAX_TRUST_POLICY:
@@ -228,7 +232,7 @@ def _assumed_by(rec: dict[str, Any]) -> list[tuple[str, str]]:
     checks are plain string tests: the values are only compared with trust-policy principals later, never run."""
     session = _get(rec.get("responseElements"), "assumedRoleUser", "arn")
     role = session.partition(":assumed-role/")[2].partition("/")[0] if isinstance(session, str) else ""
-    if not _ROLE_NAME.match(role):
+    if not _ROLE_NAME.fullmatch(role):
         return []
     caller = rec.get("userIdentity")
     account = _plain(_get(caller, "accountId"))
@@ -266,7 +270,12 @@ def _federated_facts(provider: str, subject: Any, rec: dict[str, Any]) -> list[t
     out = [(ASSUMED_VIA, f"{provider}|{_subject(subject)}")]
     session = _get(rec.get("responseElements"), "assumedRoleUser", "arn")
     role = session.partition(":assumed-role/")[2].partition("/")[0] if isinstance(session, str) else ""
-    if _ROLE_NAME.match(role):
+    if not _ROLE_NAME.fullmatch(
+        role
+    ):  # fall back to the role named in the request (the last segment of its path)
+        requested = _get(rec.get("requestParameters"), "roleArn")
+        role = requested.partition(":role/")[2].rpartition("/")[2] if isinstance(requested, str) else ""
+    if _ROLE_NAME.fullmatch(role):
         out.append((ASSUMED_VIA_ROLE, role))
     return out
 
