@@ -26,6 +26,7 @@ SCENARIOS = {
     "06_lambda": (scenarios.scenario_06_lambda, 0),
     "05_weak_ioc": (scenarios.scenario_05_weak_ioc, 3),  # every third file gzipped, to exercise both formats
     "07_trust_backdoor": (scenarios.scenario_07_trust_backdoor, 0),
+    "08_identity_provider": (scenarios.scenario_08_identity_provider, 0),
 }
 
 
