@@ -35,6 +35,7 @@ class DryRunStep(Model):
     region: str | None
     description: str  # what would be done, in words
     state: str  # the target as it is now
+    identity: dict[str, str]  # which resource it is (ids, creation dates); execute stops if that has changed
     already_done: bool
     checks: list[PermissionCheck]
     ok: bool
@@ -70,7 +71,9 @@ class ExecutedStep(Model):
     op: str
     args: dict[str, str]
     region: str | None
-    result: Literal["done", "already done", "failed", "not run"]
+    result: Literal[
+        "done", "already done", "failed", "drifted", "not run"
+    ]  # drifted: not the target the dry run checked
     detail: str
     at: str | None
 

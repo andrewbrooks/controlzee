@@ -74,6 +74,7 @@
             "done",
             "already done",
             "failed",
+            "drifted",
             "not run"
           ],
           "title": "Result",
@@ -93,7 +94,7 @@
       "type": "object"
     }
   },
-  "$id": "https://controlzee.invalid/schemas/response-0.2.json",
+  "$id": "https://controlzee.invalid/schemas/response-0.3.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
@@ -118,7 +119,7 @@
       "type": "string"
     },
     "schema_version": {
-      "default": "0.2",
+      "default": "0.3",
       "title": "Schema Version",
       "type": "string"
     },

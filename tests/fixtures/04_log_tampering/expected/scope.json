@@ -444,8 +444,8 @@
     "total": 0
   },
   "near_misses": [],
-  "schema_version": "0.2",
-  "scope_sha256": "8834c10984f91bab8470a6367695324d152b077dcd29503c1c18370413a01ca8",
+  "schema_version": "0.3",
+  "scope_sha256": "4f985f76086e43ec910b7408bfe9b6db649e79c92babe25dceeaaa1f888b2ff6",
   "seeds": {
     "expression": "leaked_key",
     "indicators": [

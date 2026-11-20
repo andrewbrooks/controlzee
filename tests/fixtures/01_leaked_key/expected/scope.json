@@ -590,8 +590,8 @@
     "total": 0
   },
   "near_misses": [],
-  "schema_version": "0.2",
-  "scope_sha256": "167306f72aff700fd0a7f87390d2271ac900ec0e7aeb20745d0d4788e45f0fb3",
+  "schema_version": "0.3",
+  "scope_sha256": "4d6eb81c5b800091734d5b0fc5804e1782e3d129f67410d252dc4edb76641245",
   "seeds": {
     "expression": "leaked_key AND attacker_ip",
     "indicators": [

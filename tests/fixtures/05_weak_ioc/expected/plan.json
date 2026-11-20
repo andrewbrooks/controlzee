@@ -101,9 +101,9 @@
     "work through the phases in order; within contain, act quickly, since the attacker may notice",
     "steps marked weak rest on weak evidence (IP, user agent or ARN matches): confirm them before acting"
   ],
-  "plan_sha256": "40506feaaed22735dc89fe7a83f47597ffea351ba934d6ada4ed51c508a4f325",
-  "schema_version": "0.2",
-  "scope_sha256": "657837bd47db8dd7733bd1c5f6b02448fe47a4cebc3623d968152dad8eb72325",
+  "plan_sha256": "1859c87b98d08974041af06199e81e9d33aa05e8d05ed70f70d481182568dbc6",
+  "schema_version": "0.3",
+  "scope_sha256": "b7c29b8fbb7976d912d1335e14dded9233925ac415a10cb8a18f4cfb73b60df5",
   "tool": {
     "name": "controlzee",
     "version": "0.1.0.dev0"

@@ -318,8 +318,8 @@
     "total": 0
   },
   "near_misses": [],
-  "schema_version": "0.2",
-  "scope_sha256": "2c81b81eafc44bcc7607c23b6d505ea383828db1e34cc30ab7dd5c06dd860b90",
+  "schema_version": "0.3",
+  "scope_sha256": "3b62fa58a8b19fafe8156724bd69603e189f39a475c8ef49cf49771e8f193be5",
   "seeds": {
     "expression": "leaked_key",
     "indicators": [

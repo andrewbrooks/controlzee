@@ -233,8 +233,8 @@
       }
     ]
   },
-  "schema_version": "0.2",
-  "scope_sha256": "8834c10984f91bab8470a6367695324d152b077dcd29503c1c18370413a01ca8",
+  "schema_version": "0.3",
+  "scope_sha256": "4f985f76086e43ec910b7408bfe9b6db649e79c92babe25dceeaaa1f888b2ff6",
   "tactics": [
     {
       "events": 2,
@@ -249,7 +249,7 @@
       "tactic": "discovery"
     }
   ],
-  "timeline_sha256": "0c7c7fb5bc39a41ba749c16c3302eb781c9df408fa035c417d19b81d1bcfd57d",
+  "timeline_sha256": "0184d671696b5d92a88757b1ca71ce02d56adbda790da8a8b0387549a3dc4fee",
   "tool": {
     "name": "controlzee",
     "version": "0.1.0.dev0"
