@@ -1,0 +1,400 @@
+{
+  "Records": [
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA5D934EC130750BA8C",
+        "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+        "accountId": "111122223333",
+        "accessKeyId": "AKIAIOSFODNN7LEAKED",
+        "userName": "ci-deploy"
+      },
+      "eventTime": "2026-10-21T10:01:00Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "CreateOpenIDConnectProvider",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.77",
+      "userAgent": "python-requests/2.31.0",
+      "requestParameters": {
+        "url": "https://token.attacker.example.com",
+        "clientIDList": [
+          "sts.example.com"
+        ],
+        "thumbprintList": [
+          "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+        ]
+      },
+      "responseElements": {
+        "openIDConnectProviderArn": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+      },
+      "requestID": "3db59ecc-7bf1-58e3-918f-e678b144d495",
+      "eventID": "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA5D934EC130750BA8C",
+        "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+        "accountId": "111122223333",
+        "accessKeyId": "AKIAIOSFODNN7LEAKED",
+        "userName": "ci-deploy"
+      },
+      "eventTime": "2026-10-21T10:02:00Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "CreateSAMLProvider",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.77",
+      "userAgent": "python-requests/2.31.0",
+      "requestParameters": {
+        "name": "attacker-idp",
+        "sAMLMetadataDocument": "<EntityDescriptor xmlns=\"urn:oasis:names:tc:SAML:2.0:metadata\" entityID=\"https://idp.example.com\"/>"
+      },
+      "responseElements": {
+        "sAMLProviderArn": "arn:aws:iam::111122223333:saml-provider/attacker-idp"
+      },
+      "requestID": "7aaa9617-8c35-55fe-bd46-732d85118c34",
+      "eventID": "731349d0-3d9c-5690-a136-e4fa9ed4ebb4",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA5D934EC130750BA8C",
+        "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+        "accountId": "111122223333",
+        "accessKeyId": "AKIAIOSFODNN7LEAKED",
+        "userName": "ci-deploy"
+      },
+      "eventTime": "2026-10-21T10:03:00Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "UpdateAssumeRolePolicy",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.77",
+      "userAgent": "python-requests/2.31.0",
+      "requestParameters": {
+        "roleName": "data-reader",
+        "policyDocument": "{\n  \"Version\": \"2012-10-17\",\n  \"Statement\": [\n    {\n      \"Effect\": \"Allow\",\n      \"Principal\": {\n        \"Federated\": [\n          \"arn:aws:iam::111122223333:oidc-provider/login.corp.example.com\",\n          \"cognito-identity.amazonaws.com\"\n        ]\n      },\n      \"Action\": \"sts:AssumeRoleWithWebIdentity\"\n    },\n    {\n      \"Effect\": \"Allow\",\n      \"Principal\": {\n        \"AWS\": \"arn:aws:iam::111122223333:role/not-a-caller\"\n      },\n      \"Action\": \"sts:AssumeRoleWithWebIdentity\"\n    }\n  ]\n}"
+      },
+      "responseElements": null,
+      "requestID": "6de75c27-e082-5378-b036-90b8665ccdd1",
+      "eventID": "dd737b72-7fa2-5f4c-8905-86e2df905521",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA5D934EC130750BA8C",
+        "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+        "accountId": "111122223333",
+        "accessKeyId": "AKIAIOSFODNN7LEAKED",
+        "userName": "ci-deploy"
+      },
+      "eventTime": "2026-10-21T10:04:00Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "CreateOpenIDConnectProvider",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.77",
+      "userAgent": "python-requests/2.31.0",
+      "requestParameters": {
+        "url": "https://failed.attacker.example.com",
+        "clientIDList": [
+          "sts.example.com"
+        ],
+        "thumbprintList": [
+          "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+        ]
+      },
+      "responseElements": null,
+      "requestID": "6d5056f2-21ab-5b91-8443-98a2a12a51e0",
+      "eventID": "b28638c9-2b83-5857-ba09-3d580928864b",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management",
+      "errorCode": "LimitExceeded",
+      "errorMessage": "Cannot exceed quota for OpenIdConnectProvidersPerAccount: 100"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA5D934EC130750BA8C",
+        "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+        "accountId": "111122223333",
+        "accessKeyId": "AKIAIOSFODNN7LEAKED",
+        "userName": "ci-deploy"
+      },
+      "eventTime": "2026-10-21T10:05:00Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "CreateOpenIDConnectProvider",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.77",
+      "userAgent": "python-requests/2.31.0",
+      "requestParameters": {
+        "url": "https://newline.attacker.example.com",
+        "clientIDList": [
+          "sts.example.com"
+        ],
+        "thumbprintList": [
+          "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+        ]
+      },
+      "responseElements": {
+        "openIDConnectProviderArn": "arn:aws:iam::111122223333:oidc-provider/newline.attacker.example.com\n"
+      },
+      "requestID": "8c0ea1b7-b9ba-5a0b-b142-23a6b36c134f",
+      "eventID": "b0c2bd4b-a6bc-560d-8699-fc56e34c77d4",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA5D934EC130750BA8C",
+        "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+        "accountId": "111122223333",
+        "accessKeyId": "AKIAIOSFODNN7LEAKED",
+        "userName": "ci-deploy"
+      },
+      "eventTime": "2026-10-21T10:05:12Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "CreateOpenIDConnectProvider",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.77",
+      "userAgent": "python-requests/2.31.0",
+      "requestParameters": {
+        "url": "https://ctl.attacker.example.com",
+        "clientIDList": [
+          "sts.example.com"
+        ],
+        "thumbprintList": [
+          "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+        ]
+      },
+      "responseElements": {
+        "openIDConnectProviderArn": "arn:aws:iam::111122223333:oidc-provider/ctl.attacker.example.com\u001b[31mred\u0000"
+      },
+      "requestID": "89411132-d5a4-582e-afa6-3b3c21ff82b2",
+      "eventID": "cf538fa5-c998-5d89-b11a-3f998e59f186",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA5D934EC130750BA8C",
+        "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+        "accountId": "111122223333",
+        "accessKeyId": "AKIAIOSFODNN7LEAKED",
+        "userName": "ci-deploy"
+      },
+      "eventTime": "2026-10-21T10:05:24Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "CreateOpenIDConnectProvider",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.77",
+      "userAgent": "python-requests/2.31.0",
+      "requestParameters": {
+        "url": "https://wrongtype.attacker.example.com",
+        "clientIDList": [
+          "sts.example.com"
+        ],
+        "thumbprintList": [
+          "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+        ]
+      },
+      "responseElements": {
+        "openIDConnectProviderArn": "arn:aws:iam::111122223333:role/not-a-provider"
+      },
+      "requestID": "d42ae104-b249-5218-8d21-239520f835e0",
+      "eventID": "ff758e4f-6b76-51e2-9b12-ef0d3c0583d6",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA5D934EC130750BA8C",
+        "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+        "accountId": "111122223333",
+        "accessKeyId": "AKIAIOSFODNN7LEAKED",
+        "userName": "ci-deploy"
+      },
+      "eventTime": "2026-10-21T10:05:36Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "CreateOpenIDConnectProvider",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.77",
+      "userAgent": "python-requests/2.31.0",
+      "requestParameters": {
+        "url": "https://samlarn.attacker.example.com",
+        "clientIDList": [
+          "sts.example.com"
+        ],
+        "thumbprintList": [
+          "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+        ]
+      },
+      "responseElements": {
+        "openIDConnectProviderArn": "arn:aws:iam::111122223333:saml-provider/wrongtype-idp"
+      },
+      "requestID": "e0cc1f64-e416-5f29-b316-7ec8e295bdc2",
+      "eventID": "dffede70-4239-5e48-a130-510c0252371b",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA5D934EC130750BA8C",
+        "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+        "accountId": "111122223333",
+        "accessKeyId": "AKIAIOSFODNN7LEAKED",
+        "userName": "ci-deploy"
+      },
+      "eventTime": "2026-10-21T10:05:48Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "CreateSAMLProvider",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.77",
+      "userAgent": "python-requests/2.31.0",
+      "requestParameters": {
+        "name": "oidc-arn-idp",
+        "sAMLMetadataDocument": "<EntityDescriptor xmlns=\"urn:oasis:names:tc:SAML:2.0:metadata\" entityID=\"https://idp.example.com\"/>"
+      },
+      "responseElements": {
+        "sAMLProviderArn": "arn:aws:iam::111122223333:oidc-provider/wrongtype.attacker.example.com"
+      },
+      "requestID": "7e4b6420-da58-55ca-81f4-74d959bd0752",
+      "eventID": "295d6971-f41c-5133-aa3b-ef76c46d8c25",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA5D934EC130750BA8C",
+        "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+        "accountId": "111122223333",
+        "accessKeyId": "AKIAIOSFODNN7LEAKED",
+        "userName": "ci-deploy"
+      },
+      "eventTime": "2026-10-21T10:06:00Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "AddClientIDToOpenIDConnectProvider",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.77",
+      "userAgent": "python-requests/2.31.0",
+      "requestParameters": {
+        "openIDConnectProviderArn": "arn:aws:iam::111122223333:oidc-provider/ci.example.com",
+        "clientID": "attacker-app"
+      },
+      "responseElements": null,
+      "requestID": "702f2b7e-6de8-5c48-9ac5-9d42e8a638b2",
+      "eventID": "6283ba6f-7b9e-502c-b01b-8f939064c63e",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA5D934EC130750BA8C",
+        "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+        "accountId": "111122223333",
+        "accessKeyId": "AKIAIOSFODNN7LEAKED",
+        "userName": "ci-deploy"
+      },
+      "eventTime": "2026-10-21T10:07:00Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "UpdateOpenIDConnectProviderThumbprint",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.77",
+      "userAgent": "python-requests/2.31.0",
+      "requestParameters": {
+        "openIDConnectProviderArn": "arn:aws:iam::111122223333:oidc-provider/build.example.com",
+        "thumbprintList": [
+          "0123456789abcdef0123456789abcdef01234567"
+        ]
+      },
+      "responseElements": null,
+      "requestID": "b0244fb5-3c9c-5afc-947c-f0b815333118",
+      "eventID": "4c2f1448-6ca5-55e6-8892-e4046e9dd4a6",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDA5D934EC130750BA8C",
+        "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+        "accountId": "111122223333",
+        "accessKeyId": "AKIAIOSFODNN7LEAKED",
+        "userName": "ci-deploy"
+      },
+      "eventTime": "2026-10-21T10:08:00Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "UpdateSAMLProvider",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.77",
+      "userAgent": "python-requests/2.31.0",
+      "requestParameters": {
+        "sAMLProviderArn": "arn:aws:iam::111122223333:saml-provider/corp-sso-2",
+        "sAMLMetadataDocument": "<EntityDescriptor xmlns=\"urn:oasis:names:tc:SAML:2.0:metadata\" entityID=\"https://idp.example.com\"/>"
+      },
+      "responseElements": null,
+      "requestID": "21c8729c-21e3-5d5d-a650-57ff6f9acab6",
+      "eventID": "2a294808-4bd1-5c08-ba2b-2b899f45874f",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    }
+  ]
+}

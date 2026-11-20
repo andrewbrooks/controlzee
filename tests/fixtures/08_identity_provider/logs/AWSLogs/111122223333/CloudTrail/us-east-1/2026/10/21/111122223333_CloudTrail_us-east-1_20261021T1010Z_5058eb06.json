@@ -1,0 +1,469 @@
+{
+  "Records": [
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "WebIdentityUser",
+        "principalId": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com:sts.example.com:attacker-sub-1",
+        "userName": "attacker-sub-1",
+        "identityProvider": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+      },
+      "eventTime": "2026-10-21T10:10:00Z",
+      "eventSource": "sts.amazonaws.com",
+      "eventName": "AssumeRoleWithWebIdentity",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.90",
+      "userAgent": "aws-sdk-go/1.44.0",
+      "requestParameters": {
+        "roleArn": "arn:aws:iam::111122223333:role/web-deploy",
+        "roleSessionName": "atk-web"
+      },
+      "responseElements": {
+        "credentials": {
+          "accessKeyId": "ASIAIOSFODNN7ATK01A",
+          "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS",
+          "expiration": "Oct 20, 2026 11:00:00 PM"
+        },
+        "assumedRoleUser": {
+          "assumedRoleId": "AROA51A2ADF90BE9BFA6E:atk-web",
+          "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-web"
+        },
+        "subjectFromWebIdentityToken": "attacker-sub-1",
+        "provider": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com",
+        "audience": "sts.example.com"
+      },
+      "requestID": "1c9a78e3-7c0a-5dfb-88be-db724dc06dab",
+      "eventID": "231ad8cc-b446-5070-b2bf-30c49d43c5e2",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "WebIdentityUser",
+        "principalId": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com:sts.example.com:attacker-sub-fail",
+        "userName": "attacker-sub-fail",
+        "identityProvider": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+      },
+      "eventTime": "2026-10-21T10:11:00Z",
+      "eventSource": "sts.amazonaws.com",
+      "eventName": "AssumeRoleWithWebIdentity",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.90",
+      "userAgent": "aws-sdk-go/1.44.0",
+      "requestParameters": {
+        "roleArn": "arn:aws:iam::111122223333:role/web-deploy",
+        "roleSessionName": "atk-fail"
+      },
+      "responseElements": null,
+      "requestID": "daf07f3c-824a-5f78-8798-eb16c32e844f",
+      "eventID": "5fcf6198-ec60-5b5d-b0b4-cd70fe1b87bf",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management",
+      "errorCode": "AccessDenied",
+      "errorMessage": "Not authorized to perform sts:AssumeRoleWithWebIdentity"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "AssumedRole",
+        "principalId": "AROA51A2ADF90BE9BFA6E:atk-web",
+        "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-web",
+        "accountId": "111122223333",
+        "accessKeyId": "ASIAIOSFODNN7ATK01A",
+        "sessionContext": {
+          "sessionIssuer": {
+            "type": "Role",
+            "principalId": "AROA51A2ADF90BE9BFA6E",
+            "arn": "arn:aws:iam::111122223333:role/web-deploy",
+            "accountId": "111122223333",
+            "userName": "web-deploy"
+          },
+          "attributes": {
+            "creationDate": "2026-10-20T08:00:00Z",
+            "mfaAuthenticated": "false"
+          }
+        }
+      },
+      "eventTime": "2026-10-21T10:12:00Z",
+      "eventSource": "secretsmanager.amazonaws.com",
+      "eventName": "GetSecretValue",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.90",
+      "userAgent": "aws-cli/2.15.0",
+      "requestParameters": {
+        "secretId": "prod/db"
+      },
+      "responseElements": null,
+      "requestID": "48520537-9427-5be5-98e6-404df2bad089",
+      "eventID": "89229325-1421-5b58-9b97-8db4d04d3723",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "WebIdentityUser",
+        "principalId": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com:sts.example.com:evil|sub",
+        "userName": "evil|sub",
+        "identityProvider": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+      },
+      "eventTime": "2026-10-21T10:13:00Z",
+      "eventSource": "sts.amazonaws.com",
+      "eventName": "AssumeRoleWithWebIdentity",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.90",
+      "userAgent": "aws-sdk-go/1.44.0",
+      "requestParameters": {
+        "roleArn": "arn:aws:iam::111122223333:role/web-deploy",
+        "roleSessionName": "atk-pipe"
+      },
+      "responseElements": {
+        "credentials": {
+          "accessKeyId": "ASIAIOSFODNN7ATK01B",
+          "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS",
+          "expiration": "Oct 20, 2026 11:00:00 PM"
+        },
+        "assumedRoleUser": {
+          "assumedRoleId": "AROA51A2ADF90BE9BFA6E:atk-pipe",
+          "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-pipe"
+        },
+        "subjectFromWebIdentityToken": "evil|sub",
+        "provider": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com",
+        "audience": "sts.example.com"
+      },
+      "requestID": "c88de4ab-42bf-5f21-aca7-4d2898abd066",
+      "eventID": "06f25fbb-c171-5a46-92b8-1b7babf13e04",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "AssumedRole",
+        "principalId": "AROA51A2ADF90BE9BFA6E:atk-pipe",
+        "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-pipe",
+        "accountId": "111122223333",
+        "accessKeyId": "ASIAIOSFODNN7ATK01B",
+        "sessionContext": {
+          "sessionIssuer": {
+            "type": "Role",
+            "principalId": "AROA51A2ADF90BE9BFA6E",
+            "arn": "arn:aws:iam::111122223333:role/web-deploy",
+            "accountId": "111122223333",
+            "userName": "web-deploy"
+          },
+          "attributes": {
+            "creationDate": "2026-10-20T08:00:00Z",
+            "mfaAuthenticated": "false"
+          }
+        }
+      },
+      "eventTime": "2026-10-21T10:13:30Z",
+      "eventSource": "secretsmanager.amazonaws.com",
+      "eventName": "GetSecretValue",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.90",
+      "userAgent": "aws-cli/2.15.0",
+      "requestParameters": {
+        "secretId": "prod/pipe"
+      },
+      "responseElements": null,
+      "requestID": "bbbae1f2-46b9-576e-ab94-a7c2a8438a68",
+      "eventID": "26643249-5bff-5ac7-b83d-0c717faca211",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "WebIdentityUser",
+        "principalId": "token.attacker.example.com:sts.example.com:attacker-sub-1b",
+        "userName": "attacker-sub-1b",
+        "identityProvider": "token.attacker.example.com"
+      },
+      "eventTime": "2026-10-21T10:14:00Z",
+      "eventSource": "sts.amazonaws.com",
+      "eventName": "AssumeRoleWithWebIdentity",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.90",
+      "userAgent": "aws-sdk-go/1.44.0",
+      "requestParameters": {
+        "roleArn": "arn:aws:iam::111122223333:role/web-deploy",
+        "roleSessionName": "atk-iss"
+      },
+      "responseElements": {
+        "credentials": {
+          "accessKeyId": "ASIAIOSFODNN7ATK01C",
+          "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS",
+          "expiration": "Oct 20, 2026 11:00:00 PM"
+        },
+        "assumedRoleUser": {
+          "assumedRoleId": "AROA51A2ADF90BE9BFA6E:atk-iss",
+          "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-iss"
+        },
+        "subjectFromWebIdentityToken": "attacker-sub-1b",
+        "provider": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com",
+        "audience": "sts.example.com"
+      },
+      "requestID": "1cc86747-91b0-5a61-94eb-0e6ca4468069",
+      "eventID": "24e1ac5d-49ce-53e9-a0b3-e0654c8c6f96",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "AssumedRole",
+        "principalId": "AROA51A2ADF90BE9BFA6E:atk-iss",
+        "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-iss",
+        "accountId": "111122223333",
+        "accessKeyId": "ASIAIOSFODNN7ATK01C",
+        "sessionContext": {
+          "sessionIssuer": {
+            "type": "Role",
+            "principalId": "AROA51A2ADF90BE9BFA6E",
+            "arn": "arn:aws:iam::111122223333:role/web-deploy",
+            "accountId": "111122223333",
+            "userName": "web-deploy"
+          },
+          "attributes": {
+            "creationDate": "2026-10-20T08:00:00Z",
+            "mfaAuthenticated": "false"
+          }
+        }
+      },
+      "eventTime": "2026-10-21T10:14:30Z",
+      "eventSource": "secretsmanager.amazonaws.com",
+      "eventName": "GetSecretValue",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.90",
+      "userAgent": "aws-cli/2.15.0",
+      "requestParameters": {
+        "secretId": "prod/issuer"
+      },
+      "responseElements": null,
+      "requestID": "8d0781d4-86c1-52a0-aa74-c7ccffc28348",
+      "eventID": "392b0429-543f-5b03-aae8-0d544fd3c5c4",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "WebIdentityUser",
+        "principalId": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com:sts.example.com:attacker-sub-1c",
+        "userName": "attacker-sub-1c",
+        "identityProvider": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+      },
+      "eventTime": "2026-10-21T10:15:00Z",
+      "eventSource": "sts.amazonaws.com",
+      "eventName": "AssumeRoleWithWebIdentity",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.90",
+      "userAgent": "aws-sdk-go/1.44.0",
+      "requestParameters": {
+        "roleArn": "arn:aws:iam::111122223333:role/web-deploy",
+        "roleSessionName": "atk-arn"
+      },
+      "responseElements": {
+        "credentials": {
+          "accessKeyId": "ASIAIOSFODNN7ATK01D",
+          "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS",
+          "expiration": "Oct 20, 2026 11:00:00 PM"
+        },
+        "assumedRoleUser": {
+          "assumedRoleId": "AROA51A2ADF90BE9BFA6E:atk-arn",
+          "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-arn"
+        },
+        "subjectFromWebIdentityToken": "attacker-sub-1c"
+      },
+      "requestID": "cddbdda2-395d-51c2-b654-3fc78093f474",
+      "eventID": "c76f14b3-7fc6-5549-a468-18936832728b",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "AssumedRole",
+        "principalId": "AROA51A2ADF90BE9BFA6E:atk-arn",
+        "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-arn",
+        "accountId": "111122223333",
+        "accessKeyId": "ASIAIOSFODNN7ATK01D",
+        "sessionContext": {
+          "sessionIssuer": {
+            "type": "Role",
+            "principalId": "AROA51A2ADF90BE9BFA6E",
+            "arn": "arn:aws:iam::111122223333:role/web-deploy",
+            "accountId": "111122223333",
+            "userName": "web-deploy"
+          },
+          "attributes": {
+            "creationDate": "2026-10-20T08:00:00Z",
+            "mfaAuthenticated": "false"
+          }
+        }
+      },
+      "eventTime": "2026-10-21T10:15:30Z",
+      "eventSource": "secretsmanager.amazonaws.com",
+      "eventName": "GetSecretValue",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.90",
+      "userAgent": "aws-cli/2.15.0",
+      "requestParameters": {
+        "secretId": "prod/arnonly"
+      },
+      "responseElements": null,
+      "requestID": "63d8ebb9-085e-5a4f-a14b-96999ac0bd2e",
+      "eventID": "b7f97c53-c765-54c8-b343-962a21fc8f0c",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "WebIdentityUser",
+        "principalId": "cognito-identity.amazonaws.com:sts.example.com:cog-user-1",
+        "userName": "cog-user-1",
+        "identityProvider": "cognito-identity.amazonaws.com"
+      },
+      "eventTime": "2026-10-21T10:16:00Z",
+      "eventSource": "sts.amazonaws.com",
+      "eventName": "AssumeRoleWithWebIdentity",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.90",
+      "userAgent": "aws-sdk-go/1.44.0",
+      "requestParameters": {
+        "roleArn": "arn:aws:iam::111122223333:role/web-deploy",
+        "roleSessionName": "cog-1"
+      },
+      "responseElements": {
+        "credentials": {
+          "accessKeyId": "ASIAIOSFODNN7COG001",
+          "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS",
+          "expiration": "Oct 20, 2026 11:00:00 PM"
+        },
+        "assumedRoleUser": {
+          "assumedRoleId": "AROA51A2ADF90BE9BFA6E:cog-1",
+          "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/cog-1"
+        },
+        "subjectFromWebIdentityToken": "cog-user-1"
+      },
+      "requestID": "08ec63e8-2509-5c47-afcd-b7ef64210b0a",
+      "eventID": "e2d38bf0-94a6-5b96-877a-4784c0f69269",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "AssumedRole",
+        "principalId": "AROA51A2ADF90BE9BFA6E:cog-1",
+        "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/cog-1",
+        "accountId": "111122223333",
+        "accessKeyId": "ASIAIOSFODNN7COG001",
+        "sessionContext": {
+          "sessionIssuer": {
+            "type": "Role",
+            "principalId": "AROA51A2ADF90BE9BFA6E",
+            "arn": "arn:aws:iam::111122223333:role/web-deploy",
+            "accountId": "111122223333",
+            "userName": "web-deploy"
+          },
+          "attributes": {
+            "creationDate": "2026-10-20T08:00:00Z",
+            "mfaAuthenticated": "false"
+          }
+        }
+      },
+      "eventTime": "2026-10-21T10:16:30Z",
+      "eventSource": "secretsmanager.amazonaws.com",
+      "eventName": "GetSecretValue",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.90",
+      "userAgent": "aws-cli/2.15.0",
+      "requestParameters": {
+        "secretId": "prod/cognito"
+      },
+      "responseElements": null,
+      "requestID": "33e0bac8-2e91-506a-ab7c-c4998f8bfd5a",
+      "eventID": "1550b8a3-8326-5b70-ba78-63bb08a76b95",
+      "readOnly": true,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    },
+    {
+      "eventVersion": "1.09",
+      "userIdentity": {
+        "type": "WebIdentityUser",
+        "principalId": "arn:aws:iam::111122223333:oidc-provider/newline.attacker.example.com\n:sts.example.com:attacker-sub-nl",
+        "userName": "attacker-sub-nl",
+        "identityProvider": "arn:aws:iam::111122223333:oidc-provider/newline.attacker.example.com\n"
+      },
+      "eventTime": "2026-10-21T10:17:00Z",
+      "eventSource": "sts.amazonaws.com",
+      "eventName": "AssumeRoleWithWebIdentity",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "198.51.100.90",
+      "userAgent": "aws-sdk-go/1.44.0",
+      "requestParameters": {
+        "roleArn": "arn:aws:iam::111122223333:role/web-deploy",
+        "roleSessionName": "nl-1"
+      },
+      "responseElements": {
+        "credentials": {
+          "accessKeyId": "ASIAIOSFODNN7ATK01E",
+          "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS",
+          "expiration": "Oct 20, 2026 11:00:00 PM"
+        },
+        "assumedRoleUser": {
+          "assumedRoleId": "AROA51A2ADF90BE9BFA6E:nl-1",
+          "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/nl-1"
+        },
+        "subjectFromWebIdentityToken": "attacker-sub-nl",
+        "provider": "arn:aws:iam::111122223333:oidc-provider/newline.attacker.example.com\n",
+        "audience": "sts.example.com"
+      },
+      "requestID": "289348fc-c1b3-5629-91e7-e26d0c4b7bb2",
+      "eventID": "4fcda506-372a-5b2e-bd4e-6b28cf344b70",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "111122223333",
+      "eventCategory": "Management"
+    }
+  ]
+}

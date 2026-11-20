@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import timedelta
 from typing import Any
@@ -13,6 +14,7 @@ from tests.builders.cloudtrail import (
     assumed_role,
     at,
     iam_user,
+    minutes,
     other_account,
     role_id,
 )
@@ -720,5 +722,592 @@ def scenario_07_trust_backdoor() -> LogSet:
         ip="192.0.2.50",
         request={"bucketName": "build-artifacts", "key": "builds/after.zip"},
         read_only=False,
+    )
+    return logs
+
+
+# ---- scenario 8: identity providers --------------------------------------------------------------------------------
+# Record shapes follow .team/briefs/CONTRACT-W3B.md. The documented ones (AssumeRoleWithWebIdentity, the AssumeRoleWithSAML
+# requestParameters) are written as documented. The UNVERIFIED ones are built by the helpers below and nowhere else, so
+# the paths can be corrected in one place after a live capture:
+#   CreateOpenIDConnectProvider          responseElements.openIDConnectProviderArn
+#   CreateSAMLProvider                   responseElements.sAMLProviderArn, requestParameters.sAMLMetadataDocument
+#   Update/AddClientID...OpenIDConnect   requestParameters.openIDConnectProviderArn
+#   UpdateSAMLProvider                   requestParameters.sAMLProviderArn
+#   AssumeRoleWithSAML                   userIdentity {type, userName}; responseElements {subject, credentials,
+#                                        assumedRoleUser}
+OIDC_CREATED_RESPONSE_PATH = "openIDConnectProviderArn"
+SAML_CREATED_RESPONSE_PATH = "sAMLProviderArn"
+SAML_USER_IDENTITY_TYPE = "SAMLUser"
+
+IDP_T0 = "2026-10-21T10:00:00Z"
+IDP_AUDIENCE = "sts.example.com"
+OIDC_ATTACKER = f"arn:aws:iam::{ACCOUNT}:oidc-provider/token.attacker.example.com"  # created by the attacker
+SAML_ATTACKER = f"arn:aws:iam::{ACCOUNT}:saml-provider/attacker-idp"  # created by the attacker
+OIDC_CI = f"arn:aws:iam::{ACCOUNT}:oidc-provider/ci.example.com"  # legitimate; a client id is added
+OIDC_BUILD = f"arn:aws:iam::{ACCOUNT}:oidc-provider/build.example.com"  # legitimate; thumbprint changed
+OIDC_CORP = f"arn:aws:iam::{ACCOUNT}:oidc-provider/login.corp.example.com"  # legitimate, never changed; a role's policy names it
+SAML_CORP = f"arn:aws:iam::{ACCOUNT}:saml-provider/corp-sso"  # legitimate, never touched
+SAML_CHANGED = (
+    f"arn:aws:iam::{ACCOUNT}:saml-provider/corp-sso-2"  # legitimate; UpdateSAMLProvider by the attacker
+)
+OIDC_NEWLINE = (
+    f"arn:aws:iam::{ACCOUNT}:oidc-provider/newline.attacker.example.com\n"  # a trailing newline: not an ARN
+)
+OIDC_CONTROL = (
+    f"arn:aws:iam::{ACCOUNT}:oidc-provider/ctl.attacker.example.com\x1b[31mred\x00"  # control characters
+)
+ROLE_ARN_AS_PROVIDER = f"arn:aws:iam::{ACCOUNT}:role/not-a-provider"
+SAML_WRONGTYPE = f"arn:aws:iam::{ACCOUNT}:saml-provider/wrongtype-idp"  # a SAML ARN where an OIDC one belongs
+OIDC_WRONGTYPE = (
+    f"arn:aws:iam::{ACCOUNT}:oidc-provider/wrongtype.attacker.example.com"  # and the other way round
+)
+IDP_SAML_METADATA = (
+    '<EntityDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata" entityID="https://idp.example.com"/>'
+)
+
+# every fake key id here is 19 characters (a real access key id is 20)
+IDP_KEYS = {
+    name: f"ASIAIOSFODNN7{name}"
+    for name in (
+        "WEB001", "WEB002", "ATK01A", "ATK01B", "ATK01C", "ATK01D", "ATK01E", "COG001", "SAMLB1", "SAMLB2", "SAMLB3",
+        "SAMLA1", "SAMLC1", "SAMLC2", "SAMLM1", "CIB001", "CIB002", "CIA001", "CHG001", "BLD001", "BLD002", "BLD003",
+        "DRD001", "DRD002", "DRA001", "DRO001",
+    )
+}  # fmt: skip
+
+
+def _idp_iam_event(logs: LogSet, when, name: str, caller, request=None, response=None, error=None) -> None:
+    logs.add(
+        when,
+        "iam.amazonaws.com",
+        name,
+        caller,
+        ip=ATTACKER_IP,
+        ua=ATTACKER_UA,
+        request=request,
+        response=response,
+        error=error,
+        read_only=False,
+    )
+
+
+def _create_oidc(logs: LogSet, when, caller, url: str, arn: str | None, error=None) -> None:
+    thumbprint = "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+    _idp_iam_event(
+        logs,
+        when,
+        "CreateOpenIDConnectProvider",
+        caller,
+        request={"url": url, "clientIDList": [IDP_AUDIENCE], "thumbprintList": [thumbprint]},
+        response=None if arn is None else {OIDC_CREATED_RESPONSE_PATH: arn},
+        error=error,
+    )
+
+
+def _create_saml(logs: LogSet, when, caller, name: str, arn: str, metadata: str = IDP_SAML_METADATA) -> None:
+    _idp_iam_event(
+        logs,
+        when,
+        "CreateSAMLProvider",
+        caller,
+        request={"name": name, "sAMLMetadataDocument": metadata},
+        response={SAML_CREATED_RESPONSE_PATH: arn},
+    )
+
+
+def idp_assume_web_identity(
+    logs: LogSet,
+    when,
+    *,
+    role: str,
+    session: str,
+    subject: str,
+    key: str | None,
+    provider: str | None,
+    identity_provider: str | None = None,
+    error: tuple[str, str] | None = None,
+    ip: str = "198.51.100.90",
+) -> None:
+    """A documented AssumeRoleWithWebIdentity record. `provider` is responseElements.provider (None leaves it out);
+    `identity_provider` is userIdentity.identityProvider (defaults to `provider`; AWS says it can be an issuer name)."""
+    shown = identity_provider if identity_provider is not None else provider
+    caller = {
+        "type": "WebIdentityUser",
+        "principalId": f"{shown}:{IDP_AUDIENCE}:{subject}",
+        "userName": subject,
+        "identityProvider": shown,
+    }
+    response = _credentials(key, role, session) if key else {}
+    response["subjectFromWebIdentityToken"] = subject
+    if provider:
+        response["provider"] = provider
+        response["audience"] = IDP_AUDIENCE
+    logs.add(
+        when,
+        "sts.amazonaws.com",
+        "AssumeRoleWithWebIdentity",
+        caller,
+        ip=ip,
+        ua="aws-sdk-go/1.44.0",
+        request={"roleArn": f"arn:aws:iam::{ACCOUNT}:role/{role}", "roleSessionName": session},
+        response=response,
+        error=error,
+        read_only=False,
+    )
+
+
+def idp_assume_saml(
+    logs: LogSet, when, *, role: str, session: str, subject: str, key: str, provider: str
+) -> None:
+    """AssumeRoleWithSAML: requestParameters as documented; the rest per the contract's UNVERIFIED list."""
+    caller = {
+        "type": SAML_USER_IDENTITY_TYPE,
+        "principalId": f"{role_id(role)}:{subject}",
+        "userName": subject,
+    }
+    response = _credentials(key, role, session)
+    response["subject"] = subject
+    assertion = hashlib.sha1(session.encode()).hexdigest()[:16]
+    logs.add(
+        when,
+        "sts.amazonaws.com",
+        "AssumeRoleWithSAML",
+        caller,
+        ip="198.51.100.91",
+        ua="aws-sdk-go/1.44.0",
+        request={
+            "roleArn": f"arn:aws:iam::{ACCOUNT}:role/{role}",
+            "principalArn": provider,
+            "roleSessionName": session,
+            "sAMLAssertionID": f"_{assertion}",
+        },
+        response=response,
+        read_only=False,
+    )
+
+
+def scenario_08_identity_provider() -> LogSet:
+    """A leaked key plants login paths AWS trusts, so the attacker holds role credentials without any access key.
+
+    Followed by taint (event name, provider, subject):
+      1. AssumeRoleWithWebIdentity through the OIDC provider the attacker created (token.attacker.example.com), and what
+         the sessions did; including two provider-shape variants (an issuer name in userIdentity with the ARN in the
+         response; the ARN only in userIdentity).
+      2. AssumeRoleWithSAML through the SAML provider the attacker created (attacker-idp), and the session's use.
+      3. Through legitimate providers the attacker changed (ci.example.com client id, build.example.com thumbprint,
+         corp-sso-2 UpdateSAMLProvider): only subjects not seen through that provider before the change.
+      5. Into data-reader, a role whose trust policy the attacker rewrote to name login.corp.example.com: a new subject.
+    Not followed: the legitimate users of the same roles (1, 3, 5), the untouched SAML provider corp-sso (4), the corp
+    provider into a different role than the one rewritten, failures (6) and hostile values: ARNs with a trailing newline,
+    control characters or the wrong type, a subject containing "|" (the fact is dropped whole), an issuer name with no
+    ARN anywhere.
+    """
+    logs = LogSet()
+    _noise(logs)
+    attacker = iam_user("ci-deploy", LEAKED_KEY)
+    t = at(IDP_T0)
+    k = IDP_KEYS
+
+    def minute(n: float):
+        return minutes(t, n)
+
+    def used(when, role, session, key, name, source, request=None, ip="198.51.100.90") -> None:
+        logs.add(
+            when, source, name, assumed_role(role, session, key), ip=ip, ua="aws-cli/2.15.0", request=request
+        )
+
+    def secret(when, role, session, key, secret_id="prod/db", ip="198.51.100.90") -> None:
+        used(
+            when,
+            role,
+            session,
+            key,
+            "GetSecretValue",
+            "secretsmanager.amazonaws.com",
+            {"secretId": secret_id},
+            ip,
+        )
+
+    def web(n, **kw) -> None:
+        idp_assume_web_identity(logs, minute(n), **kw)
+
+    def saml(n, **kw) -> None:
+        idp_assume_saml(logs, minute(n), **kw)
+
+    office = "192.0.2.60"
+    # --- legitimate traffic before the incident
+    web(
+        -180,
+        role="web-deploy",
+        session="alice-web",
+        subject="alice@corp.example",
+        key=k["WEB001"],
+        provider=OIDC_CORP,
+        ip=office,
+    )
+    used(
+        minute(-175),
+        "web-deploy",
+        "alice-web",
+        k["WEB001"],
+        "PutObject",
+        "s3.amazonaws.com",
+        {"bucketName": "site-assets", "key": "a.css"},
+        office,
+    )
+    web(
+        -120,
+        role="data-reader",
+        session="alice-data",
+        subject="alice@corp.example",
+        key=k["DRD001"],
+        provider=OIDC_CORP,
+        ip=office,
+    )
+    used(
+        minute(-118),
+        "data-reader",
+        "alice-data",
+        k["DRD001"],
+        "ListBuckets",
+        "s3.amazonaws.com",
+        None,
+        office,
+    )
+    web(
+        -180,
+        role="ci-web-role",
+        session="ci-main-1",
+        subject="repo:acme/app:ref:main",
+        key=k["CIB001"],
+        provider=OIDC_CI,
+        ip="192.0.2.61",
+    )
+    web(
+        -60,
+        role="ci-web-role",
+        session="ci-main-2",
+        subject="repo:acme/app:ref:main",
+        key=k["CIB002"],
+        provider=OIDC_CI,
+        ip="192.0.2.61",
+    )
+    web(
+        -60,
+        role="build-role",
+        session="builder-1",
+        subject="builder-1",
+        key=k["BLD001"],
+        provider=OIDC_BUILD,
+        ip="192.0.2.62",
+    )
+    saml(
+        -240,
+        role="saml-admin",
+        session="bob-1",
+        subject="bob@corp.example",
+        key=k["SAMLB1"],
+        provider=SAML_CORP,
+    )
+    saml(
+        -30,
+        role="saml-admin",
+        session="bob-2",
+        subject="bob@corp.example",
+        key=k["SAMLB2"],
+        provider=SAML_CORP,
+    )
+    used(
+        minute(-28),
+        "saml-admin",
+        "bob-2",
+        k["SAMLB2"],
+        "ListUsers",
+        "iam.amazonaws.com",
+        None,
+        "198.51.100.91",
+    )
+    saml(
+        -120,
+        role="saml-ro",
+        session="carol-1",
+        subject="carol@corp.example",
+        key=k["SAMLC1"],
+        provider=SAML_CHANGED,
+    )
+
+    # --- the attacker, with the leaked key, plants providers and edits trust
+    logs.add(t, "sts.amazonaws.com", "GetCallerIdentity", attacker, ip=ATTACKER_IP, ua=ATTACKER_UA)
+    _create_oidc(logs, minute(1), attacker, "https://token.attacker.example.com", OIDC_ATTACKER)
+    _create_saml(logs, minute(2), attacker, "attacker-idp", SAML_ATTACKER)
+    trust = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {"Effect": "Allow", "Principal": {"Federated": [OIDC_CORP, "cognito-identity.amazonaws.com"]}, "Action": "sts:AssumeRoleWithWebIdentity"},
+            # an AWS principal needs sts:AssumeRole; this statement names a role for the web-identity action only
+            {"Effect": "Allow", "Principal": {"AWS": f"arn:aws:iam::{ACCOUNT}:role/not-a-caller"}, "Action": "sts:AssumeRoleWithWebIdentity"},
+        ],
+    }  # fmt: skip
+    policy = json.dumps(trust, indent=2)
+    _idp_iam_event(
+        logs,
+        minute(3),
+        "UpdateAssumeRolePolicy",
+        attacker,
+        {"roleName": "data-reader", "policyDocument": policy},
+    )
+    # a failure hands over nothing
+    limit = ("LimitExceeded", "Cannot exceed quota for OpenIdConnectProvidersPerAccount: 100")
+    _create_oidc(logs, minute(4), attacker, "https://failed.attacker.example.com", None, error=limit)
+    # hostile values in a successful response: none is an OIDC provider ARN
+    _create_oidc(logs, minute(5), attacker, "https://newline.attacker.example.com", OIDC_NEWLINE)
+    _create_oidc(logs, minute(5.2), attacker, "https://ctl.attacker.example.com", OIDC_CONTROL)
+    _create_oidc(logs, minute(5.4), attacker, "https://wrongtype.attacker.example.com", ROLE_ARN_AS_PROVIDER)
+    _create_oidc(logs, minute(5.6), attacker, "https://samlarn.attacker.example.com", SAML_WRONGTYPE)
+    _create_saml(logs, minute(5.8), attacker, "oidc-arn-idp", OIDC_WRONGTYPE)
+    # changes to legitimate providers
+    _idp_iam_event(
+        logs,
+        minute(6),
+        "AddClientIDToOpenIDConnectProvider",
+        attacker,
+        {"openIDConnectProviderArn": OIDC_CI, "clientID": "attacker-app"},
+    )
+    thumbprints = ["0123456789abcdef0123456789abcdef01234567"]
+    _idp_iam_event(
+        logs,
+        minute(7),
+        "UpdateOpenIDConnectProviderThumbprint",
+        attacker,
+        {"openIDConnectProviderArn": OIDC_BUILD, "thumbprintList": thumbprints},
+    )
+    _idp_iam_event(
+        logs,
+        minute(8),
+        "UpdateSAMLProvider",
+        attacker,
+        {"sAMLProviderArn": SAML_CHANGED, "sAMLMetadataDocument": IDP_SAML_METADATA},
+    )
+
+    # --- 1. sessions through the OIDC provider the attacker created
+    web(
+        10,
+        role="web-deploy",
+        session="atk-web",
+        subject="attacker-sub-1",
+        key=k["ATK01A"],
+        provider=OIDC_ATTACKER,
+    )
+    secret(minute(12), "web-deploy", "atk-web", k["ATK01A"])
+    denied = ("AccessDenied", "Not authorized to perform sts:AssumeRoleWithWebIdentity")
+    web(
+        11,
+        role="web-deploy",
+        session="atk-fail",
+        subject="attacker-sub-fail",
+        key=None,
+        provider=None,
+        identity_provider=OIDC_ATTACKER,
+        error=denied,
+    )
+    web(
+        13, role="web-deploy", session="atk-pipe", subject="evil|sub", key=k["ATK01B"], provider=OIDC_ATTACKER
+    )
+    secret(minute(13.5), "web-deploy", "atk-pipe", k["ATK01B"], "prod/pipe")
+    web(
+        14,
+        role="web-deploy",
+        session="atk-iss",
+        subject="attacker-sub-1b",
+        key=k["ATK01C"],
+        provider=OIDC_ATTACKER,
+        identity_provider="token.attacker.example.com",
+    )
+    secret(minute(14.5), "web-deploy", "atk-iss", k["ATK01C"], "prod/issuer")
+    web(
+        15,
+        role="web-deploy",
+        session="atk-arn",
+        subject="attacker-sub-1c",
+        key=k["ATK01D"],
+        provider=None,
+        identity_provider=OIDC_ATTACKER,
+    )
+    secret(minute(15.5), "web-deploy", "atk-arn", k["ATK01D"], "prod/arnonly")
+    web(
+        16,
+        role="web-deploy",
+        session="cog-1",
+        subject="cog-user-1",
+        key=k["COG001"],
+        provider=None,
+        identity_provider="cognito-identity.amazonaws.com",
+    )
+    secret(minute(16.5), "web-deploy", "cog-1", k["COG001"], "prod/cognito")
+    web(
+        17,
+        role="web-deploy",
+        session="nl-1",
+        subject="attacker-sub-nl",
+        key=k["ATK01E"],
+        provider=OIDC_NEWLINE,
+    )
+    secret(minute(17.5), "web-deploy", "nl-1", k["ATK01E"], "prod/newline")
+    # --- 2. the SAML provider the attacker created
+    saml(
+        20,
+        role="saml-admin",
+        session="atk-saml",
+        subject="attacker@evil.example",
+        key=k["SAMLA1"],
+        provider=SAML_ATTACKER,
+    )
+    secret(minute(22), "saml-admin", "atk-saml", k["SAMLA1"], "prod/saml", "198.51.100.91")
+    # --- 3. legitimate providers the attacker changed
+    web(30, role="ci-web-role", session="atk-ci", subject="attacker-sub-3", key=k["CHG001"], provider=OIDC_CI)
+    secret(minute(31), "ci-web-role", "atk-ci", k["CHG001"], "prod/ci")
+    web(
+        32,
+        role="ci-web-role",
+        session="ci-main-3",
+        subject="repo:acme/app:ref:main",
+        key=k["CIA001"],
+        provider=OIDC_CI,
+        ip="192.0.2.61",
+    )
+    used(
+        minute(33),
+        "ci-web-role",
+        "ci-main-3",
+        k["CIA001"],
+        "PutObject",
+        "s3.amazonaws.com",
+        {"bucketName": "build-artifacts", "key": "builds/after.zip"},
+        "192.0.2.61",
+    )
+    web(
+        36,
+        role="build-role",
+        session="atk-build",
+        subject="attacker-sub-3b",
+        key=k["BLD002"],
+        provider=OIDC_BUILD,
+    )
+    secret(minute(37), "build-role", "atk-build", k["BLD002"], "prod/build")
+    web(
+        38,
+        role="build-role",
+        session="builder-2",
+        subject="builder-1",
+        key=k["BLD003"],
+        provider=OIDC_BUILD,
+        ip="192.0.2.62",
+    )
+    used(
+        minute(39),
+        "build-role",
+        "builder-2",
+        k["BLD003"],
+        "PutObject",
+        "s3.amazonaws.com",
+        {"bucketName": "build-artifacts", "key": "builds/b.zip"},
+        "192.0.2.62",
+    )
+    saml(
+        40,
+        role="saml-ro",
+        session="atk-saml2",
+        subject="mallory@evil.example",
+        key=k["SAMLM1"],
+        provider=SAML_CHANGED,
+    )
+    secret(minute(41), "saml-ro", "atk-saml2", k["SAMLM1"], "prod/saml2", "198.51.100.91")
+    saml(
+        42,
+        role="saml-ro",
+        session="carol-2",
+        subject="carol@corp.example",
+        key=k["SAMLC2"],
+        provider=SAML_CHANGED,
+    )
+    used(
+        minute(43), "saml-ro", "carol-2", k["SAMLC2"], "ListRoles", "iam.amazonaws.com", None, "198.51.100.91"
+    )
+    # --- 5. the role whose trust policy now names the corp provider
+    web(
+        50,
+        role="data-reader",
+        session="atk-data",
+        subject="attacker-sub-5",
+        key=k["DRA001"],
+        provider=OIDC_CORP,
+    )
+    secret(minute(51), "data-reader", "atk-data", k["DRA001"], "prod/data")
+    web(
+        52,
+        role="web-deploy",
+        session="atk-other",
+        subject="attacker-sub-5",
+        key=k["DRO001"],
+        provider=OIDC_CORP,
+    )  # a role the change did not touch
+    secret(minute(53), "web-deploy", "atk-other", k["DRO001"], "prod/otherrole")
+    web(
+        55,
+        role="data-reader",
+        session="alice-data-2",
+        subject="alice@corp.example",
+        key=k["DRD002"],
+        provider=OIDC_CORP,
+        ip=office,
+    )
+    used(
+        minute(56),
+        "data-reader",
+        "alice-data-2",
+        k["DRD002"],
+        "ListBuckets",
+        "s3.amazonaws.com",
+        None,
+        office,
+    )
+    # --- 4. the untouched legitimate SAML provider, and the corp provider's usual user, after
+    saml(
+        180,
+        role="saml-admin",
+        session="bob-3",
+        subject="bob@corp.example",
+        key=k["SAMLB3"],
+        provider=SAML_CORP,
+    )
+    used(
+        minute(182),
+        "saml-admin",
+        "bob-3",
+        k["SAMLB3"],
+        "ListUsers",
+        "iam.amazonaws.com",
+        None,
+        "198.51.100.91",
+    )
+    web(
+        185,
+        role="web-deploy",
+        session="alice-web-2",
+        subject="alice@corp.example",
+        key=k["WEB002"],
+        provider=OIDC_CORP,
+        ip=office,
+    )
+    used(
+        minute(186),
+        "web-deploy",
+        "alice-web-2",
+        k["WEB002"],
+        "PutObject",
+        "s3.amazonaws.com",
+        {"bucketName": "site-assets", "key": "b.css"},
+        office,
     )
     return logs

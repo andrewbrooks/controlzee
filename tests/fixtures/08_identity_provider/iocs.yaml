@@ -1,0 +1,4 @@
+# Scenario 8: a leaked CI key plants OIDC and SAML identity providers and changes trust, so roles can be assumed with no AWS key.
+version: 1
+indicators:
+  leaked_key: {type: access_key_id, value: AKIAIOSFODNN7LEAKED}
