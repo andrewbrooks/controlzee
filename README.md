@@ -37,12 +37,13 @@ after a dry run that a person has reviewed and approved.
   event history as a source; taint through an assumed role, an instance profile, a Lambda function and a federation token;
   the plan; the dry run and the permission check (including a denied permission, an MFA-conditioned permission, a refused
   self-cutoff and an organization policy that allows one region); the identity check that stops a step when a target was
-  deleted and made again, the step journal and the check for activity after the scope; and `execute` for 18 of the 26
+  deleted and made again, the step journal and the check for activity after the scope; and `execute` for 22 of the 26
   operations (keys, policies, group membership, console passwords, users, roles, session revocations and their lifts,
-  Lambda functions, buckets and the instance operations). Not run on a real account: the four logging and detection
-  restores, the three inline-policy deletes, and `delete_access_key`, which no plan contains. Treat those as untested; the
-  list and the reasons are in [docs/response-checklist.md](docs/response-checklist.md), which is also the order to follow
-  for a simulation and a reversal.
+  Lambda functions, buckets, the instance operations and the four logging and detection restores). Not run on a real
+  account: the three inline-policy deletes (`delete_user_policy`, `delete_role_policy`, `delete_group_policy`) and
+  `delete_access_key`, which no plan contains. Treat those as untested; the list and the reasons are in
+  [docs/response-checklist.md](docs/response-checklist.md), which is also the order to follow for a simulation and a
+  reversal.
 - **Against attack emulation**: eleven [Stratus Red Team](https://github.com/DataDog/stratus-red-team) techniques were run
   in the sandbox and scoped from event history; results and the gaps they showed are in
   [docs/validation.md](docs/validation.md).

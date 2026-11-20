@@ -99,15 +99,14 @@ Anything needing a CloudTrail trail or an S3 bucket policy, and techniques that 
 `respond` operations, deactivating a key, revoking and lifting a role's sessions, deleting a function, deleting a bucket
 and the instance operations (remove the instance profile, stop, snapshot, terminate) have run on a real account, and so
 have (see `docs/field-testing.md`) detaching a user, group and role policy, removing a user from a group, deleting a
-console password, a user and a role, and revoking and lifting a user's sessions. Not run on a real account: logging and
-detection restoration (though its steps appear in the plans above), the three operations that delete an inline policy
-(`delete_user_policy`, `delete_role_policy`, `delete_group_policy`), and `delete_access_key`, which the plan builder
-never emits, so a dry run cannot contain it.
+console password, a user and a role, revoking and lifting a user's sessions, and the four logging and detection restores.
+Not run on a real account: the three operations that delete an inline policy (`delete_user_policy`,
+`delete_role_policy`, `delete_group_policy`), and `delete_access_key`, which the plan builder never emits, so a dry run
+cannot contain it.
 
-**Why logging and detection restoration is untested.** `start_logging`, `start_config_recorder`, `enable_guardduty` and
-`enable_security_hub` only turn things on, and they share the probe, permission check, apply and "already done" machinery
-that the tested operations use, but they have not run against a real account. None of the attack techniques run here
-tamper with logging or detection, so no scope produced one of these steps. Testing `start_logging` needs a throwaway trail
-and bucket, because stopping the sandbox's own trail would blind the logs every other test reads. Testing the other three
-means enabling a Config recorder, GuardDuty or Security Hub, which cost money and, in an organization, can clash with
-settings the organization manages. Treat all four as untested until they have been run on a real account.
+**Logging and detection restoration.** `start_logging`, `start_config_recorder`, `enable_guardduty` and
+`enable_security_hub` only turn things on, and none of the attack techniques run here tamper with logging or detection, so
+no Stratus scope produced one of these steps. They were run separately, on throwaway resources in the open region of the
+sandbox: the intruder stopped a trail and a Config recorder, deleted the GuardDuty detector and disabled Security Hub, and
+the plan's four restore steps put them back (see `docs/field-testing.md`). The trail was a throwaway one, because stopping
+the sandbox's own trail would blind the logs every other test reads, and everything was torn down afterwards.
