@@ -13,11 +13,18 @@ from typing import Any
 import orjson
 
 _OPTIONS = orjson.OPT_SORT_KEYS | orjson.OPT_INDENT_2 | orjson.OPT_APPEND_NEWLINE
+_LINE_OPTIONS = orjson.OPT_SORT_KEYS | orjson.OPT_APPEND_NEWLINE
 
 
 def dumps(obj: Any) -> bytes:
     """Canonical bytes for a JSON-compatible value (use `model_dump(mode="json")` for pydantic models)."""
     return orjson.dumps(obj, option=_OPTIONS)
+
+
+def dumps_line(obj: Any) -> bytes:
+    """One JSON document on one line (sorted keys, compact, trailing newline), for append-only JSON Lines files.
+    Newlines inside strings are escaped, so a value cannot start a second line."""
+    return orjson.dumps(obj, option=_LINE_OPTIONS)
 
 
 def sha256_hex(data: bytes) -> str:
