@@ -523,6 +523,7 @@ def respond_execute(
     import orjson
 
     from controlzee.model.respond import ResponseRecord
+    from controlzee.respond.journal import journal_path
     from controlzee.respond.run import MAX_DRY_RUN_BYTES, RespondError, execute
 
     if out_path.exists() and not force:
@@ -541,6 +542,7 @@ def respond_execute(
             load_scope(scope_path),
             approve=approval,
             profile=profile,
+            journal_dir=out_path.parent,
             max_age=timedelta(minutes=max_age_minutes),
             progress=lambda st: out.print(f"  {st.action_id} {st.result}: {clean(st.detail, 300)}"),
         )
@@ -553,6 +555,7 @@ def respond_execute(
     write_atomic(out_path, canonical.dumps(result))
     rec = ResponseRecord.model_validate(result)
     out.print(f"Wrote {out_path}")
+    out.print(f"Journal: {clean(str(journal_path(out_path.parent, rec.dryrun_sha256)), 300)}")
     if not rec.completed:
         err.print(
             Text(
