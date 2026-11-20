@@ -25,7 +25,7 @@ from controlzee.safety import clean
 
 
 def _shape(pattern: str) -> re.Pattern[str]:
-    """ASCII only: without the flag, `\w` and `\d` also match letters and digits of other scripts."""
+    """ASCII only: without the flag, \\w and \\d also match letters and digits of other scripts."""
     return re.compile(pattern, re.ASCII)
 
 
