@@ -313,7 +313,9 @@ def _provider_notes(scope: Scope) -> list[str]:
     notes += [
         f"identity provider {arn} existed before and was changed by an in-scope call (thumbprint, client id or "
         "metadata): the attacker may be able to sign in through it as someone new; the logs show the change and "
-        "not the previous settings"
+        "not the previous settings. Blind spot: a forged token for a subject that had logged in through it before "
+        "the change cannot be told from the real login, so such logins are not followed: review every login through "
+        "this provider after the change"
         for arn in changed
     ]
     return notes

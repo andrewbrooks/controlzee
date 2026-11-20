@@ -137,6 +137,10 @@ def test_a_changed_provider_gets_one_manual_step_with_get_commands_only(plan):
         assert a.operations == [] and not a.disruptive and not a.on_request
         assert len(a.commands) == 1 and " get-" in a.commands[0] and "delete" not in " ".join(a.commands)
         assert "Never delete it" in (a.caution or "")
+        assert (
+            "Blind spot" in a.caution
+            and "review every login through this provider after the change" in a.caution
+        )
 
 
 def test_a_provider_only_named_by_a_trust_policy_gets_no_step_of_its_own(plan):
@@ -329,6 +333,7 @@ def test_exposure_says_what_a_created_and_a_changed_provider_mean(scope):
     for arn in CHANGED:
         (note,) = [n for n in notes if f"identity provider {arn} existed before and was changed" in n]
         assert "not the previous settings" in note
+        assert "Blind spot" in note and "review every login through this provider after the change" in note
     # the corp providers were never created or changed: only the rewritten trust policy names the OIDC one
     for arn in (OIDC_CORP, SAML_CORP):
         assert [n for n in notes if f"identity provider {arn} " in n] == []

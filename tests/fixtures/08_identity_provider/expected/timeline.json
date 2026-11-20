@@ -984,9 +984,9 @@
       "the trust policy of role data-reader was changed and names logins through identity provider arn:aws:iam::111122223333:oidc-provider/login.corp.example.com; the logs hold the new policy and not the old, so which of these were added is not shown",
       "identity provider arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com was created by an in-scope call: anyone holding a token it signs can assume the roles that trust it, with no AWS access key; deactivating keys and deleting users does not close this",
       "identity provider arn:aws:iam::111122223333:saml-provider/attacker-idp was created by an in-scope call: anyone holding a token it signs can assume the roles that trust it, with no AWS access key; deactivating keys and deleting users does not close this",
-      "identity provider arn:aws:iam::111122223333:oidc-provider/build.example.com existed before and was changed by an in-scope call (thumbprint, client id or metadata): the attacker may be able to sign in through it as someone new; the logs show the change and not the previous settings",
-      "identity provider arn:aws:iam::111122223333:oidc-provider/ci.example.com existed before and was changed by an in-scope call (thumbprint, client id or metadata): the attacker may be able to sign in through it as someone new; the logs show the change and not the previous settings",
-      "identity provider arn:aws:iam::111122223333:saml-provider/corp-sso-2 existed before and was changed by an in-scope call (thumbprint, client id or metadata): the attacker may be able to sign in through it as someone new; the logs show the change and not the previous settings"
+      "identity provider arn:aws:iam::111122223333:oidc-provider/build.example.com existed before and was changed by an in-scope call (thumbprint, client id or metadata): the attacker may be able to sign in through it as someone new; the logs show the change and not the previous settings. Blind spot: a forged token for a subject that had logged in through it before the change cannot be told from the real login, so such logins are not followed: review every login through this provider after the change",
+      "identity provider arn:aws:iam::111122223333:oidc-provider/ci.example.com existed before and was changed by an in-scope call (thumbprint, client id or metadata): the attacker may be able to sign in through it as someone new; the logs show the change and not the previous settings. Blind spot: a forged token for a subject that had logged in through it before the change cannot be told from the real login, so such logins are not followed: review every login through this provider after the change",
+      "identity provider arn:aws:iam::111122223333:saml-provider/corp-sso-2 existed before and was changed by an in-scope call (thumbprint, client id or metadata): the attacker may be able to sign in through it as someone new; the logs show the change and not the previous settings. Blind spot: a forged token for a subject that had logged in through it before the change cannot be told from the real login, so such logins are not followed: review every login through this provider after the change"
     ],
     "privilege_changes": [
       {
@@ -1289,7 +1289,7 @@
       "tactic": "lateral-movement"
     }
   ],
-  "timeline_sha256": "cf3f7be7e28a5c6119270a4c12a582cd68ed63b58103f75e02d9079dd3a37d4f",
+  "timeline_sha256": "2bbb214553fc47ba6948b3d5d51231ce4f054f683f38f544cc0e83cb02056a14",
   "tool": {
     "name": "controlzee",
     "version": "0.1.0.dev0"

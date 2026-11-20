@@ -339,7 +339,7 @@
     },
     {
       "account": "111122223333",
-      "caution": "the logs show the change but not what it replaced: restore the previous settings from your records. Never delete it: it is not shown to be the attacker's, and every legitimate login through it would stop",
+      "caution": "the logs show the change but not what it replaced: restore the previous settings from your records. Never delete it: it is not shown to be the attacker's, and every legitimate login through it would stop. Blind spot: a forged token for a subject that had logged in through it before the change cannot be told from that person's real login, so the plan does not follow it: review every login through this provider after the change",
       "commands": [
         "aws iam get-open-id-connect-provider --open-id-connect-provider-arn arn:aws:iam::111122223333:oidc-provider/build.example.com"
       ],
@@ -358,7 +358,7 @@
     },
     {
       "account": "111122223333",
-      "caution": "the logs show the change but not what it replaced: restore the previous settings from your records. Never delete it: it is not shown to be the attacker's, and every legitimate login through it would stop",
+      "caution": "the logs show the change but not what it replaced: restore the previous settings from your records. Never delete it: it is not shown to be the attacker's, and every legitimate login through it would stop. Blind spot: a forged token for a subject that had logged in through it before the change cannot be told from that person's real login, so the plan does not follow it: review every login through this provider after the change",
       "commands": [
         "aws iam get-open-id-connect-provider --open-id-connect-provider-arn arn:aws:iam::111122223333:oidc-provider/ci.example.com"
       ],
@@ -377,7 +377,7 @@
     },
     {
       "account": "111122223333",
-      "caution": "the logs show the change but not what it replaced: restore the previous settings from your records. Never delete it: it is not shown to be the attacker's, and every legitimate login through it would stop",
+      "caution": "the logs show the change but not what it replaced: restore the previous settings from your records. Never delete it: it is not shown to be the attacker's, and every legitimate login through it would stop. Blind spot: a forged token for a subject that had logged in through it before the change cannot be told from that person's real login, so the plan does not follow it: review every login through this provider after the change",
       "commands": [
         "aws iam get-saml-provider --saml-provider-arn arn:aws:iam::111122223333:saml-provider/corp-sso-2"
       ],
@@ -628,7 +628,7 @@
     "steps with operations can be carried out by `controlzee respond` after a dry run and your approval; the others are for a person. Either way, review each one first",
     "work through the phases in order; within contain, act quickly, since the attacker may notice"
   ],
-  "plan_sha256": "64aa6b1d41a51de3c088c49caf2dc4ecb3cd6feba0f62a04b1f31e9120487444",
+  "plan_sha256": "9ca909766d3efda81b26d76b840c49d3b65d7fecf75feb48081eff1d7ae8370b",
   "schema_version": "0.4",
   "scope_sha256": "7eb292e580ed37c932b8aed5ac28508e624b758b1979215ec630128db8aae17f",
   "tool": {

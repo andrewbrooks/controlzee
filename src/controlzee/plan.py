@@ -549,7 +549,9 @@ class _Builder:
                 s.event.recipient_account_id,
                 caution="the logs show the change but not what it replaced: restore the previous settings from your "
                 "records. Never delete it: it is not shown to be the attacker's, and every legitimate login through it "
-                "would stop",
+                "would stop. Blind spot: a forged token for a subject that had logged in through it before the change "
+                "cannot be told from that person's real login, so the plan does not follow it: review every login "
+                "through this provider after the change",
             )
             self.manual(draft, lambda k=kind, a=arn: self._get_provider(k, a))
 
