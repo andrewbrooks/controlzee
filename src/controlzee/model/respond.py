@@ -63,7 +63,10 @@ class ActivityCheck(Model):
     until: str | None  # when the check was made
     regions: list[str]  # whose event history was read (in full unless `complete` is false)
     failed_regions: list[str]  # whose could not be read
-    unread_regions: list[str]  # left out because the event cap was already used up
+    unread_regions: list[str]  # with some of the window left unread because the event cap ran out
+    slices_total: int  # the window from `since` to `until` is read in time slices, earliest first
+    slices_read: int  # how many were read in full by every region that could be read
+    last_time_read: str | None  # everything from `since` up to here was read; later activity was not
     events_read: int
     total_found: int  # calls found; `new_activity` lists the first 100
     complete: bool  # every region read to the end, with nothing malformed

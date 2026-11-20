@@ -2,8 +2,11 @@
 
 import json
 
+import boto3
 import pytest
+from botocore.stub import Stubber
 
+from controlzee.ingest import remote
 from controlzee.model.respond import NewActivity
 from controlzee.respond import activity
 from controlzee.respond.activity import (
@@ -13,11 +16,13 @@ from controlzee.respond.activity import (
     SKIPPED_WARNING,
     check_activity,
     find_new_activity,
+    plan_slices,
     regions_to_read,
 )
 from controlzee.timeutil import parse_time_us
 from tests import fake_aws
 from tests.builders.cloudtrail import LogSet, assumed_role, at, iam_user
+from tests.fake_aws import Account
 from tests.helpers import make_row
 from tests.unit.test_respond import (
     _journal_dir,  # noqa: F401  (autouse: a fresh journal folder for every test)
@@ -64,7 +69,12 @@ def test_a_tainted_key_acting_after_the_scope_is_reported_and_the_dry_run_still_
     assert NEW_ACTIVITY_WARNING in dr.warnings and dr.activity_check.status == "new activity"
     assert (dr.activity_check.total_found, dr.activity_check.events_read) == (1, 1)
     assert dr.activity_check.regions == ["us-east-1", "us-west-2"] and dr.activity_check.complete
-    assert {(c["StartTime"], c["EndTime"]) for c in acct.lookup_calls} == {(SINCE, "2026-10-27T12:00:00Z")}
+    starts = sorted({c["StartTime"] for c in acct.lookup_calls})
+    assert starts[0] == SINCE and max(c["EndTime"] for c in acct.lookup_calls) == "2026-10-27T12:00:00Z"
+    check_ = dr.activity_check
+    assert (
+        check_.slices_total == check_.slices_read == len(starts) > 1 and check_.last_time_read == check_.until
+    )
     assert acct.calls == []  # reads only
     assert run(dr.model_dump(mode="json")).completed  # a warning does not stop execute
 
@@ -187,8 +197,8 @@ def test_every_kind_of_tainted_identity_is_matched(fixtures, scenario, kind, row
 
 
 def test_regions_are_the_scopes_log_regions_and_the_home_region_and_only_real_region_names(fixtures):
-    scope = scope_of(fixtures, "01_leaked_key")
-    assert regions_to_read(scope, "eu-west-1") == (["eu-west-1", "us-east-1", "us-west-2"], [])
+    scope = scope_of(fixtures, "01_leaked_key")  # every in-scope event is in us-east-1
+    assert regions_to_read(scope, "eu-west-1") == (["us-east-1", "eu-west-1", "us-west-2"], [])
     hostile = scope.model_copy(
         update={
             "coverage": scope.coverage.model_copy(
@@ -199,29 +209,90 @@ def test_regions_are_the_scopes_log_regions_and_the_home_region_and_only_real_re
     assert regions_to_read(hostile, "us-east-1") == (["us-east-1"], ["x; rm -rf /"])
 
 
-def test_the_event_cap_is_one_budget_and_the_oldest_events_are_the_ones_left_out(fixtures, monkeypatch):
+def test_the_region_where_the_attacker_was_seen_is_read_before_an_idle_home_region(fixtures):
+    scope = scope_of(fixtures, "01_leaked_key")
+    moved = scope.model_copy(
+        update={
+            "events": [
+                e.model_copy(update={"event": e.event.model_copy(update={"aws_region": "us-west-2"})})
+                for e in scope.events
+            ]
+        }
+    )
+    assert regions_to_read(moved, "us-east-1")[0] == ["us-west-2", "us-east-1"]
+    assert regions_to_read(scope, "us-west-2")[0] == ["us-east-1", "us-west-2"]  # the count wins over home
+
+
+def test_under_a_cap_the_events_nearest_the_scope_are_read_and_the_rest_is_said_to_be_unread(
+    fixtures, monkeypatch
+):
     scope, acct, log = scope_of(fixtures, "01_leaked_key"), account_01(), LogSet()
     acct.history = {
-        "us-east-1": [call(log, f"2026-10-20T15:{m}:00Z", backdoor()) for m in ("10", "20", "30")],
-        "us-west-2": [call(log, "2026-10-20T15:40:00Z", backdoor(), region="us-west-2")],
+        "us-east-1": [
+            call(
+                log, "2026-10-20T15:10:00Z", backdoor()
+            ),  # the first slice runs 14:40 to 15:40, in every region
+            call(log, "2026-10-20T15:20:00Z", backdoor()),
+            call(log, "2026-10-20T17:00:00Z", backdoor()),  # the second slice
+        ],
+        "us-west-2": [call(log, "2026-10-20T15:30:00Z", backdoor(), region="us-west-2")],
+    }
+    dr = check(scope, acct, monkeypatch, activity_max_events=3)  # exactly the first slice of both regions
+    c = dr.activity_check
+    assert dr.passed and c.events_read == 3 and not c.complete and c.status == "new activity"
+    assert [a.time for a in dr.new_activity] == [
+        "2026-10-20T15:10:00Z",
+        "2026-10-20T15:20:00Z",
+        "2026-10-20T15:30:00Z",
+    ]
+    assert (c.slices_read, c.last_time_read) == (1, "2026-10-20T15:40:00Z") and c.slices_total > 2
+    assert c.regions == ["us-east-1", "us-west-2"] and c.unread_regions == ["us-east-1", "us-west-2"]
+    incomplete = next(w for w in dr.warnings if w.startswith("the activity check was incomplete"))
+    assert "read 3 events through 2026-10-20T15:40:00Z of 2026-10-27T12:00:00Z" in incomplete
+    assert "stopped at the cap of 3" in incomplete and "--activity-check-max-events" in incomplete
+    assert (
+        "activity after 2026-10-20T15:40:00Z was not read" in incomplete
+        and "not read at all" not in incomplete
+    )
+
+
+def test_a_slice_counts_as_read_only_when_every_region_was_read_for_it(fixtures, monkeypatch):
+    scope, acct, log = scope_of(fixtures, "01_leaked_key"), account_01(), LogSet()
+    acct.history = {"us-east-1": [call(log, f"2026-10-20T15:{m}:00Z", backdoor()) for m in ("10", "20")]}
+    dr = check(
+        scope, acct, monkeypatch, activity_max_events=2
+    )  # us-east-1 uses the budget; us-west-2 gets none
+    c = dr.activity_check
+    assert [a.time for a in dr.new_activity] == ["2026-10-20T15:10:00Z", "2026-10-20T15:20:00Z"]
+    assert (c.slices_read, c.last_time_read) == (0, SINCE) and not c.complete
+    assert "not read at all: us-west-2" in next(w for w in dr.warnings if "incomplete" in w)
+
+
+def test_a_cap_that_cuts_the_first_slice_keeps_its_newest_events_and_claims_nothing_beyond_the_scope(
+    fixtures, monkeypatch
+):
+    scope, acct, log = scope_of(fixtures, "01_leaked_key"), account_01(), LogSet()
+    acct.history = {
+        "us-east-1": [call(log, f"2026-10-20T15:{m}:00Z", backdoor()) for m in ("10", "20", "30")]
     }
     dr = check(scope, acct, monkeypatch, activity_max_events=2)
-    assert dr.passed and dr.activity_check.events_read == 2 and not dr.activity_check.complete
+    c = dr.activity_check
     assert [a.time for a in dr.new_activity] == [
         "2026-10-20T15:20:00Z",
         "2026-10-20T15:30:00Z",
     ]  # newest first
-    assert dr.activity_check.unread_regions == ["us-west-2"] and dr.activity_check.regions == ["us-east-1"]
-    incomplete = next(w for w in dr.warnings if w.startswith("the activity check was incomplete"))
-    assert "stopped at the cap of 2" in incomplete and "--activity-check-max-events" in incomplete
-    assert "not read at all: us-west-2" in incomplete
+    assert not c.complete and (c.slices_read, c.last_time_read) == (0, SINCE)  # no stretch of time is claimed
 
 
-def test_a_budget_used_up_exactly_still_leaves_later_regions_unread(fixtures, monkeypatch):
+def test_a_budget_used_up_exactly_still_leaves_the_rest_of_the_window_unread(fixtures, monkeypatch):
     scope, acct, log = scope_of(fixtures, "01_leaked_key"), account_01(), LogSet()
     acct.history = {"us-east-1": [call(log, f"2026-10-20T15:{m}:00Z", backdoor()) for m in ("10", "20")]}
     dr = check(scope, acct, monkeypatch, activity_max_events=2)
-    assert dr.activity_check.unread_regions == ["us-west-2"] and not dr.activity_check.complete
+    c = dr.activity_check
+    assert c.unread_regions == ["us-east-1", "us-west-2"] and not c.complete
+    assert (
+        len([x for x in acct.lookup_calls if x["region"] == "us-east-1"]) == 1
+    )  # nothing asked once it ran out
 
 
 def test_a_cap_of_zero_skips_the_check(fixtures, monkeypatch):
@@ -231,12 +302,15 @@ def test_a_cap_of_zero_skips_the_check(fixtures, monkeypatch):
     assert acct.lookup_calls == []
 
 
-def test_one_region_that_fails_does_not_stop_the_others(fixtures, monkeypatch):
+def test_one_region_that_fails_does_not_stop_the_others_and_is_not_asked_again(fixtures, monkeypatch):
     scope, acct, log = scope_of(fixtures, "01_leaked_key"), account_01(), LogSet()
     acct.history = {"us-east-1": [call(log, "2026-10-20T15:10:00Z", backdoor())]}
     real = fake_aws.FakeClient._cloudtrail_lookup_events
 
+    asked = []
+
     def west_is_denied(self, op, **kw):
+        asked.append(self.region)
         if self.region == "us-west-2":
             raise fake_aws._err("AccessDeniedException", op)
         return real(self, op, **kw)
@@ -246,6 +320,8 @@ def test_one_region_that_fails_does_not_stop_the_others(fixtures, monkeypatch):
     assert dr.passed and dr.activity_check.status == "new activity" and not dr.activity_check.complete
     assert dr.activity_check.failed_regions == ["us-west-2"] and dr.activity_check.regions == ["us-east-1"]
     assert any("could not read the event history of us-west-2" in w for w in dr.warnings)
+    assert asked.count("us-west-2") == 1 and asked.count("us-east-1") > 1  # one failure, not one per slice
+    assert dr.activity_check.slices_read == dr.activity_check.slices_total  # the budget never ran out
 
 
 def test_an_unexpected_error_in_the_check_is_a_warning_not_a_failure(fixtures, monkeypatch):
@@ -388,3 +464,160 @@ def test_the_dry_run_passes_and_warns_when_the_scope_ends_after_it_was_made(fixt
     )
     assert doc["passed"] and doc["activity_check"]["status"] == "skipped" and acct.lookup_calls == []
     assert any("nothing after it to look at yet" in w for w in doc["warnings"])
+
+
+# ---- the window is read in slices, earliest first
+
+HOUR = 3600
+
+
+def seconds(stamp):
+    return parse_time_us(stamp) // 1_000_000
+
+
+def test_a_short_window_is_one_slice_and_a_longer_one_grows_slice_by_slice():
+    assert plan_slices("2026-10-20T14:40:00Z", "2026-10-20T15:10:00Z") == [
+        ("2026-10-20T14:40:00Z", "2026-10-20T15:10:00Z")
+    ]
+    assert plan_slices("2026-10-20T14:40:00Z", "2026-10-20T16:40:00Z") == [
+        ("2026-10-20T14:40:00Z", "2026-10-20T15:39:59Z"),  # an hour, ending a second before the next starts
+        ("2026-10-20T15:40:00Z", "2026-10-20T16:40:00Z"),
+    ]
+    assert plan_slices("2026-10-20T14:40:00Z", "2026-10-20T14:40:00Z") == []
+
+
+def test_slices_double_up_to_a_day_cover_the_window_exactly_and_never_overlap():
+    since, until = "2026-10-20T00:00:00Z", "2026-10-27T00:00:00Z"
+    slices = plan_slices(since, until)
+    assert len(slices) == 11  # 1, 2, 4, 8 and 16 hours, five days, and what is left, not 168 hourly slices
+    assert slices[0][0] == since and slices[-1][1] == until
+    lengths = [seconds(end) + 1 - seconds(start) for start, end in slices[:-1]]
+    assert lengths == [h * HOUR for h in (1, 2, 4, 8, 16, 24, 24, 24, 24, 24)]
+    for (_, end), (start, _) in zip(slices, slices[1:], strict=False):
+        assert seconds(start) == seconds(end) + 1  # contiguous, nothing in two slices
+
+
+def test_every_region_is_read_for_a_slice_before_any_region_for_the_next(fixtures, monkeypatch):
+    acct = account_01()
+    check(scope_of(fixtures, "01_leaked_key"), acct, monkeypatch)
+    asked = [(c["StartTime"], c["region"]) for c in acct.lookup_calls]
+    starts = [start for start, _ in asked]
+    assert starts == sorted(starts) and len(set(starts)) > 1
+    for start in set(starts):
+        assert [r for s, r in asked if s == start] == ["us-east-1", "us-west-2"]
+
+
+# ---- the real paginator, not only the fake: B1, and the fake held to it
+
+
+def ct_record(n, when="2026-10-20T14:50:00Z"):
+    return {
+        "eventID": f"e{n:04d}",
+        "eventTime": when,
+        "eventSource": "iam.amazonaws.com",
+        "eventName": "ListUsers",
+        "awsRegion": "us-east-1",
+        "recipientAccountId": "111122223333",
+        "userIdentity": {
+            "type": "IAMUser",
+            "accessKeyId": "AKIAIOSFODNN7EXAMPLE",
+            "principalId": "AIDAEXAMPLE",
+        },
+    }
+
+
+def stubbed_cloudtrail(monkeypatch, region="us-east-1"):
+    client = boto3.client("cloudtrail", region_name=region, aws_access_key_id="x", aws_secret_access_key="y")
+    monkeypatch.setitem(remote._clients, ("cloudtrail", None, region), client)
+    return client
+
+
+def service_pages(sizes):
+    """What the service answers for `sizes` events split into pages: a NextToken on every page but the last."""
+    n = 0
+    pages = []
+    for i, size in enumerate(sizes):
+        events = [
+            {"EventId": f"e{n + k}", "CloudTrailEvent": json.dumps(ct_record(n + k))} for k in range(size)
+        ]
+        n += size
+        pages.append({"Events": events, **({"NextToken": f"t{i}"} if i < len(sizes) - 1 else {})})
+    return pages
+
+
+def test_a_cap_that_cuts_partway_through_the_services_last_page_is_incomplete(fixtures, monkeypatch):
+    scope = scope_of(fixtures, "01_leaked_key")
+    one_region = scope.model_copy(
+        update={"coverage": scope.coverage.model_copy(update={"streams": scope.coverage.streams[:1]})}
+    )
+    client = stubbed_cloudtrail(monkeypatch)
+    with Stubber(client) as stub:
+        for page in service_pages([50, 30]):
+            stub.add_response("lookup_events", page)
+        out = check_activity(
+            one_region,
+            caller_account="111122223333",
+            profile=None,
+            home_region="us-east-1",
+            max_events=60,  # 10 events of the last page are dropped, and that page has no NextToken of its own
+            until="2026-10-20T15:30:00Z",
+        )
+    assert out.check.events_read == 60 and not out.check.complete
+    assert any("stopped at the cap of 60" in w for w in out.warnings)
+
+
+def test_a_cap_that_fits_exactly_is_complete(fixtures, monkeypatch):
+    scope = scope_of(fixtures, "01_leaked_key")
+    one_region = scope.model_copy(
+        update={"coverage": scope.coverage.model_copy(update={"streams": scope.coverage.streams[:1]})}
+    )
+    with Stubber(stubbed_cloudtrail(monkeypatch)) as stub:
+        for page in service_pages([50, 30]):
+            stub.add_response("lookup_events", page)
+        out = check_activity(
+            one_region,
+            caller_account="111122223333",
+            profile=None,
+            home_region="us-east-1",
+            max_events=80,
+            until="2026-10-20T15:30:00Z",
+        )
+    assert out.check.events_read == 80 and out.check.complete
+
+
+PAGINATION_CASES = [
+    ([30], None),
+    ([30], 100),
+    ([30], 30),
+    ([50, 30], 50),  # the cap equals the first page and the service has more
+    ([50, 30], 60),  # partway through the last page, which has no NextToken
+    ([50, 30], 80),
+    ([50, 30], 20),
+    ([50, 50], 100),
+    ([50, 50], 99),
+]
+
+
+@pytest.mark.parametrize("sizes,cap", PAGINATION_CASES)
+def test_the_fakes_pager_behaves_as_botocores_real_one_does(monkeypatch, sizes, cap):
+    """B1 hid because the fake paged its own way. Both are run on the same case and must agree on how many events came
+    back, whether the last page has a NextToken, and whether the paginator says it cut events off."""
+    window = {"StartTime": "2026-10-20T00:00:00Z", "EndTime": "2026-10-21T00:00:00Z"}
+    config = {} if cap is None else {"PaginationConfig": {"MaxItems": cap}}
+
+    def observe(pages):
+        events, last_has_token = 0, False
+        for page in pages:
+            events += len(page.get("Events", []))
+            last_has_token = "NextToken" in page
+        return events, last_has_token, pages.resume_token is not None
+
+    with Stubber(stubbed_cloudtrail(monkeypatch)) as stub:
+        for page in service_pages(sizes):
+            stub.add_response("lookup_events", page)
+        real_client = remote._clients[("cloudtrail", None, "us-east-1")]
+        real = observe(real_client.get_paginator("lookup_events").paginate(**window, **config))
+
+    acct = Account(history={"us-east-1": [ct_record(i) for i in range(sum(sizes))]})
+    fake_client = fake_aws.FakeClient(acct, "cloudtrail", "us-east-1")
+    assert observe(fake_client.get_paginator("lookup_events").paginate(**window, **config)) == real
