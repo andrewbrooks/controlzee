@@ -21,6 +21,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
 from controlzee.ingest.remote import client
+from controlzee.safety import clean
 
 SHAPES: Final[dict[str, re.Pattern[str]]] = {
     "iam": re.compile(r"^[\w+=,.@-]{1,128}$"),  # user, role, group and inline policy names
@@ -34,6 +35,9 @@ SHAPES: Final[dict[str, re.Pattern[str]]] = {
     "parameter": re.compile(r"^[\w/.-]{1,2048}$"),
     "function": re.compile(r"^[\w-]{1,64}$"),
     "bucket": re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"),
+    # identity providers (the contract's shapes: bounded, no "|", no control characters)
+    "oidc_arn": re.compile(r"^arn:aws[\w-]*:iam::\d{12}:oidc-provider/[\w./:@-]{1,400}$"),
+    "saml_arn": re.compile(r"^arn:aws[\w-]*:iam::\d{12}:saml-provider/[\w+=,.@-]{1,128}$"),
     "time": re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"),
 }
 MAX_SKEW: Final = timedelta(minutes=5)  # beyond this a session revocation is refused
@@ -49,7 +53,9 @@ class Unsafe(ValueError):
 
 
 def check(kind: str, value: Any) -> str:
-    if not isinstance(value, str) or not SHAPES[kind].match(value):
+    if not isinstance(value, str) or not SHAPES[kind].fullmatch(
+        value
+    ):  # fullmatch: "$" alone would let a trailing newline through
         raise Unsafe(kind)
     return value
 
@@ -684,6 +690,54 @@ def _probe_security_hub(ctx: Ctx, a: dict[str, str], region: str | None) -> Prob
     )
 
 
+# ---- identity providers (global IAM)
+
+
+def _provider_problem(ctx: Ctx, arn: str) -> str | None:
+    """Why this provider cannot be deleted from here: it is not in the caller's own account and partition."""
+    parts = arn.split(":")
+    if parts[1] != ctx.partition or parts[4] != ctx.account:
+        return (
+            f"provider {clean(arn)} is not in this account ({ctx.account}, partition {ctx.partition}), so "
+            "controlzee cannot tell which provider it would delete"
+        )
+    return None
+
+
+def _probe_delete_oidc(ctx: Ctx, a: dict[str, str], region: str | None) -> Probe:
+    arn = a["provider_arn"]
+    found = _absent(lambda: ctx.c("iam").get_open_id_connect_provider(OpenIDConnectProviderArn=arn))
+    if found is None:
+        return Probe(f"OIDC provider {arn} does not exist", True, ())
+    state = (  # the issuer is data from AWS that the attacker chose: cleaned and capped
+        f"OIDC provider {arn} with issuer {clean(found.get('Url', ''), 200)}, "
+        f"{len(found.get('ClientIDList', []))} client ids and {len(found.get('ThumbprintList', []))} thumbprints"
+    )
+    return Probe(
+        state,
+        False,
+        (("iam:DeleteOpenIDConnectProvider", arn),),
+        _provider_problem(ctx, arn),
+        {"provider_arn": arn, "provider_create_date": _date(found["CreateDate"])},
+    )
+
+
+def _probe_delete_saml(ctx: Ctx, a: dict[str, str], region: str | None) -> Probe:
+    arn = a["provider_arn"]
+    found = _absent(lambda: ctx.c("iam").get_saml_provider(SAMLProviderArn=arn))
+    if found is None:
+        return Probe(f"SAML provider {arn} does not exist", True, ())
+    # never the metadata document: it is large, and the attacker wrote it
+    until = _date(found["ValidUntil"]) if "ValidUntil" in found else "unknown"
+    return Probe(
+        f"SAML provider {arn}, valid until {clean(until, 40)}",
+        False,
+        (("iam:DeleteSAMLProvider", arn),),
+        _provider_problem(ctx, arn),
+        {"provider_arn": arn, "provider_create_date": _date(found["CreateDate"])},
+    )
+
+
 # ---- Lambda and S3
 
 
@@ -820,6 +874,7 @@ def _ec2(fn: str, done: str) -> Apply:
 _USER: Final = ("user_id", "user_create_date")
 _ROLE: Final = ("role_id", "role_create_date")
 _GROUP: Final = ("group_id", "group_create_date")
+_PROVIDER: Final = ("provider_arn", "provider_create_date")
 
 OPS: Final[dict[str, OpSpec]] = {
     "deactivate_access_key": OpSpec(
@@ -1035,6 +1090,36 @@ OPS: Final[dict[str, OpSpec]] = {
         _probe_delete_role,
         _apply_delete_role,
         identity_keys=_ROLE,
+    ),
+    "delete_oidc_provider": OpSpec(
+        {"provider_arn": "oidc_arn"},
+        False,
+        True,
+        lambda a, r: (
+            f"delete OIDC identity provider {a['provider_arn']}: no one can sign in through it any more"
+        ),
+        lambda a, r: [
+            f"aws iam get-open-id-connect-provider --open-id-connect-provider-arn {q('oidc_arn', a['provider_arn'])}",
+            f"aws iam delete-open-id-connect-provider --open-id-connect-provider-arn {q('oidc_arn', a['provider_arn'])}",
+        ],
+        _probe_delete_oidc,
+        _iam_call("delete_open_id_connect_provider", OpenIDConnectProviderArn="provider_arn"),
+        identity_keys=_PROVIDER,
+    ),
+    "delete_saml_provider": OpSpec(
+        {"provider_arn": "saml_arn"},
+        False,
+        True,
+        lambda a, r: (
+            f"delete SAML identity provider {a['provider_arn']}: no one can sign in through it any more"
+        ),
+        lambda a, r: [
+            f"aws iam get-saml-provider --saml-provider-arn {q('saml_arn', a['provider_arn'])}",
+            f"aws iam delete-saml-provider --saml-provider-arn {q('saml_arn', a['provider_arn'])}",
+        ],
+        _probe_delete_saml,
+        _iam_call("delete_saml_provider", SAMLProviderArn="provider_arn"),
+        identity_keys=_PROVIDER,
     ),
     "disassociate_instance_profile": OpSpec(
         {"instance": "instance"},
