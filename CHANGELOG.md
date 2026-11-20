@@ -4,6 +4,11 @@ Versions are `0.x`: output formats (schemas) may change between releases.
 
 ## Unreleased
 
+- The plan deletes an access key the attacker made on an existing user (a disruptive eradicate step, after the contain step
+  that deactivates it). `delete_access_key` was in the operation list but no plan emitted it, so no dry run could contain
+  it. A key on a user the attacker made is left to the delete-user step, and a key the attacker only used is not deleted.
+  Run on a real account.
+
 - The dry run's check for activity after the scope reads the window in slices, earliest first, and says how far it read
   (`activity_check.slices_read`, `slices_total`, `last_time_read`; the warning reads "through T of ..."). Under a cap this
   keeps the activity nearest the scope's end, which is the question the check asks, where it used to keep the newest.
