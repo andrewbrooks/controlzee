@@ -224,6 +224,27 @@ what a capped `ft-` user with an admin inline policy can do (ask who it is). Non
   versions: delete those first. With the guard in place the intruder must pass `--permissions-boundary <the low boundary>` to
   `create-user` and `create-role`, so the earlier commands in this guide need that flag.
 
+### A trust-policy backdoor
+
+An existing role, `ft-ops`, trusted only the responder role. The intruder was given permission to change that one role's
+trust policy, and an untainted user, `ft-other`, stood in for the principal an attacker adds (a second account cannot be
+tested in a single sandbox account). The responder assumed the role (the legitimate use), the intruder rewrote the
+trust policy to keep the responder and add `ft-other`, `ft-other` assumed the role and listed users through the session,
+and the responder assumed the role again.
+
+- Passed: the scope held the intruder's calls, the `AssumeRole` by `ft-other` (found through the trust-policy entry, with
+  no tainted key) and the session's `ListUsers` (followed through the session key). The policy named the responder role
+  too, and its `AssumeRole` calls were not followed, because it had assumed the role before the change (the identity
+  list shows no event acting as that entry). The plan had the deactivation of `ft-other`'s key (its call is now part of the
+  incident), the intruder's key, the revocation of the role's sessions, and the manual step to restore the trust policy,
+  naming both principals with the commands. Execute ran the three steps.
+- Gotcha: a key that was just deactivated can keep working for several seconds (the next `AssumeRole` by `ft-other`
+  succeeded right after execute, and was refused with `InvalidClientTokenId` about 15 seconds later). A session revocation
+  denies credentials issued before its cutoff, so it does not stop a new `AssumeRole` while the trust policy still names
+  the principal: restoring the policy, or deactivating the principal's key, does.
+- Not tested live: an outside account (a caller logged as `AWSAccount` with no ARN). That case is covered by the generated
+  scenario and by a test that reads the real captured Stratus record, and not by a live run.
+
 ## Real samples as fixtures
 
 Committed fixtures are generated (see `tests/builders/`). Real records are welcome as an addition, not a replacement:
