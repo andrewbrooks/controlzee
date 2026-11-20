@@ -20,8 +20,19 @@ def _err(code: str, op: str) -> ClientError:
     return ClientError({"Error": {"Code": code, "Message": f"{code} (fake)"}}, op)
 
 
+CREATED = datetime(
+    2026, 1, 15, 9, 30, tzinfo=UTC
+)  # when every fake resource was made unless a test says otherwise
+
+
+def _fake_id(prefix: str, name: str) -> str:
+    return prefix + "".join(c for c in name.upper() if c.isalnum())
+
+
 @dataclass
 class User:
+    uid: str = ""  # AIDA...; empty: made up from the name
+    created: datetime = CREATED
     keys: dict[str, str] = field(default_factory=dict)  # key id -> status
     login: bool = False
     attached: set[str] = field(default_factory=set)
@@ -32,9 +43,25 @@ class User:
 
 @dataclass
 class Role:
+    uid: str = ""  # AROA...; empty: made up from the name
+    created: datetime = CREATED
     attached: set[str] = field(default_factory=set)
     inline: set[str] = field(default_factory=set)
     profiles: set[str] = field(default_factory=set)
+
+
+@dataclass
+class Group:
+    uid: str = ""  # AGPA...; empty: made up from the name
+    created: datetime = CREATED
+    attached: set[str] = field(default_factory=set)
+    inline: set[str] = field(default_factory=set)
+
+
+@dataclass
+class Function:
+    code_sha256: str = "Zm9vYmFyMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA="
+    last_modified: str = "2026-01-15T09:30:00.000+0000"
 
 
 @dataclass
@@ -49,6 +76,13 @@ class Account:
     instances: dict[str, dict[str, Any]] = field(default_factory=dict)
     functions: set[str] = field(default_factory=set)  # Lambda function names
     buckets: dict[str, list[str]] = field(default_factory=dict)  # bucket name -> object keys
+    bucket_created: dict[str, datetime] = field(
+        default_factory=dict
+    )  # bucket name -> creation date (default CREATED)
+    group_meta: dict[str, Group] = field(default_factory=dict)  # group name -> its id and creation date
+    function_meta: dict[str, Function] = field(
+        default_factory=dict
+    )  # function name -> its code hash and last change
     denied: set[str] = field(default_factory=set)  # IAM actions the simulator denies
     allowed_regions: set[str] | None = (
         None  # an organization policy that allows only these regions, as the real simulator evaluates it
@@ -150,16 +184,40 @@ class FakeClient:
         return self.acct.roles[name]
 
     def _iam_get_user(self, op: str, UserName: str) -> Any:  # noqa: N803 (AWS's spelling)
-        self._user(op, UserName)
-        return {"User": {"UserName": UserName, "Arn": f"arn:aws:iam::{ACCOUNT}:user/{UserName}"}}
+        user = self._user(op, UserName)
+        return {
+            "User": {
+                "UserName": UserName,
+                "UserId": user.uid or _fake_id("AIDA", UserName),
+                "Arn": f"arn:aws:iam::{ACCOUNT}:user/{UserName}",
+                "CreateDate": user.created,
+            }
+        }
 
     def _iam_get_role(self, op: str, RoleName: str) -> Any:  # noqa: N803
-        self._role(op, RoleName)
-        return {"Role": {"RoleName": RoleName, "Arn": f"arn:aws:iam::{ACCOUNT}:role/{RoleName}"}}
+        role = self._role(op, RoleName)
+        return {
+            "Role": {
+                "RoleName": RoleName,
+                "RoleId": role.uid or _fake_id("AROA", RoleName),
+                "Arn": f"arn:aws:iam::{ACCOUNT}:role/{RoleName}",
+                "CreateDate": role.created,
+            }
+        }
 
     def _iam_get_group(self, op: str, GroupName: str) -> Any:  # noqa: N803
+        if GroupName not in self.acct.group_meta and not any(
+            GroupName in u.groups for u in self.acct.users.values()
+        ):
+            raise _err("NoSuchEntity", op)
+        group = self.acct.group_meta.get(GroupName, Group())
         return {
-            "Group": {"GroupName": GroupName, "Arn": f"arn:aws:iam::{ACCOUNT}:group/{GroupName}"},
+            "Group": {
+                "GroupName": GroupName,
+                "GroupId": group.uid or _fake_id("AGPA", GroupName),
+                "Arn": f"arn:aws:iam::{ACCOUNT}:group/{GroupName}",
+                "CreateDate": group.created,
+            },
             "Users": [],
         }
 
@@ -260,6 +318,13 @@ class FakeClient:
         del self.acct.users[UserName]
         return {}
 
+    def _iam_list_attached_group_policies(self, op: str, GroupName: str) -> Any:  # noqa: N803
+        attached = self.acct.group_meta.get(GroupName, Group()).attached
+        return {"AttachedPolicies": [{"PolicyArn": a} for a in sorted(attached)]}
+
+    def _iam_list_group_policies(self, op: str, GroupName: str) -> Any:  # noqa: N803
+        return {"PolicyNames": sorted(self.acct.group_meta.get(GroupName, Group()).inline)}
+
     def _iam_list_attached_role_policies(self, op: str, RoleName: str) -> Any:  # noqa: N803
         return {"AttachedPolicies": [{"PolicyArn": a} for a in sorted(self._role(op, RoleName).attached)]}
 
@@ -338,7 +403,15 @@ class FakeClient:
     def _lambda_get_function(self, op: str, FunctionName: str) -> Any:  # noqa: N803
         if FunctionName not in self.acct.functions:
             raise _err("ResourceNotFoundException", op)
-        return {"Configuration": {"FunctionName": FunctionName}}
+        meta = self.acct.function_meta.get(FunctionName, Function())
+        return {
+            "Configuration": {
+                "FunctionName": FunctionName,
+                "FunctionArn": f"arn:aws:lambda:{self.region}:{ACCOUNT}:function:{FunctionName}",
+                "CodeSha256": meta.code_sha256,
+                "LastModified": meta.last_modified,
+            }
+        }
 
     def _lambda_delete_function(self, op: str, FunctionName: str) -> Any:  # noqa: N803
         if FunctionName not in self.acct.functions:
@@ -350,6 +423,16 @@ class FakeClient:
         if Bucket not in self.acct.buckets:
             raise _err("404", op)
         return {}
+
+    def _s3_list_buckets(self, op: str, Prefix: str = "", **_: Any) -> Any:  # noqa: N803
+        return {
+            "Buckets": [
+                {"Name": name, "CreationDate": self.acct.bucket_created.get(name, CREATED)}
+                for name in sorted(self.acct.buckets)
+                if name.startswith(Prefix)
+            ],
+            "Owner": {"ID": "fake"},
+        }
 
     def _s3_list_objects_v2(self, op: str, Bucket: str, MaxKeys: int) -> Any:  # noqa: N803
         keys = self.acct.buckets[Bucket][:MaxKeys]
