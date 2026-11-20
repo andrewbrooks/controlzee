@@ -23,22 +23,28 @@ from typing import Any, Final
 from controlzee.ingest.remote import client
 from controlzee.safety import clean
 
+
+def _shape(pattern: str) -> re.Pattern[str]:
+    """ASCII only: without the flag, `\w` and `\d` also match letters and digits of other scripts."""
+    return re.compile(pattern, re.ASCII)
+
+
 SHAPES: Final[dict[str, re.Pattern[str]]] = {
-    "iam": re.compile(r"^[\w+=,.@-]{1,128}$"),  # user, role, group and inline policy names
-    "key": re.compile(r"^(AKIA|ASIA)[A-Z0-9]{12,124}$"),
-    "instance": re.compile(r"^i-[0-9a-f]{8,32}$"),
-    "region": re.compile(r"^[a-z]{2}(-[a-z]+)+-\d{1,2}$"),
-    "policy_arn": re.compile(r"^arn:aws[\w-]*:iam::(aws|\d{12}):policy/[\w+=,.@/-]{1,512}$"),
-    "trail": re.compile(r"^(arn:aws[\w-]*:cloudtrail:[a-z0-9-]+:\d{12}:trail/)?[\w.-]{3,128}$"),
-    "recorder": re.compile(r"^[\w.-]{1,256}$"),
-    "secret": re.compile(r"^[\w/+=.@:-]{1,2048}$"),
-    "parameter": re.compile(r"^[\w/.-]{1,2048}$"),
-    "function": re.compile(r"^[\w-]{1,64}$"),
-    "bucket": re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"),
+    "iam": _shape(r"^[\w+=,.@-]{1,128}$"),  # user, role, group and inline policy names
+    "key": _shape(r"^(AKIA|ASIA)[A-Z0-9]{12,124}$"),
+    "instance": _shape(r"^i-[0-9a-f]{8,32}$"),
+    "region": _shape(r"^[a-z]{2}(-[a-z]+)+-\d{1,2}$"),
+    "policy_arn": _shape(r"^arn:aws[\w-]*:iam::(aws|\d{12}):policy/[\w+=,.@/-]{1,512}$"),
+    "trail": _shape(r"^(arn:aws[\w-]*:cloudtrail:[a-z0-9-]+:\d{12}:trail/)?[\w.-]{3,128}$"),
+    "recorder": _shape(r"^[\w.-]{1,256}$"),
+    "secret": _shape(r"^[\w/+=.@:-]{1,2048}$"),
+    "parameter": _shape(r"^[\w/.-]{1,2048}$"),
+    "function": _shape(r"^[\w-]{1,64}$"),
+    "bucket": _shape(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"),
     # identity providers (the contract's shapes: bounded, no "|", no control characters)
-    "oidc_arn": re.compile(r"^arn:aws[\w-]*:iam::\d{12}:oidc-provider/[\w./:@-]{1,400}$"),
-    "saml_arn": re.compile(r"^arn:aws[\w-]*:iam::\d{12}:saml-provider/[\w+=,.@-]{1,128}$"),
-    "time": re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"),
+    "oidc_arn": _shape(r"^arn:aws(-cn|-us-gov)?:iam::\d{12}:oidc-provider/[\w./:@-]{1,400}$"),
+    "saml_arn": _shape(r"^arn:aws(-cn|-us-gov)?:iam::\d{12}:saml-provider/[\w+=,.@-]{1,128}$"),
+    "time": _shape(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"),
 }
 MAX_SKEW: Final = timedelta(minutes=5)  # beyond this a session revocation is refused
 CUTOFF_MARGIN: Final = timedelta(
