@@ -212,3 +212,49 @@ def test_prefetched_files_are_indexed_like_any_other_input(cloudtrail):
     lookup = LookupInput("us-east-1", *PARAMS.values())
     idx = load_index([PrefetchedInput((lookup.source(lookup.fetch()[0]),))], IngestOptions(workers=1))
     assert [r[0] for r in idx.rows] == ["e1", "e2"]
+
+
+def _history_pages(*sizes):
+    """Event history as the service pages it: a NextToken on every page but the last."""
+    pages, n = [], 0
+    for i, size in enumerate(sizes):
+        events = [
+            {
+                "EventId": f"e{n + k}",
+                "CloudTrailEvent": orjson.dumps(_ct_record(1, 1) | {"eventID": f"e{n + k:03d}"}).decode(),
+            }
+            for k in range(size)
+        ]
+        n += size
+        pages.append({"Events": events, **({"NextToken": f"t{i}"} if i < len(sizes) - 1 else {})})
+    return pages
+
+
+def test_a_cap_that_cuts_partway_through_the_last_page_is_still_a_truncation(cloudtrail):
+    first, last = _history_pages(50, 30)
+    cloudtrail.add_response("lookup_events", first, PARAMS)
+    cloudtrail.add_response("lookup_events", last, {**PARAMS, "NextToken": "t0"})
+    records, truncated = LookupInput("us-east-1", *PARAMS.values(), max_events=60).fetch()
+    assert (
+        len(records) == 60 and truncated
+    )  # the last page had no NextToken, yet 10 of its events were dropped
+
+
+def test_a_cap_that_fits_the_whole_history_is_not_a_truncation(cloudtrail):
+    first, last = _history_pages(50, 30)
+    cloudtrail.add_response("lookup_events", first, PARAMS)
+    cloudtrail.add_response("lookup_events", last, {**PARAMS, "NextToken": "t0"})
+    records, truncated = LookupInput("us-east-1", *PARAMS.values(), max_events=80).fetch()
+    assert len(records) == 80 and not truncated
+
+
+def test_a_slice_of_event_history_can_be_named_and_the_default_name_is_unchanged(cloudtrail):
+    cloudtrail.add_response("lookup_events", {"Events": []}, PARAMS)
+    lookup = LookupInput("us-east-1", *PARAMS.values())
+    records, _ = lookup.fetch()
+    assert (
+        lookup.source(records).rel == "lookup-events/us-east-1.json"
+    )  # what `scope --lookup-events` has always used
+    assert (
+        lookup.source(records, "lookup-events/us-east-1/003.json").rel == "lookup-events/us-east-1/003.json"
+    )

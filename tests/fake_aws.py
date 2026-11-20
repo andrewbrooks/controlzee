@@ -147,27 +147,37 @@ class FakeClient:
     def get_paginator(self, method: str) -> Any:
         client = self
 
-        class Pager:
-            def paginate(self, PaginationConfig: dict[str, int] | None = None, **kw: Any) -> Any:  # noqa: N803
-                """Pages as botocore's paginator gives them: follows NextToken, and with MaxItems stops there and
-                leaves a NextToken on the last page (the real paginator's resume token) if there was more."""
-                limit = (PaginationConfig or {}).get("MaxItems")
+        class Pages:
+            """What botocore's paginator returns: iterate for pages; afterwards `resume_token` is set exactly when
+            `MaxItems` cut events off, even partway through the service's last page (which then has no NextToken of its
+            own). `tests/unit/test_respond_activity.py` holds this to the real paginator's behaviour."""
+
+            def __init__(self, config: dict[str, int] | None, kw: dict[str, Any]) -> None:
+                self.limit = (config or {}).get("MaxItems")
+                self.kw = kw
+                self.resume_token: str | None = None
+
+            def __iter__(self) -> Any:
                 token: str | None = None
                 taken = 0
                 while True:
-                    page = getattr(client, method)(**kw, **({"NextToken": token} if token else {}))
+                    page = getattr(client, method)(**self.kw, **({"NextToken": token} if token else {}))
                     events = page.get("Events")
-                    if limit is not None and events is not None:
-                        room = limit - taken
-                        more = len(events) > room or (len(events) == room and "NextToken" in page)
-                        if more:
-                            yield {**page, "Events": events[:room], "NextToken": "resume"}
+                    if self.limit is not None and events is not None:
+                        room = self.limit - taken
+                        if len(events) > room or (len(events) == room and "NextToken" in page):
+                            self.resume_token = "resume"
+                            yield {**page, "Events": events[:room]}
                             return
                         taken += len(events)
                     yield page
                     token = page.get("NextToken")
                     if not token:
                         return
+
+        class Pager:
+            def paginate(self, PaginationConfig: dict[str, int] | None = None, **kw: Any) -> Any:  # noqa: N803
+                return Pages(PaginationConfig, kw)
 
         return Pager()
 
