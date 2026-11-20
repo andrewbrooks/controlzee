@@ -137,8 +137,28 @@ attachments; the responder could only change `ft-*` users and the intruder).
 - Found and fixed: a scope whose `--window` ended in the future made the check ask for a window that ends before it
   starts, and event history answered `InvalidTimeRangeException`. The check now says there is nothing after the scope to
   look at yet.
-- Not checked: roles, instance profiles, a Lambda function, and a bucket's creation date through `list_buckets` (the
-  account had no bucket or function).
+- Not checked in that run: roles, instance profiles, a Lambda function, and a bucket's creation date through
+  `list_buckets`. The account's SCP explicitly denied creating a bucket and a function, so those two stay unchecked.
+
+### The same account, plain IAM operations
+
+A second pass made the attacker create a user with a console password and a managed policy, a group with the user in it
+and a managed policy, a role with a managed policy, and use a session of that role and temporary credentials of its own
+user (all named `ft-cov-*`, with the intruder's extra permissions limited to those names and to ReadOnlyAccess).
+
+- Passed: the plan had a step for each, and the dry run read the real state and the policy simulator allowed each one.
+  Executing all ten steps worked on real IAM: a user's and a role's session revocation (`controlzee-revoke-older-sessions`,
+  a `Deny` with an `aws:TokenIssueTime` cutoff), removing the console password, detaching a policy from a user, a group
+  and a role, removing the user from the group, deleting the user (a compound delete) and deleting the role. Naming the
+  lift step removed the user's revocation. A new dry run then reported every step already done except the lifted
+  revocation.
+- Passed: the role and group identity facts (`role_id` with its creation date, `group_id` with its creation date). A role
+  and a group deleted and made again under the same names between a dry run and its execute both gave `drifted`, exit 5,
+  and the new objects kept their policies.
+- Not run: `delete_user_policy`, `delete_role_policy` and `delete_group_policy`, because the intruder would need
+  permission to write inline policies, which can grant anything; and `delete_access_key`, which no plan contains.
+- A gotcha: a key that was just re-enabled, or a policy that was just added, can take a few seconds to take effect
+  (`InvalidClientTokenId`, `AccessDenied`). Wait and try again before suspecting the tool.
 
 ## Real samples as fixtures
 
