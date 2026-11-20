@@ -1,0 +1,1998 @@
+{
+  "coverage": {
+    "data_events": 0,
+    "gap_minutes": 60,
+    "gaps": [],
+    "notes": [
+      "no data events in the inputs: S3 object reads and writes, Lambda invocations and other data-plane activity are not visible"
+    ],
+    "period_end": "2026-10-21T10:51:00Z",
+    "period_start": "2026-10-21T10:00:00Z",
+    "read_only_events": 31,
+    "streams": [
+      {
+        "account": "111122223333",
+        "events": 74,
+        "first_event_time": "2026-10-20T08:00:00Z",
+        "last_event_time": "2026-10-21T13:06:00Z",
+        "region": "us-east-1",
+        "typical_interval_s": 1435
+      },
+      {
+        "account": "111122223333",
+        "events": 8,
+        "first_event_time": "2026-10-20T08:30:00Z",
+        "last_event_time": "2026-10-20T22:30:00Z",
+        "region": "us-west-2",
+        "typical_interval_s": 7200
+      }
+    ],
+    "tampering": [],
+    "tampering_total": 0,
+    "unlogged_accounts": []
+  },
+  "events": [
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "ea972266-d206-5a49-9154-6b3c92801147",
+        "event_name": "GetCallerIdentity",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-21T10:00:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": null,
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T0600Z_0d2af632.json",
+          "record": 11
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+        "event_name": "CreateOpenIDConnectProvider",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-21T10:01:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "clientIDList": [
+            "sts.example.com"
+          ],
+          "thumbprintList": [
+            "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+          ],
+          "url": "https://token.attacker.example.com"
+        },
+        "resources": [],
+        "response_elements": {
+          "openIDConnectProviderArn": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1001Z_cce19f92.json",
+          "record": 0
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "731349d0-3d9c-5690-a136-e4fa9ed4ebb4",
+        "event_name": "CreateSAMLProvider",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-21T10:02:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "name": "attacker-idp",
+          "sAMLMetadataDocument": "<EntityDescriptor xmlns=\"urn:oasis:names:tc:SAML:2.0:metadata\" entityID=\"https://idp.example.com\"/>"
+        },
+        "resources": [],
+        "response_elements": {
+          "sAMLProviderArn": "arn:aws:iam::111122223333:saml-provider/attacker-idp"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1001Z_cce19f92.json",
+          "record": 1
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "dd737b72-7fa2-5f4c-8905-86e2df905521",
+        "event_name": "UpdateAssumeRolePolicy",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-21T10:03:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "policyDocument": "{\n  \"Version\": \"2012-10-17\",\n  \"Statement\": [\n    {\n      \"Effect\": \"Allow\",\n      \"Principal\": {\n        \"Federated\": [\n          \"arn:aws:iam::111122223333:oidc-provider/login.corp.example.com\",\n          \"cognito-identity.amazonaws.com\"\n        ]\n      },\n      \"Action\": \"sts:AssumeRoleWithWebIdentity\"\n    },\n    {\n      \"Effect\": \"Allow\",\n      \"Principal\": {\n        \"AWS\": \"arn:aws:iam::111122223333:role/not-a-caller\"\n      },\n      \"Action\": \"sts:AssumeRoleWithWebIdentity\"\n    }\n  ]\n}",
+          "roleName": "data-reader"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1001Z_cce19f92.json",
+          "record": 2
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": "LimitExceeded",
+        "error_message": "Cannot exceed quota for OpenIdConnectProvidersPerAccount: 100",
+        "event_id": "b28638c9-2b83-5857-ba09-3d580928864b",
+        "event_name": "CreateOpenIDConnectProvider",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-21T10:04:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "clientIDList": [
+            "sts.example.com"
+          ],
+          "thumbprintList": [
+            "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+          ],
+          "url": "https://failed.attacker.example.com"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1001Z_cce19f92.json",
+          "record": 3
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "b0c2bd4b-a6bc-560d-8699-fc56e34c77d4",
+        "event_name": "CreateOpenIDConnectProvider",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-21T10:05:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "clientIDList": [
+            "sts.example.com"
+          ],
+          "thumbprintList": [
+            "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+          ],
+          "url": "https://newline.attacker.example.com"
+        },
+        "resources": [],
+        "response_elements": {
+          "openIDConnectProviderArn": "arn:aws:iam::111122223333:oidc-provider/newline.attacker.example.com\n"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1001Z_cce19f92.json",
+          "record": 4
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "cf538fa5-c998-5d89-b11a-3f998e59f186",
+        "event_name": "CreateOpenIDConnectProvider",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-21T10:05:12Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "clientIDList": [
+            "sts.example.com"
+          ],
+          "thumbprintList": [
+            "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+          ],
+          "url": "https://ctl.attacker.example.com"
+        },
+        "resources": [],
+        "response_elements": {
+          "openIDConnectProviderArn": "arn:aws:iam::111122223333:oidc-provider/ctl.attacker.example.com\u001b[31mred\u0000"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1001Z_cce19f92.json",
+          "record": 5
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "ff758e4f-6b76-51e2-9b12-ef0d3c0583d6",
+        "event_name": "CreateOpenIDConnectProvider",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-21T10:05:24Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "clientIDList": [
+            "sts.example.com"
+          ],
+          "thumbprintList": [
+            "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+          ],
+          "url": "https://wrongtype.attacker.example.com"
+        },
+        "resources": [],
+        "response_elements": {
+          "openIDConnectProviderArn": "arn:aws:iam::111122223333:role/not-a-provider"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1001Z_cce19f92.json",
+          "record": 6
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "dffede70-4239-5e48-a130-510c0252371b",
+        "event_name": "CreateOpenIDConnectProvider",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-21T10:05:36Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "clientIDList": [
+            "sts.example.com"
+          ],
+          "thumbprintList": [
+            "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+          ],
+          "url": "https://samlarn.attacker.example.com"
+        },
+        "resources": [],
+        "response_elements": {
+          "openIDConnectProviderArn": "arn:aws:iam::111122223333:saml-provider/wrongtype-idp"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1001Z_cce19f92.json",
+          "record": 7
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "295d6971-f41c-5133-aa3b-ef76c46d8c25",
+        "event_name": "CreateSAMLProvider",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-21T10:05:48Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "name": "oidc-arn-idp",
+          "sAMLMetadataDocument": "<EntityDescriptor xmlns=\"urn:oasis:names:tc:SAML:2.0:metadata\" entityID=\"https://idp.example.com\"/>"
+        },
+        "resources": [],
+        "response_elements": {
+          "sAMLProviderArn": "arn:aws:iam::111122223333:oidc-provider/wrongtype.attacker.example.com"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1001Z_cce19f92.json",
+          "record": 8
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "6283ba6f-7b9e-502c-b01b-8f939064c63e",
+        "event_name": "AddClientIDToOpenIDConnectProvider",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-21T10:06:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "clientID": "attacker-app",
+          "openIDConnectProviderArn": "arn:aws:iam::111122223333:oidc-provider/ci.example.com"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1001Z_cce19f92.json",
+          "record": 9
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "4c2f1448-6ca5-55e6-8892-e4046e9dd4a6",
+        "event_name": "UpdateOpenIDConnectProviderThumbprint",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-21T10:07:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "openIDConnectProviderArn": "arn:aws:iam::111122223333:oidc-provider/build.example.com",
+          "thumbprintList": [
+            "0123456789abcdef0123456789abcdef01234567"
+          ]
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1001Z_cce19f92.json",
+          "record": 10
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "2a294808-4bd1-5c08-ba2b-2b899f45874f",
+        "event_name": "UpdateSAMLProvider",
+        "event_source": "iam.amazonaws.com",
+        "event_time": "2026-10-21T10:08:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "sAMLMetadataDocument": "<EntityDescriptor xmlns=\"urn:oasis:names:tc:SAML:2.0:metadata\" entityID=\"https://idp.example.com\"/>",
+          "sAMLProviderArn": "arn:aws:iam::111122223333:saml-provider/corp-sso-2"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1001Z_cce19f92.json",
+          "record": 11
+        },
+        "source_ip": "198.51.100.77",
+        "user_agent": "python-requests/2.31.0",
+        "user_identity": {
+          "access_key_id": "AKIAIOSFODNN7LEAKED",
+          "account_id": "111122223333",
+          "arn": "arn:aws:iam::111122223333:user/ci-deploy",
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AIDA5D934EC130750BA8C",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "IAMUser",
+          "user_name": "ci-deploy"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [
+        "leaked_key"
+      ],
+      "origin": "seed",
+      "via": null
+    },
+    {
+      "chain": [
+        "1e53ffdd-8f58-549b-a23f-5584b5fdb45b"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "231ad8cc-b446-5070-b2bf-30c49d43c5e2",
+        "event_name": "AssumeRoleWithWebIdentity",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-21T10:10:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "roleArn": "arn:aws:iam::111122223333:role/web-deploy",
+          "roleSessionName": "atk-web"
+        },
+        "resources": [],
+        "response_elements": {
+          "assumedRoleUser": {
+            "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-web",
+            "assumedRoleId": "AROA51A2ADF90BE9BFA6E:atk-web"
+          },
+          "audience": "sts.example.com",
+          "credentials": {
+            "accessKeyId": "ASIAIOSFODNN7ATK01A",
+            "expiration": "Oct 20, 2026 11:00:00 PM",
+            "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS"
+          },
+          "provider": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com",
+          "subjectFromWebIdentityToken": "attacker-sub-1"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1010Z_5058eb06.json",
+          "record": 0
+        },
+        "source_ip": "198.51.100.90",
+        "user_agent": "aws-sdk-go/1.44.0",
+        "user_identity": {
+          "access_key_id": null,
+          "account_id": null,
+          "arn": null,
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com:sts.example.com:attacker-sub-1",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "WebIdentityUser",
+          "user_name": "attacker-sub-1"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "provider_arn:arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+    },
+    {
+      "chain": [
+        "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+        "231ad8cc-b446-5070-b2bf-30c49d43c5e2"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "89229325-1421-5b58-9b97-8db4d04d3723",
+        "event_name": "GetSecretValue",
+        "event_source": "secretsmanager.amazonaws.com",
+        "event_time": "2026-10-21T10:12:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "secretId": "prod/db"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1010Z_5058eb06.json",
+          "record": 2
+        },
+        "source_ip": "198.51.100.90",
+        "user_agent": "aws-cli/2.15.0",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7ATK01A",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-web",
+          "invoked_by": null,
+          "mfa_authenticated": false,
+          "principal_id": "AROA51A2ADF90BE9BFA6E:atk-web",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/web-deploy",
+            "principal_id": "AROA51A2ADF90BE9BFA6E",
+            "type": "Role",
+            "user_name": "web-deploy"
+          },
+          "session_name": "atk-web",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "access_key_id:ASIAIOSFODNN7ATK01A"
+    },
+    {
+      "chain": [
+        "1e53ffdd-8f58-549b-a23f-5584b5fdb45b"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "06f25fbb-c171-5a46-92b8-1b7babf13e04",
+        "event_name": "AssumeRoleWithWebIdentity",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-21T10:13:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "roleArn": "arn:aws:iam::111122223333:role/web-deploy",
+          "roleSessionName": "atk-pipe"
+        },
+        "resources": [],
+        "response_elements": {
+          "assumedRoleUser": {
+            "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-pipe",
+            "assumedRoleId": "AROA51A2ADF90BE9BFA6E:atk-pipe"
+          },
+          "audience": "sts.example.com",
+          "credentials": {
+            "accessKeyId": "ASIAIOSFODNN7ATK01B",
+            "expiration": "Oct 20, 2026 11:00:00 PM",
+            "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS"
+          },
+          "provider": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com",
+          "subjectFromWebIdentityToken": "evil|sub"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1010Z_5058eb06.json",
+          "record": 3
+        },
+        "source_ip": "198.51.100.90",
+        "user_agent": "aws-sdk-go/1.44.0",
+        "user_identity": {
+          "access_key_id": null,
+          "account_id": null,
+          "arn": null,
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com:sts.example.com:evil|sub",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "WebIdentityUser",
+          "user_name": "evil|sub"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "provider_arn:arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+    },
+    {
+      "chain": [
+        "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+        "06f25fbb-c171-5a46-92b8-1b7babf13e04"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "26643249-5bff-5ac7-b83d-0c717faca211",
+        "event_name": "GetSecretValue",
+        "event_source": "secretsmanager.amazonaws.com",
+        "event_time": "2026-10-21T10:13:30Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "secretId": "prod/pipe"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1010Z_5058eb06.json",
+          "record": 4
+        },
+        "source_ip": "198.51.100.90",
+        "user_agent": "aws-cli/2.15.0",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7ATK01B",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-pipe",
+          "invoked_by": null,
+          "mfa_authenticated": false,
+          "principal_id": "AROA51A2ADF90BE9BFA6E:atk-pipe",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/web-deploy",
+            "principal_id": "AROA51A2ADF90BE9BFA6E",
+            "type": "Role",
+            "user_name": "web-deploy"
+          },
+          "session_name": "atk-pipe",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "access_key_id:ASIAIOSFODNN7ATK01B"
+    },
+    {
+      "chain": [
+        "1e53ffdd-8f58-549b-a23f-5584b5fdb45b"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "24e1ac5d-49ce-53e9-a0b3-e0654c8c6f96",
+        "event_name": "AssumeRoleWithWebIdentity",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-21T10:14:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "roleArn": "arn:aws:iam::111122223333:role/web-deploy",
+          "roleSessionName": "atk-iss"
+        },
+        "resources": [],
+        "response_elements": {
+          "assumedRoleUser": {
+            "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-iss",
+            "assumedRoleId": "AROA51A2ADF90BE9BFA6E:atk-iss"
+          },
+          "audience": "sts.example.com",
+          "credentials": {
+            "accessKeyId": "ASIAIOSFODNN7ATK01C",
+            "expiration": "Oct 20, 2026 11:00:00 PM",
+            "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS"
+          },
+          "provider": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com",
+          "subjectFromWebIdentityToken": "attacker-sub-1b"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1010Z_5058eb06.json",
+          "record": 5
+        },
+        "source_ip": "198.51.100.90",
+        "user_agent": "aws-sdk-go/1.44.0",
+        "user_identity": {
+          "access_key_id": null,
+          "account_id": null,
+          "arn": null,
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "token.attacker.example.com:sts.example.com:attacker-sub-1b",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "WebIdentityUser",
+          "user_name": "attacker-sub-1b"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "provider_arn:arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+    },
+    {
+      "chain": [
+        "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+        "24e1ac5d-49ce-53e9-a0b3-e0654c8c6f96"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "392b0429-543f-5b03-aae8-0d544fd3c5c4",
+        "event_name": "GetSecretValue",
+        "event_source": "secretsmanager.amazonaws.com",
+        "event_time": "2026-10-21T10:14:30Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "secretId": "prod/issuer"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1010Z_5058eb06.json",
+          "record": 6
+        },
+        "source_ip": "198.51.100.90",
+        "user_agent": "aws-cli/2.15.0",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7ATK01C",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-iss",
+          "invoked_by": null,
+          "mfa_authenticated": false,
+          "principal_id": "AROA51A2ADF90BE9BFA6E:atk-iss",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/web-deploy",
+            "principal_id": "AROA51A2ADF90BE9BFA6E",
+            "type": "Role",
+            "user_name": "web-deploy"
+          },
+          "session_name": "atk-iss",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "access_key_id:ASIAIOSFODNN7ATK01C"
+    },
+    {
+      "chain": [
+        "1e53ffdd-8f58-549b-a23f-5584b5fdb45b"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "c76f14b3-7fc6-5549-a468-18936832728b",
+        "event_name": "AssumeRoleWithWebIdentity",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-21T10:15:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "roleArn": "arn:aws:iam::111122223333:role/web-deploy",
+          "roleSessionName": "atk-arn"
+        },
+        "resources": [],
+        "response_elements": {
+          "assumedRoleUser": {
+            "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-arn",
+            "assumedRoleId": "AROA51A2ADF90BE9BFA6E:atk-arn"
+          },
+          "credentials": {
+            "accessKeyId": "ASIAIOSFODNN7ATK01D",
+            "expiration": "Oct 20, 2026 11:00:00 PM",
+            "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS"
+          },
+          "subjectFromWebIdentityToken": "attacker-sub-1c"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1010Z_5058eb06.json",
+          "record": 7
+        },
+        "source_ip": "198.51.100.90",
+        "user_agent": "aws-sdk-go/1.44.0",
+        "user_identity": {
+          "access_key_id": null,
+          "account_id": null,
+          "arn": null,
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com:sts.example.com:attacker-sub-1c",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "WebIdentityUser",
+          "user_name": "attacker-sub-1c"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "provider_arn:arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+    },
+    {
+      "chain": [
+        "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+        "c76f14b3-7fc6-5549-a468-18936832728b"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "b7f97c53-c765-54c8-b343-962a21fc8f0c",
+        "event_name": "GetSecretValue",
+        "event_source": "secretsmanager.amazonaws.com",
+        "event_time": "2026-10-21T10:15:30Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "secretId": "prod/arnonly"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1010Z_5058eb06.json",
+          "record": 8
+        },
+        "source_ip": "198.51.100.90",
+        "user_agent": "aws-cli/2.15.0",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7ATK01D",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/web-deploy/atk-arn",
+          "invoked_by": null,
+          "mfa_authenticated": false,
+          "principal_id": "AROA51A2ADF90BE9BFA6E:atk-arn",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/web-deploy",
+            "principal_id": "AROA51A2ADF90BE9BFA6E",
+            "type": "Role",
+            "user_name": "web-deploy"
+          },
+          "session_name": "atk-arn",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "access_key_id:ASIAIOSFODNN7ATK01D"
+    },
+    {
+      "chain": [
+        "731349d0-3d9c-5690-a136-e4fa9ed4ebb4"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "020f2058-bef7-56bf-aa42-f8660750fd5c",
+        "event_name": "AssumeRoleWithSAML",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-21T10:20:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "principalArn": "arn:aws:iam::111122223333:saml-provider/attacker-idp",
+          "roleArn": "arn:aws:iam::111122223333:role/saml-admin",
+          "roleSessionName": "atk-saml",
+          "sAMLAssertionID": "_f661233e6e99f18c"
+        },
+        "resources": [],
+        "response_elements": {
+          "assumedRoleUser": {
+            "arn": "arn:aws:sts::111122223333:assumed-role/saml-admin/atk-saml",
+            "assumedRoleId": "AROAC71959ACA2AAD6325:atk-saml"
+          },
+          "credentials": {
+            "accessKeyId": "ASIAIOSFODNN7SAMLA1",
+            "expiration": "Oct 20, 2026 11:00:00 PM",
+            "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS"
+          },
+          "subject": "attacker@evil.example"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1017Z_29d77b9f.json",
+          "record": 1
+        },
+        "source_ip": "198.51.100.91",
+        "user_agent": "aws-sdk-go/1.44.0",
+        "user_identity": {
+          "access_key_id": null,
+          "account_id": null,
+          "arn": null,
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AROAC71959ACA2AAD6325:attacker@evil.example",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "SAMLUser",
+          "user_name": "attacker@evil.example"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "provider_arn:arn:aws:iam::111122223333:saml-provider/attacker-idp"
+    },
+    {
+      "chain": [
+        "731349d0-3d9c-5690-a136-e4fa9ed4ebb4",
+        "020f2058-bef7-56bf-aa42-f8660750fd5c"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "6b010987-f1d9-5215-a84b-64f2cf35f730",
+        "event_name": "GetSecretValue",
+        "event_source": "secretsmanager.amazonaws.com",
+        "event_time": "2026-10-21T10:22:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "secretId": "prod/saml"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1017Z_29d77b9f.json",
+          "record": 2
+        },
+        "source_ip": "198.51.100.91",
+        "user_agent": "aws-cli/2.15.0",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7SAMLA1",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/saml-admin/atk-saml",
+          "invoked_by": null,
+          "mfa_authenticated": false,
+          "principal_id": "AROAC71959ACA2AAD6325:atk-saml",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/saml-admin",
+            "principal_id": "AROAC71959ACA2AAD6325",
+            "type": "Role",
+            "user_name": "saml-admin"
+          },
+          "session_name": "atk-saml",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "access_key_id:ASIAIOSFODNN7SAMLA1"
+    },
+    {
+      "chain": [
+        "6283ba6f-7b9e-502c-b01b-8f939064c63e"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "227dd789-d0f9-5c95-94df-e09ec0fa7c4e",
+        "event_name": "AssumeRoleWithWebIdentity",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-21T10:30:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "roleArn": "arn:aws:iam::111122223333:role/ci-web-role",
+          "roleSessionName": "atk-ci"
+        },
+        "resources": [],
+        "response_elements": {
+          "assumedRoleUser": {
+            "arn": "arn:aws:sts::111122223333:assumed-role/ci-web-role/atk-ci",
+            "assumedRoleId": "AROA03D10AA5F9EF88038:atk-ci"
+          },
+          "audience": "sts.example.com",
+          "credentials": {
+            "accessKeyId": "ASIAIOSFODNN7CHG001",
+            "expiration": "Oct 20, 2026 11:00:00 PM",
+            "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS"
+          },
+          "provider": "arn:aws:iam::111122223333:oidc-provider/ci.example.com",
+          "subjectFromWebIdentityToken": "attacker-sub-3"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1017Z_29d77b9f.json",
+          "record": 3
+        },
+        "source_ip": "198.51.100.90",
+        "user_agent": "aws-sdk-go/1.44.0",
+        "user_identity": {
+          "access_key_id": null,
+          "account_id": null,
+          "arn": null,
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "arn:aws:iam::111122223333:oidc-provider/ci.example.com:sts.example.com:attacker-sub-3",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "WebIdentityUser",
+          "user_name": "attacker-sub-3"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "changed_provider:arn:aws:iam::111122223333:oidc-provider/ci.example.com"
+    },
+    {
+      "chain": [
+        "6283ba6f-7b9e-502c-b01b-8f939064c63e",
+        "227dd789-d0f9-5c95-94df-e09ec0fa7c4e"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "61097096-7e03-5cf1-9b63-c5307d005ca7",
+        "event_name": "GetSecretValue",
+        "event_source": "secretsmanager.amazonaws.com",
+        "event_time": "2026-10-21T10:31:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "secretId": "prod/ci"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1017Z_29d77b9f.json",
+          "record": 4
+        },
+        "source_ip": "198.51.100.90",
+        "user_agent": "aws-cli/2.15.0",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7CHG001",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/ci-web-role/atk-ci",
+          "invoked_by": null,
+          "mfa_authenticated": false,
+          "principal_id": "AROA03D10AA5F9EF88038:atk-ci",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/ci-web-role",
+            "principal_id": "AROA03D10AA5F9EF88038",
+            "type": "Role",
+            "user_name": "ci-web-role"
+          },
+          "session_name": "atk-ci",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "access_key_id:ASIAIOSFODNN7CHG001"
+    },
+    {
+      "chain": [
+        "4c2f1448-6ca5-55e6-8892-e4046e9dd4a6"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "0917512d-d59a-5b71-94a1-169b666fade8",
+        "event_name": "AssumeRoleWithWebIdentity",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-21T10:36:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "roleArn": "arn:aws:iam::111122223333:role/build-role",
+          "roleSessionName": "atk-build"
+        },
+        "resources": [],
+        "response_elements": {
+          "assumedRoleUser": {
+            "arn": "arn:aws:sts::111122223333:assumed-role/build-role/atk-build",
+            "assumedRoleId": "AROAB05F7A44196F8A544:atk-build"
+          },
+          "audience": "sts.example.com",
+          "credentials": {
+            "accessKeyId": "ASIAIOSFODNN7BLD002",
+            "expiration": "Oct 20, 2026 11:00:00 PM",
+            "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS"
+          },
+          "provider": "arn:aws:iam::111122223333:oidc-provider/build.example.com",
+          "subjectFromWebIdentityToken": "attacker-sub-3b"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1017Z_29d77b9f.json",
+          "record": 7
+        },
+        "source_ip": "198.51.100.90",
+        "user_agent": "aws-sdk-go/1.44.0",
+        "user_identity": {
+          "access_key_id": null,
+          "account_id": null,
+          "arn": null,
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "arn:aws:iam::111122223333:oidc-provider/build.example.com:sts.example.com:attacker-sub-3b",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "WebIdentityUser",
+          "user_name": "attacker-sub-3b"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "changed_provider:arn:aws:iam::111122223333:oidc-provider/build.example.com"
+    },
+    {
+      "chain": [
+        "4c2f1448-6ca5-55e6-8892-e4046e9dd4a6",
+        "0917512d-d59a-5b71-94a1-169b666fade8"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "911bddd2-9631-5e28-b741-9ec8043bb041",
+        "event_name": "GetSecretValue",
+        "event_source": "secretsmanager.amazonaws.com",
+        "event_time": "2026-10-21T10:37:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "secretId": "prod/build"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1017Z_29d77b9f.json",
+          "record": 8
+        },
+        "source_ip": "198.51.100.90",
+        "user_agent": "aws-cli/2.15.0",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7BLD002",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/build-role/atk-build",
+          "invoked_by": null,
+          "mfa_authenticated": false,
+          "principal_id": "AROAB05F7A44196F8A544:atk-build",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/build-role",
+            "principal_id": "AROAB05F7A44196F8A544",
+            "type": "Role",
+            "user_name": "build-role"
+          },
+          "session_name": "atk-build",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "access_key_id:ASIAIOSFODNN7BLD002"
+    },
+    {
+      "chain": [
+        "2a294808-4bd1-5c08-ba2b-2b899f45874f"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "431d17fe-e67a-50d0-854d-08b8ff90f490",
+        "event_name": "AssumeRoleWithSAML",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-21T10:40:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "principalArn": "arn:aws:iam::111122223333:saml-provider/corp-sso-2",
+          "roleArn": "arn:aws:iam::111122223333:role/saml-ro",
+          "roleSessionName": "atk-saml2",
+          "sAMLAssertionID": "_9cd6f4fc7c0481d8"
+        },
+        "resources": [],
+        "response_elements": {
+          "assumedRoleUser": {
+            "arn": "arn:aws:sts::111122223333:assumed-role/saml-ro/atk-saml2",
+            "assumedRoleId": "AROA84B0409CF8DD80180:atk-saml2"
+          },
+          "credentials": {
+            "accessKeyId": "ASIAIOSFODNN7SAMLM1",
+            "expiration": "Oct 20, 2026 11:00:00 PM",
+            "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS"
+          },
+          "subject": "mallory@evil.example"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1017Z_29d77b9f.json",
+          "record": 11
+        },
+        "source_ip": "198.51.100.91",
+        "user_agent": "aws-sdk-go/1.44.0",
+        "user_identity": {
+          "access_key_id": null,
+          "account_id": null,
+          "arn": null,
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "AROA84B0409CF8DD80180:mallory@evil.example",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "SAMLUser",
+          "user_name": "mallory@evil.example"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "changed_provider:arn:aws:iam::111122223333:saml-provider/corp-sso-2"
+    },
+    {
+      "chain": [
+        "2a294808-4bd1-5c08-ba2b-2b899f45874f",
+        "431d17fe-e67a-50d0-854d-08b8ff90f490"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "edfcae7d-87a4-5150-bd8f-b35a639c5864",
+        "event_name": "GetSecretValue",
+        "event_source": "secretsmanager.amazonaws.com",
+        "event_time": "2026-10-21T10:41:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "secretId": "prod/saml2"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1041Z_f09ef326.json",
+          "record": 0
+        },
+        "source_ip": "198.51.100.91",
+        "user_agent": "aws-cli/2.15.0",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7SAMLM1",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/saml-ro/atk-saml2",
+          "invoked_by": null,
+          "mfa_authenticated": false,
+          "principal_id": "AROA84B0409CF8DD80180:atk-saml2",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/saml-ro",
+            "principal_id": "AROA84B0409CF8DD80180",
+            "type": "Role",
+            "user_name": "saml-ro"
+          },
+          "session_name": "atk-saml2",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "access_key_id:ASIAIOSFODNN7SAMLM1"
+    },
+    {
+      "chain": [
+        "dd737b72-7fa2-5f4c-8905-86e2df905521"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "e55f68b0-5856-5617-b6c6-c89e403c2e6c",
+        "event_name": "AssumeRoleWithWebIdentity",
+        "event_source": "sts.amazonaws.com",
+        "event_time": "2026-10-21T10:50:00Z",
+        "raw": null,
+        "read_only": false,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "roleArn": "arn:aws:iam::111122223333:role/data-reader",
+          "roleSessionName": "atk-data"
+        },
+        "resources": [],
+        "response_elements": {
+          "assumedRoleUser": {
+            "arn": "arn:aws:sts::111122223333:assumed-role/data-reader/atk-data",
+            "assumedRoleId": "AROAE97A7DD30BE371102:atk-data"
+          },
+          "audience": "sts.example.com",
+          "credentials": {
+            "accessKeyId": "ASIAIOSFODNN7DRA001",
+            "expiration": "Oct 20, 2026 11:00:00 PM",
+            "sessionToken": "HIDDEN_DUE_TO_SECURITY_REASONS"
+          },
+          "provider": "arn:aws:iam::111122223333:oidc-provider/login.corp.example.com",
+          "subjectFromWebIdentityToken": "attacker-sub-5"
+        },
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1041Z_f09ef326.json",
+          "record": 3
+        },
+        "source_ip": "198.51.100.90",
+        "user_agent": "aws-sdk-go/1.44.0",
+        "user_identity": {
+          "access_key_id": null,
+          "account_id": null,
+          "arn": null,
+          "invoked_by": null,
+          "mfa_authenticated": null,
+          "principal_id": "arn:aws:iam::111122223333:oidc-provider/login.corp.example.com:sts.example.com:attacker-sub-5",
+          "session_issuer": null,
+          "session_name": null,
+          "source_identity": null,
+          "type": "WebIdentityUser",
+          "user_name": "attacker-sub-5"
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "trusted_by:data-reader|federated:arn:aws:iam::111122223333:oidc-provider/login.corp.example.com"
+    },
+    {
+      "chain": [
+        "dd737b72-7fa2-5f4c-8905-86e2df905521",
+        "e55f68b0-5856-5617-b6c6-c89e403c2e6c"
+      ],
+      "confidence": "strong",
+      "event": {
+        "aws_region": "us-east-1",
+        "error_code": null,
+        "error_message": null,
+        "event_id": "c0739cb2-1b9c-5360-a391-839a05383129",
+        "event_name": "GetSecretValue",
+        "event_source": "secretsmanager.amazonaws.com",
+        "event_time": "2026-10-21T10:51:00Z",
+        "raw": null,
+        "read_only": true,
+        "recipient_account_id": "111122223333",
+        "request_parameters": {
+          "secretId": "prod/data"
+        },
+        "resources": [],
+        "response_elements": null,
+        "shared_event_id": null,
+        "source": {
+          "input": "AWSLogs/111122223333/CloudTrail/us-east-1/2026/10/21/111122223333_CloudTrail_us-east-1_20261021T1041Z_f09ef326.json",
+          "record": 4
+        },
+        "source_ip": "198.51.100.90",
+        "user_agent": "aws-cli/2.15.0",
+        "user_identity": {
+          "access_key_id": "ASIAIOSFODNN7DRA001",
+          "account_id": "111122223333",
+          "arn": "arn:aws:sts::111122223333:assumed-role/data-reader/atk-data",
+          "invoked_by": null,
+          "mfa_authenticated": false,
+          "principal_id": "AROAE97A7DD30BE371102:atk-data",
+          "session_issuer": {
+            "account_id": "111122223333",
+            "arn": "arn:aws:iam::111122223333:role/data-reader",
+            "principal_id": "AROAE97A7DD30BE371102",
+            "type": "Role",
+            "user_name": "data-reader"
+          },
+          "session_name": "atk-data",
+          "source_identity": null,
+          "type": "AssumedRole",
+          "user_name": null
+        },
+        "vpc_endpoint_id": null
+      },
+      "matched_indicators": [],
+      "origin": "propagated",
+      "via": "access_key_id:ASIAIOSFODNN7DRA001"
+    }
+  ],
+  "inputs": {
+    "accounts": [
+      "111122223333"
+    ],
+    "duplicates_removed": 0,
+    "error_files": 0,
+    "errors": [],
+    "event_count": 82,
+    "file_count": 9,
+    "first_event_time": "2026-10-20T08:00:00Z",
+    "ignored_files": 0,
+    "ingested_files": 9,
+    "last_event_time": "2026-10-21T13:06:00Z",
+    "malformed_records": 0,
+    "malformed_samples": [],
+    "manifest_sha256": "66c6e9e38f839ae8272160fd9e86cf200c657bbb513fd344def48f1187769b02",
+    "regions": [
+      "us-east-1",
+      "us-west-2"
+    ],
+    "skipped": [],
+    "skipped_files": 0
+  },
+  "near_miss_summary": {
+    "by_indicator": {},
+    "by_reason": {},
+    "listed": 0,
+    "total": 0
+  },
+  "near_misses": [],
+  "schema_version": "0.4",
+  "scope_sha256": "7eb292e580ed37c932b8aed5ac28508e624b758b1979215ec630128db8aae17f",
+  "seeds": {
+    "expression": "leaked_key",
+    "indicators": [
+      {
+        "kind": "access_key_id",
+        "match": "exact",
+        "name": "leaked_key",
+        "value": "AKIAIOSFODNN7LEAKED"
+      }
+    ],
+    "window": null
+  },
+  "summary": {
+    "by_account": {
+      "111122223333": 31
+    },
+    "by_confidence": {
+      "strong": 31,
+      "weak": 0
+    },
+    "by_origin": {
+      "propagated": 18,
+      "seed": 13
+    },
+    "by_region": {
+      "us-east-1": 31
+    },
+    "events_in_scope": 31,
+    "failed_calls": 1,
+    "first_event_time": "2026-10-21T10:00:00Z",
+    "last_event_time": "2026-10-21T10:51:00Z"
+  },
+  "taint": {
+    "enabled": true,
+    "identities": [
+      {
+        "chain": [
+          "1e53ffdd-8f58-549b-a23f-5584b5fdb45b"
+        ],
+        "confidence": "strong",
+        "events": 4,
+        "issued_at": "2026-10-21T10:01:00Z",
+        "issued_by": "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+        "kind": "provider_arn",
+        "rule": "iam:CreateOpenIDConnectProvider",
+        "value": "arn:aws:iam::111122223333:oidc-provider/token.attacker.example.com"
+      },
+      {
+        "chain": [
+          "731349d0-3d9c-5690-a136-e4fa9ed4ebb4"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-21T10:02:00Z",
+        "issued_by": "731349d0-3d9c-5690-a136-e4fa9ed4ebb4",
+        "kind": "provider_arn",
+        "rule": "iam:CreateSAMLProvider",
+        "value": "arn:aws:iam::111122223333:saml-provider/attacker-idp"
+      },
+      {
+        "chain": [
+          "dd737b72-7fa2-5f4c-8905-86e2df905521"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-21T10:03:00Z",
+        "issued_by": "dd737b72-7fa2-5f4c-8905-86e2df905521",
+        "kind": "trusted_by",
+        "rule": "iam:UpdateAssumeRolePolicy",
+        "value": "data-reader|federated:arn:aws:iam::111122223333:oidc-provider/login.corp.example.com"
+      },
+      {
+        "chain": [
+          "6283ba6f-7b9e-502c-b01b-8f939064c63e"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-21T10:06:00Z",
+        "issued_by": "6283ba6f-7b9e-502c-b01b-8f939064c63e",
+        "kind": "changed_provider",
+        "rule": "iam:AddClientIDToOpenIDConnectProvider",
+        "value": "arn:aws:iam::111122223333:oidc-provider/ci.example.com"
+      },
+      {
+        "chain": [
+          "4c2f1448-6ca5-55e6-8892-e4046e9dd4a6"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-21T10:07:00Z",
+        "issued_by": "4c2f1448-6ca5-55e6-8892-e4046e9dd4a6",
+        "kind": "changed_provider",
+        "rule": "iam:UpdateOpenIDConnectProviderThumbprint",
+        "value": "arn:aws:iam::111122223333:oidc-provider/build.example.com"
+      },
+      {
+        "chain": [
+          "2a294808-4bd1-5c08-ba2b-2b899f45874f"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-21T10:08:00Z",
+        "issued_by": "2a294808-4bd1-5c08-ba2b-2b899f45874f",
+        "kind": "changed_provider",
+        "rule": "iam:UpdateSAMLProvider",
+        "value": "arn:aws:iam::111122223333:saml-provider/corp-sso-2"
+      },
+      {
+        "chain": [
+          "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+          "231ad8cc-b446-5070-b2bf-30c49d43c5e2"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-21T10:10:00Z",
+        "issued_by": "231ad8cc-b446-5070-b2bf-30c49d43c5e2",
+        "kind": "access_key_id",
+        "rule": "sts:AssumeRoleWithWebIdentity",
+        "value": "ASIAIOSFODNN7ATK01A"
+      },
+      {
+        "chain": [
+          "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+          "06f25fbb-c171-5a46-92b8-1b7babf13e04"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-21T10:13:00Z",
+        "issued_by": "06f25fbb-c171-5a46-92b8-1b7babf13e04",
+        "kind": "access_key_id",
+        "rule": "sts:AssumeRoleWithWebIdentity",
+        "value": "ASIAIOSFODNN7ATK01B"
+      },
+      {
+        "chain": [
+          "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+          "24e1ac5d-49ce-53e9-a0b3-e0654c8c6f96"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-21T10:14:00Z",
+        "issued_by": "24e1ac5d-49ce-53e9-a0b3-e0654c8c6f96",
+        "kind": "access_key_id",
+        "rule": "sts:AssumeRoleWithWebIdentity",
+        "value": "ASIAIOSFODNN7ATK01C"
+      },
+      {
+        "chain": [
+          "1e53ffdd-8f58-549b-a23f-5584b5fdb45b",
+          "c76f14b3-7fc6-5549-a468-18936832728b"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-21T10:15:00Z",
+        "issued_by": "c76f14b3-7fc6-5549-a468-18936832728b",
+        "kind": "access_key_id",
+        "rule": "sts:AssumeRoleWithWebIdentity",
+        "value": "ASIAIOSFODNN7ATK01D"
+      },
+      {
+        "chain": [
+          "731349d0-3d9c-5690-a136-e4fa9ed4ebb4",
+          "020f2058-bef7-56bf-aa42-f8660750fd5c"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-21T10:20:00Z",
+        "issued_by": "020f2058-bef7-56bf-aa42-f8660750fd5c",
+        "kind": "access_key_id",
+        "rule": "sts:AssumeRoleWithSAML",
+        "value": "ASIAIOSFODNN7SAMLA1"
+      },
+      {
+        "chain": [
+          "6283ba6f-7b9e-502c-b01b-8f939064c63e",
+          "227dd789-d0f9-5c95-94df-e09ec0fa7c4e"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-21T10:30:00Z",
+        "issued_by": "227dd789-d0f9-5c95-94df-e09ec0fa7c4e",
+        "kind": "access_key_id",
+        "rule": "sts:AssumeRoleWithWebIdentity",
+        "value": "ASIAIOSFODNN7CHG001"
+      },
+      {
+        "chain": [
+          "4c2f1448-6ca5-55e6-8892-e4046e9dd4a6",
+          "0917512d-d59a-5b71-94a1-169b666fade8"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-21T10:36:00Z",
+        "issued_by": "0917512d-d59a-5b71-94a1-169b666fade8",
+        "kind": "access_key_id",
+        "rule": "sts:AssumeRoleWithWebIdentity",
+        "value": "ASIAIOSFODNN7BLD002"
+      },
+      {
+        "chain": [
+          "2a294808-4bd1-5c08-ba2b-2b899f45874f",
+          "431d17fe-e67a-50d0-854d-08b8ff90f490"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-21T10:40:00Z",
+        "issued_by": "431d17fe-e67a-50d0-854d-08b8ff90f490",
+        "kind": "access_key_id",
+        "rule": "sts:AssumeRoleWithSAML",
+        "value": "ASIAIOSFODNN7SAMLM1"
+      },
+      {
+        "chain": [
+          "dd737b72-7fa2-5f4c-8905-86e2df905521",
+          "e55f68b0-5856-5617-b6c6-c89e403c2e6c"
+        ],
+        "confidence": "strong",
+        "events": 1,
+        "issued_at": "2026-10-21T10:50:00Z",
+        "issued_by": "e55f68b0-5856-5617-b6c6-c89e403c2e6c",
+        "kind": "access_key_id",
+        "rule": "sts:AssumeRoleWithWebIdentity",
+        "value": "ASIAIOSFODNN7DRA001"
+      }
+    ]
+  },
+  "tool": {
+    "name": "controlzee",
+    "version": "0.1.0.dev0"
+  }
+}
