@@ -405,6 +405,23 @@ class _Builder:
             merged.setdefault((pc.action, kind, who, pc.policy), []).append(s)
         for (act, kind, who, policy), evs in merged.items():
             self._undo(act, kind, who, policy, evs)
+        for key, (user, s) in sorted(self.created_keys.items()):
+            if user in self.created_users:
+                continue  # the key goes with its user, in the delete-user step below
+            self.run(
+                _Draft(
+                    "eradicate",
+                    "Delete an access key the attacker created",
+                    f"access key {key} of user {user}",
+                    "created by an in-scope call on a user the attacker did not create; deactivating it in the contain "
+                    "step stops it, but it would stay in the user's key list",
+                    [s],
+                    s.event.recipient_account_id,
+                    caution="deleting a key cannot be undone; a key the attacker only used is not deleted here, since "
+                    "its owner needs a replacement first (see the recover steps)",
+                ),
+                [("delete_access_key", {"user": user, "key": key}, None)],
+            )
         for name, s in sorted(self.created_users.items()):
             self.run(
                 _Draft(
