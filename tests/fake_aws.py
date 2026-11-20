@@ -97,6 +97,9 @@ class Account:
     calls: list[tuple[str, str, dict[str, Any]]] = field(
         default_factory=list
     )  # (service, operation, params), writes only
+    all_calls: list[tuple[str, str]] = field(
+        default_factory=list
+    )  # (service, operation) of every call, reads too: to show that something made none
     simulated_regions: list[str | None] = field(
         default_factory=list
     )  # aws:RequestedRegion of each simulator call
@@ -152,6 +155,7 @@ class FakeClient:
 
         def call(**kw: Any) -> Any:
             validate_parameters(kw, self._model.operation_model(op).input_shape)
+            self.acct.all_calls.append((self.service, method))
             if not method.startswith(_READS):
                 self.acct.calls.append((self.service, method, kw))
             return getattr(self, f"_{self.service}_{method}")(op, **kw)

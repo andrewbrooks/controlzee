@@ -40,7 +40,8 @@ A disk-backed index is the fallback if someone scopes much more than that in one
 Output must be byte-identical for the same inputs. How:
 
 - Canonical JSON: sorted keys, 2-space indent, UTF-8, trailing newline. No floats in artifacts.
-- No wall-clock time, hostname or absolute path in any artifact. Timings are printed to the terminal only.
+- No wall-clock time, hostname or absolute path in any artifact (except the operational records of `respond`: see
+  Respond). Timings are printed to the terminal only.
 - Events sort by `(event_time in microseconds, event_id)`. Duplicates (several trails delivering one event) are
   removed by `eventID`; the copy from the alphabetically first file wins.
 - Files are processed in name order; worker results are merged in submission order, not completion order.
@@ -120,8 +121,10 @@ what is attached so every needed action is checked. `respond/run.py`:
   `iam:GetRole` to turn a role session into its role ARN), probes, and asks `iam:SimulatePrincipalPolicy` about every
   pair, grouped by resource. Anything not "allowed", and any probe that cannot read, fails it.
 - `execute` checks the dry run's seal, that it is not dated in the future, that it was made from the `--scope` given and that its steps are exactly what the plan rebuilt from that scope gives (an edited, re-sealed file cannot add an operation; the `--approve` hash is what ties execution to what was reviewed), version, pass, age and approval prefix, and that the caller is the same principal
-  and account; then per step: validate again, probe again, compare identity, simulate again, apply, record, stop at the
-  first failure (a `failed` or `drifted` step).
+  and account; then per step: validate again, probe again, compare identity, simulate again, journal `starting`, apply,
+  journal the result, stop at the first failure (a `failed` or `drifted` step). In order: verify approval and dry run →
+  refuse if the dry run's journal exists → identify the caller → create the journal (`O_EXCL`) and write its header →
+  per step: re-probe → compare identity → simulate → journal `starting` → apply → journal result.
 
 Execute is optimistic concurrency: read, compare, then act. The dry run reads each target and records its identity (the
 ids and creation dates AWS never reuses); execute reads it again just before the change and acts only if the two
@@ -131,9 +134,20 @@ resource and ends the run as `drifted`. No operation changes a resource's identi
 "done"), so earlier steps in a run cannot cause false drift. `OpSpec.identity_keys` lists the keys of each operation
 (empty only where the arguments already name something AWS never reuses), and a test holds every probe to them.
 
+The step journal is a write-ahead log: the intent to make a change is made durable (written, then `fsync`ed) before the
+change is made, and the outcome after it. `respond/journal.py` creates `response.<first 16 of dryrun_sha256>.journal.jsonl`
+next to `--out` with `O_EXCL` and mode 0600, one canonical JSON object per line: a header (dry run hash, caller, start
+time), then per step a `starting` line, written only when a change is about to be made, and a result line. A run killed
+between the two leaves a `starting` line with no result: that step may be partly made, so a person checks its target.
+There is no resume: they run a new dry run, whose probes report what is already done. The same file is the replay guard.
+A dry run whose journal exists is refused before any AWS call, and the file is created only after the checks that
+precede the first change, so wrong credentials do not use a dry run up. `response.json` cites the journal's sha256
+(`journal_sha256`, kept as a running hash of the bytes written). If a line cannot be written, no change is made without
+its `starting` line, and the run stops.
+
 Nothing is executed through a shell. `argcheck.py` holds the patterns for command-line values that reach AWS.
-`dryrun.json` and `response.json` are the one exception to "no wall-clock time in artifacts": when the check and each
-change happened is evidence the response needs.
+`dryrun.json`, `response.json` and the step journal are the exceptions to "no wall-clock time in artifacts": when the
+check and each change happened is evidence the response needs.
 
 ## Untrusted input
 

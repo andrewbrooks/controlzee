@@ -2,6 +2,7 @@
 
 import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -20,6 +21,13 @@ from tests.fake_aws import Account, Function, Group, Role, User
 ADMIN = "arn:aws:iam::aws:policy/AdministratorAccess"
 T0 = datetime(2026, 10, 27, 12, 0, tzinfo=UTC)
 runner = CliRunner(env={"COLUMNS": "400"})
+JOURNAL_DIR = Path()  # where run() puts the step journal: a fresh folder for every test (see _journal_dir)
+
+
+@pytest.fixture(autouse=True)
+def _journal_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr(f"{__name__}.JOURNAL_DIR", tmp_path / "journal")
+    (tmp_path / "journal").mkdir()
 
 
 _SCOPES = {}  # scope_sha256 -> the scope, so run() can hand execute the scope a dry run was made from
@@ -50,13 +58,14 @@ def check(scope, acct, monkeypatch, **kw):
     )
 
 
-def run(doc, approve=None, at=T0 + timedelta(minutes=5)):
+def run(doc, approve=None, at=T0 + timedelta(minutes=5), journal_dir=None):
     return ResponseRecord.model_validate(
         execute(
             doc,
             _SCOPES[doc["scope_sha256"]],
             approve=approve or doc["dryrun_sha256"][:16],
             profile=None,
+            journal_dir=journal_dir or JOURNAL_DIR,
             max_age=timedelta(hours=1),
             clock=lambda: at,
         )
@@ -474,7 +483,11 @@ def test_a_refused_password_check_does_not_block_deleting_a_user(fixtures, monke
     dr2 = check(
         scope_of(fixtures, "01_leaked_key"), acct2, monkeypatch, chosen={"A05"}, allow_disruptive=True
     )
-    rec = run(dr2.model_dump(mode="json"))
+    second = (
+        JOURNAL_DIR.parent / "second"
+    )  # the two dry runs are byte for byte the same, so they share a journal name
+    second.mkdir()
+    rec = run(dr2.model_dump(mode="json"), journal_dir=second)
     assert (
         not rec.completed
         and rec.steps[0].detail.startswith("DeleteConflict")
@@ -663,6 +676,7 @@ def test_execute_refuses_a_different_scope(fixtures, monkeypatch):
             other,
             approve=doc["dryrun_sha256"][:16],
             profile=None,
+            journal_dir=JOURNAL_DIR,
             max_age=timedelta(hours=1),
             clock=lambda: T0 + timedelta(minutes=5),
         )

@@ -4,6 +4,12 @@ Versions are `0.x`: output formats (schemas) may change between releases.
 
 ## Unreleased
 
+- `respond execute` writes a step journal, `response.<dry run hash>.journal.jsonl`, next to `--out`: a header, then for
+  each step a `starting` line (written and `fsync`ed before the change is made) and a result line. A killed run leaves a
+  `starting` line with no result, so the step that may be partly made is known. The journal also stops a dry run being
+  executed twice from one folder (refused before any AWS call, and `--force` does not override it); it is not shared
+  between machines. `response.json` gains `journal_sha256`. New schema `schemas/journal.schema.json`.
+
 - `respond` stops if a target is no longer the resource the dry run checked: each dry-run step records the target's
   identity (user, role and group ids and creation dates, a Lambda function's ARN, code hash and last change, a bucket's
   creation date), and execute compares it again before the change. A user deleted and made again under the same name

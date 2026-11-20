@@ -2,12 +2,15 @@
 
 These are operational records, not analysis: unlike the other artifacts they carry wall-clock times (when the check was
 made, when each change was applied), because that is evidence the response needs. They are still sealed, canonical
-and free of host names and local paths.
+and free of host names and local paths. The step journal (`response.<hash>.journal.jsonl`) is the third such record: it
+is not sealed, since it is written line by line while the run is still going, but `response.json` cites its hash.
 """
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
+
+from pydantic import Field, RootModel
 
 from controlzee.model.common import SCHEMA_VERSION, Model
 
@@ -86,5 +89,40 @@ class ResponseRecord(Model):
     started_at: str
     finished_at: str
     steps: list[ExecutedStep]
-    completed: bool  # every step done or already done
+    completed: bool  # every step done or already done, and the journal was written in full
+    journal_sha256: str  # the step journal of this run, as written
     response_sha256: str = ""
+
+
+class JournalHeader(Model):
+    """First line of the step journal: which dry run is being carried out, by whom, and when it began."""
+
+    kind: Literal["header"] = "header"
+    schema_version: str = SCHEMA_VERSION
+    dryrun_sha256: str
+    caller: Caller
+    started_at: str
+
+
+class JournalStarting(Model):
+    """Written and flushed to disk before a step's change is made. A step with this line and no result line was
+    started and its outcome is not known: the change may be partly made."""
+
+    kind: Literal["starting"] = "starting"
+    action_id: str
+    op: str
+    args: dict[str, str]
+    region: str | None
+    at: str
+
+
+class JournalResult(ExecutedStep):
+    """What became of a step, as it is later in `response.json`. A step that never reached its change has only this."""
+
+    kind: Literal["result"] = "result"
+
+
+class JournalLine(
+    RootModel[Annotated[JournalHeader | JournalStarting | JournalResult, Field(discriminator="kind")]]
+):
+    """Any one line of the step journal."""

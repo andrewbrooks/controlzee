@@ -1,0 +1,213 @@
+{
+  "$defs": {
+    "Caller": {
+      "additionalProperties": false,
+      "description": "Who the supplied credentials are.",
+      "properties": {
+        "account": {
+          "title": "Account",
+          "type": "string"
+        },
+        "arn": {
+          "title": "Arn",
+          "type": "string"
+        },
+        "principal_arn": {
+          "title": "Principal Arn",
+          "type": "string"
+        }
+      },
+      "required": [
+        "account",
+        "arn",
+        "principal_arn"
+      ],
+      "title": "Caller",
+      "type": "object"
+    },
+    "JournalHeader": {
+      "additionalProperties": false,
+      "description": "First line of the step journal: which dry run is being carried out, by whom, and when it began.",
+      "properties": {
+        "caller": {
+          "$ref": "#/$defs/Caller"
+        },
+        "dryrun_sha256": {
+          "title": "Dryrun Sha256",
+          "type": "string"
+        },
+        "kind": {
+          "const": "header",
+          "default": "header",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "0.3",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "started_at": {
+          "title": "Started At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dryrun_sha256",
+        "caller",
+        "started_at"
+      ],
+      "title": "JournalHeader",
+      "type": "object"
+    },
+    "JournalResult": {
+      "additionalProperties": false,
+      "description": "What became of a step, as it is later in `response.json`. A step that never reached its change has only this.",
+      "properties": {
+        "action_id": {
+          "title": "Action Id",
+          "type": "string"
+        },
+        "args": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Args",
+          "type": "object"
+        },
+        "at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "At"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "kind": {
+          "const": "result",
+          "default": "result",
+          "title": "Kind",
+          "type": "string"
+        },
+        "op": {
+          "title": "Op",
+          "type": "string"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Region"
+        },
+        "result": {
+          "enum": [
+            "done",
+            "already done",
+            "failed",
+            "drifted",
+            "not run"
+          ],
+          "title": "Result",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "op",
+        "args",
+        "region",
+        "result",
+        "detail",
+        "at"
+      ],
+      "title": "JournalResult",
+      "type": "object"
+    },
+    "JournalStarting": {
+      "additionalProperties": false,
+      "description": "Written and flushed to disk before a step's change is made. A step with this line and no result line was\nstarted and its outcome is not known: the change may be partly made.",
+      "properties": {
+        "action_id": {
+          "title": "Action Id",
+          "type": "string"
+        },
+        "args": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Args",
+          "type": "object"
+        },
+        "at": {
+          "title": "At",
+          "type": "string"
+        },
+        "kind": {
+          "const": "starting",
+          "default": "starting",
+          "title": "Kind",
+          "type": "string"
+        },
+        "op": {
+          "title": "Op",
+          "type": "string"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Region"
+        }
+      },
+      "required": [
+        "action_id",
+        "op",
+        "args",
+        "region",
+        "at"
+      ],
+      "title": "JournalStarting",
+      "type": "object"
+    }
+  },
+  "$id": "https://controlzee.invalid/schemas/journal-0.3.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Any one line of the step journal.",
+  "discriminator": {
+    "mapping": {
+      "header": "#/$defs/JournalHeader",
+      "result": "#/$defs/JournalResult",
+      "starting": "#/$defs/JournalStarting"
+    },
+    "propertyName": "kind"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/JournalHeader"
+    },
+    {
+      "$ref": "#/$defs/JournalStarting"
+    },
+    {
+      "$ref": "#/$defs/JournalResult"
+    }
+  ],
+  "title": "JournalLine"
+}

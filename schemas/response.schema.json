@@ -113,6 +113,10 @@
       "title": "Finished At",
       "type": "string"
     },
+    "journal_sha256": {
+      "title": "Journal Sha256",
+      "type": "string"
+    },
     "response_sha256": {
       "default": "",
       "title": "Response Sha256",
@@ -147,7 +151,8 @@
     "started_at",
     "finished_at",
     "steps",
-    "completed"
+    "completed",
+    "journal_sha256"
   ],
   "title": "ResponseRecord",
   "type": "object"

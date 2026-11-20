@@ -7,7 +7,8 @@ dry run fails. The simulator covers identity policies, permission boundaries and
 resource-based policies, so execute can still be refused: it then stops at that step.
 
 execute runs exactly the steps of an approved dry run: the approval must match the dry run's hash, the dry run must
-have passed and be recent, and the caller must be the same principal in the same account. Each step's state is read
+have passed and be recent, and the caller must be the same principal in the same account. It carries a dry run out once:
+the step journal (see journal.py) is created before the first change, and a dry run whose journal exists is refused. Each step's state is read
 again first, so something already put right is skipped rather than repeated, and a target that is no longer the resource
 the dry run checked (the same name, made again by someone else) is left alone. It stops at the first failure.
 """
@@ -18,6 +19,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
+from pathlib import Path
 from typing import Any, Literal
 
 from controlzee import canonical
@@ -29,12 +31,16 @@ from controlzee.model.respond import (
     DryRun,
     DryRunStep,
     ExecutedStep,
+    JournalHeader,
+    JournalResult,
+    JournalStarting,
     NotSelected,
     PermissionCheck,
     ResponseRecord,
 )
 from controlzee.model.scope import Scope
 from controlzee.plan import build_plan
+from controlzee.respond.journal import Journal, JournalExists, journal_path, replayed
 from controlzee.respond.ops import MAX_SKEW, OPS, WARN_SKEW, Ctx, Probe, Unsafe, validate
 from controlzee.safety import clean
 
@@ -380,6 +386,35 @@ def _drift(s: DryRunStep, probe: Probe) -> str:
     )
 
 
+def _os_reason(e: OSError) -> str:
+    return e.strerror or type(e).__name__
+
+
+def _already_executed(path: Path) -> RespondError:
+    return RespondError(f"this dry run was already executed (see {clean(str(path), 300)}); run a new dry run")
+
+
+def _open_journal(path: Path, header: JournalHeader) -> Journal:
+    """Create the journal (the authoritative replay guard: two runs cannot both get it) and write its header. Nothing
+    has been changed yet, so if that fails the file is removed and the dry run is not used up."""
+    try:
+        journal = Journal.create(path)
+    except JournalExists:
+        raise _already_executed(path) from None
+    except OSError as e:
+        raise RespondError(
+            f"cannot create the step journal {clean(str(path), 300)} ({_os_reason(e)}); nothing was changed"
+        ) from None
+    try:
+        journal.append(header)
+    except OSError as e:
+        journal.discard()
+        raise RespondError(
+            f"cannot write the step journal {clean(str(path), 300)} ({_os_reason(e)}); nothing was changed"
+        ) from None
+    return journal
+
+
 def _refuse_edited(dr: DryRun, plan: Plan, caller: Caller, ctx: Ctx) -> None:
     """The dry run's steps must be exactly what this plan, rebuilt from the scope, yields for the dry run's own --steps and
     --allow-disruptive; the filters and the responder's own access are checked again. The seal is a hash anyone can
@@ -434,6 +469,7 @@ def execute(
     *,
     approve: str,
     profile: str | None,
+    journal_dir: Path,
     max_age: timedelta,
     clock: Clock = lambda: datetime.now(UTC),
     progress: Callable[[ExecutedStep], None] = lambda s: None,
@@ -462,6 +498,9 @@ def execute(
         raise RespondError(
             "the plan built from this scope is not the one the dry run was made from; run the dry run again"
         )
+    journal_file = journal_path(journal_dir, dr.dryrun_sha256)
+    if replayed(journal_file):  # before any AWS call: a dry run is carried out once
+        raise _already_executed(journal_file)
     ctx, caller = identify(profile, dr.home_region)
     if (caller.account, caller.principal_arn) != (dr.caller.account, dr.caller.principal_arn):
         raise RespondError(
@@ -470,8 +509,13 @@ def execute(
         )
     _refuse_edited(dr, plan, caller, ctx)
     started = _now(clock)
+    # from here the dry run is spent: a refusal above leaves no journal, so wrong credentials do not use it up
+    journal = _open_journal(
+        journal_file, JournalHeader(dryrun_sha256=dr.dryrun_sha256, caller=caller, started_at=started)
+    )
     done: list[ExecutedStep] = []
     failed = False
+    journal_ok = True  # False once a line could not be written: nothing more is changed, and the run stops
 
     def record(
         s: DryRunStep,
@@ -490,55 +534,108 @@ def execute(
             at=_now(clock) if at else None,
         )
 
-    for s in dr.steps:
-        if failed:
-            done.append(record(s, "not run", "an earlier step failed", at=False))
-            continue
+    def journal_result(step: ExecutedStep) -> ExecutedStep:
+        """Write the step's result line; if that fails the change (if any) is already made, so say so and stop the run."""
+        nonlocal journal_ok
+        if not journal_ok:
+            return step
         try:
-            probe = OPS[s.op].probe(ctx, s.args, s.region)
-            if probe.problem:
-                step = record(s, "failed", clean(probe.problem, 400))
-            elif probe.done:
-                step = record(s, "already done", "the target was already in the intended state")
-            elif probe.identity != s.identity:
-                step = record(s, "drifted", _drift(s, probe))
-            else:
-                # permissions can change between the dry run and now, and earlier steps may have changed them: ask again
-                # right before the change, so a compound operation is not started that cannot be finished
-                decisions = (
-                    simulate(
-                        ctx, caller.principal_arn, list(probe.checks), dict.fromkeys(probe.checks, s.region)
+            journal.append(JournalResult(**step.model_dump()))
+        except OSError as e:
+            journal_ok = False
+            return step.model_copy(
+                update={
+                    "detail": clean(
+                        f"{step.detail} (the step journal could not be written: {_os_reason(e)}; the run stops)",
+                        600,
                     )
-                    if probe.checks
-                    else {}
-                )
-                denied = [
-                    f"{act} on {res} ({decisions.get((act, res), 'not evaluated')})"
-                    for act, res in probe.checks
-                    if decisions.get((act, res)) != "allowed"
-                ]
-                if denied:
-                    step = record(s, "failed", "no longer permitted: " + ", ".join(denied))
+                }
+            )
+        return step
+
+    try:
+        for s in dr.steps:
+            if failed:
+                step = journal_result(record(s, "not run", "an earlier step failed", at=False))
+                done.append(step)
+                continue
+            try:
+                probe = OPS[s.op].probe(ctx, s.args, s.region)
+                if probe.problem:
+                    step = record(s, "failed", clean(probe.problem, 400))
+                elif probe.done:
+                    step = record(s, "already done", "the target was already in the intended state")
+                elif probe.identity != s.identity:
+                    step = record(s, "drifted", _drift(s, probe))
                 else:
-                    step = record(s, "done", clean(OPS[s.op].apply(ctx, s.args, s.region), 400))
-        except KeyboardInterrupt:
-            step = record(s, "failed", "interrupted; the change may be partly made: check the target")
-        except aws_errors() as e:
-            step = record(s, "failed", _aws_message(e))
-        except RespondError as e:  # the permission re-check itself failed: apply was never called
-            step = record(s, "failed", f"{clean(e, 300)}; nothing was changed by this step")
-        except Exception as e:  # recorded, not raised: changes already made must not be left without a record
-            step = record(s, "failed", f"{_unexpected(e)}; the change may be partly made: check the target")
-        failed = step.result in ("failed", "drifted")
-        progress(step)
-        done.append(step)
-    rec = ResponseRecord(
-        tool=tool_info(),
-        dryrun_sha256=dr.dryrun_sha256,
-        caller=caller,
-        started_at=started,
-        finished_at=_now(clock),
-        steps=done,
-        completed=all(x.result in ("done", "already done") for x in done),
-    )
+                    # permissions can change between the dry run and now, and earlier steps may have changed them: ask again
+                    # right before the change, so a compound operation is not started that cannot be finished
+                    decisions = (
+                        simulate(
+                            ctx,
+                            caller.principal_arn,
+                            list(probe.checks),
+                            dict.fromkeys(probe.checks, s.region),
+                        )
+                        if probe.checks
+                        else {}
+                    )
+                    denied = [
+                        f"{act} on {res} ({decisions.get((act, res), 'not evaluated')})"
+                        for act, res in probe.checks
+                        if decisions.get((act, res)) != "allowed"
+                    ]
+                    if denied:
+                        step = record(s, "failed", "no longer permitted: " + ", ".join(denied))
+                    else:
+                        try:  # write-ahead: the intent is on disk before the change is made
+                            journal.append(
+                                JournalStarting(
+                                    action_id=s.action_id,
+                                    op=s.op,
+                                    args=s.args,
+                                    region=s.region,
+                                    at=_now(clock),
+                                )
+                            )
+                        except OSError as e:
+                            journal_ok = False
+                            step = record(
+                                s,
+                                "failed",
+                                clean(
+                                    f"cannot write the step journal ({_os_reason(e)}); nothing was changed by this step",
+                                    400,
+                                ),
+                            )
+                        else:
+                            step = record(s, "done", clean(OPS[s.op].apply(ctx, s.args, s.region), 400))
+            except KeyboardInterrupt:
+                step = record(s, "failed", "interrupted; the change may be partly made: check the target")
+            except aws_errors() as e:
+                step = record(s, "failed", _aws_message(e))
+            except RespondError as e:  # the permission re-check itself failed: apply was never called
+                step = record(s, "failed", f"{clean(e, 300)}; nothing was changed by this step")
+            except (
+                Exception
+            ) as e:  # recorded, not raised: changes already made must not be left without a record
+                step = record(
+                    s, "failed", f"{_unexpected(e)}; the change may be partly made: check the target"
+                )
+            step = journal_result(step)
+            failed = step.result in ("failed", "drifted") or not journal_ok
+            progress(step)
+            done.append(step)
+        rec = ResponseRecord(
+            tool=tool_info(),
+            dryrun_sha256=dr.dryrun_sha256,
+            caller=caller,
+            started_at=started,
+            finished_at=_now(clock),
+            steps=done,
+            completed=journal_ok and all(x.result in ("done", "already done") for x in done),
+            journal_sha256=journal.sha256,
+        )
+    finally:
+        journal.close()
     return canonical.seal(rec.model_dump(mode="json"), "response_sha256")
