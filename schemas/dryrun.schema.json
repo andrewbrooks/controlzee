@@ -1,5 +1,89 @@
 {
   "$defs": {
+    "ActivityCheck": {
+      "additionalProperties": false,
+      "description": "What the check for activity after the scope looked at, whatever it found. It only ever warns.",
+      "properties": {
+        "complete": {
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "events_read": {
+          "title": "Events Read",
+          "type": "integer"
+        },
+        "failed_regions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Failed Regions",
+          "type": "array"
+        },
+        "regions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Since"
+        },
+        "status": {
+          "enum": [
+            "new activity",
+            "no new activity",
+            "could not run",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "total_found": {
+          "title": "Total Found",
+          "type": "integer"
+        },
+        "unread_regions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unread Regions",
+          "type": "array"
+        },
+        "until": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Until"
+        }
+      },
+      "required": [
+        "status",
+        "since",
+        "until",
+        "regions",
+        "failed_regions",
+        "unread_regions",
+        "events_read",
+        "total_found",
+        "complete"
+      ],
+      "title": "ActivityCheck",
+      "type": "object"
+    },
     "Caller": {
       "additionalProperties": false,
       "description": "Who the supplied credentials are.",
@@ -122,6 +206,41 @@
       "title": "DryRunStep",
       "type": "object"
     },
+    "NewActivity": {
+      "additionalProperties": false,
+      "description": "A call made, after the scope was built, by an identity the scope says is the attacker's.",
+      "properties": {
+        "event": {
+          "title": "Event",
+          "type": "string"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "identity": {
+          "title": "Identity",
+          "type": "string"
+        },
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "time": {
+          "title": "Time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "time",
+        "identity",
+        "event",
+        "region",
+        "event_id"
+      ],
+      "title": "NewActivity",
+      "type": "object"
+    },
     "NotSelected": {
       "additionalProperties": false,
       "properties": {
@@ -175,6 +294,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "activity_check": {
+      "$ref": "#/$defs/ActivityCheck"
+    },
     "allow_disruptive": {
       "title": "Allow Disruptive",
       "type": "boolean"
@@ -208,6 +330,13 @@
     "home_region": {
       "title": "Home Region",
       "type": "string"
+    },
+    "new_activity": {
+      "items": {
+        "$ref": "#/$defs/NewActivity"
+      },
+      "title": "New Activity",
+      "type": "array"
     },
     "not_selected": {
       "items": {
@@ -272,6 +401,8 @@
     "chosen_steps",
     "steps",
     "not_selected",
+    "activity_check",
+    "new_activity",
     "problems",
     "passed"
   ],

@@ -119,19 +119,29 @@ class S3Input:
 
 @dataclass(frozen=True)
 class LookupInput:
-    """CloudTrail event history for one region and time range, as a single log file named lookup-events/<region>.json."""
+    """CloudTrail event history for one region and time range, as a single log file named lookup-events/<region>.json.
+
+    `max_events` stops the query after that many events (the API returns the newest first, so the oldest are the ones
+    left out); `fetch` says whether it did. `list` is what `scope` uses, with no cap unless one is given."""
 
     region: str
     start: str
     end: str
     profile: str | None = None
+    max_events: int | None = None
 
-    def list(self) -> tuple[list[Source], int]:
+    def fetch(self) -> tuple[list[dict[str, Any]], bool]:
+        """(the records, sorted by time then id; whether the query stopped at `max_events` with more left)."""
         records: list[dict[str, Any]] = []
+        truncated = False
         try:
             api = client("cloudtrail", self.profile, self.region)
-            pages = api.get_paginator("lookup_events").paginate(StartTime=self.start, EndTime=self.end)
+            limit = {} if self.max_events is None else {"PaginationConfig": {"MaxItems": self.max_events}}
+            pages = api.get_paginator("lookup_events").paginate(
+                StartTime=self.start, EndTime=self.end, **limit
+            )
             for page in pages:
+                truncated = "NextToken" in page and self.max_events is not None  # the last page decides
                 for ev in page.get("Events", []):
                     raw = ev.get("CloudTrailEvent")
                     if isinstance(raw, str):
@@ -151,5 +161,22 @@ class LookupInput:
                 return -1, orjson.dumps(r, option=orjson.OPT_SORT_KEYS).decode()
 
         records.sort(key=order)
+        return records, truncated
+
+    def source(self, records: list[dict[str, Any]]) -> Source:
         data = orjson.dumps({"Records": records}, option=orjson.OPT_SORT_KEYS)
-        return [MemorySource(f"lookup-events/{self.region}.json", data)], 0
+        return MemorySource(f"lookup-events/{self.region}.json", data)
+
+    def list(self) -> tuple[list[Source], int]:
+        return [self.source(self.fetch()[0])], 0
+
+
+@dataclass(frozen=True)
+class PrefetchedInput:
+    """Files already fetched, to be indexed like any other input (for example several regions' event history read
+    under one event budget, which `LookupInput.list` cannot report on)."""
+
+    sources: tuple[Source, ...]
+
+    def list(self) -> tuple[list[Source], int]:
+        return list(self.sources), 0

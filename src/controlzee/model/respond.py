@@ -45,6 +45,30 @@ class DryRunStep(Model):
     problem: str | None
 
 
+class NewActivity(Model):
+    """A call made, after the scope was built, by an identity the scope says is the attacker's."""
+
+    time: str
+    identity: str  # "<kind>:<value>" of the tainted identity or seed indicator it matched
+    event: str  # "iam:CreateAccessKey"
+    region: str
+    event_id: str
+
+
+class ActivityCheck(Model):
+    """What the check for activity after the scope looked at, whatever it found. It only ever warns."""
+
+    status: Literal["new activity", "no new activity", "could not run", "skipped"]
+    since: str | None  # the scope's period_end
+    until: str | None  # when the check was made
+    regions: list[str]  # whose event history was read (in full unless `complete` is false)
+    failed_regions: list[str]  # whose could not be read
+    unread_regions: list[str]  # left out because the event cap was already used up
+    events_read: int
+    total_found: int  # calls found; `new_activity` lists the first 100
+    complete: bool  # every region read to the end, with nothing malformed
+
+
 class NotSelected(Model):
     action_id: str
     title: str
@@ -64,6 +88,8 @@ class DryRun(Model):
     steps: list[DryRunStep]  # in the order execute would run them
     not_selected: list[NotSelected]
     warnings: list[str] = []  # worth reading, but they do not stop execute
+    activity_check: ActivityCheck
+    new_activity: list[NewActivity]
     problems: list[str]
     passed: bool  # every selected step can be done with these credentials; execute refuses otherwise
     dryrun_sha256: str = ""

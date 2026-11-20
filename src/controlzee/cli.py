@@ -15,6 +15,7 @@ from controlzee import __version__, argcheck, canonical
 from controlzee.artifacts import ArtifactError, load_scope, write_atomic
 from controlzee.ingest.load import IngestError, Input
 from controlzee.ingest.remote import LookupInput, S3Input
+from controlzee.respond.activity import DEFAULT_MAX_EVENTS, NEW_ACTIVITY_WARNING
 from controlzee.safety import clean
 from controlzee.scope import ScopeOptions, ScopeOutput, build_scope
 from controlzee.seed import expr
@@ -427,6 +428,17 @@ def respond_dry_run(
     ] = False,
     aws_profile: Profile = None,
     region: Annotated[str, typer.Option("--region", help="Region for IAM and STS calls.")] = "us-east-1",
+    activity_max_events: Annotated[
+        int,
+        typer.Option(
+            "--activity-check-max-events",
+            min=0,
+            max=10_000_000,
+            help="Read at most this many CloudTrail event history events when checking whether the attacker acted "
+            "after the scope was built (0 skips the check). Event history allows about 2 requests a second per region "
+            "and 50 events a request, so the default takes minutes when the account is busy.",
+        ),
+    ] = DEFAULT_MAX_EVENTS,
     force: Force = False,
 ) -> None:
     """Check, without changing anything, what the plan would do and that these credentials may do it."""
@@ -444,6 +456,8 @@ def respond_dry_run(
             home_region=region,
             chosen=chosen,
             allow_disruptive=allow_disruptive,
+            activity_max_events=activity_max_events,
+            progress=lambda message: err.print(Text(f"  {clean(message, 200)} ...", style="dim")),
         )
     except (ArtifactError, RespondError, argcheck.ArgError) as e:
         raise _fail(clean(e, 600)) from None
@@ -467,7 +481,25 @@ def respond_dry_run(
     for n in dr.not_selected:
         out.print(f"  {n.action_id} not included: {clean(n.reason, 300)}")
     for w in dr.warnings:
-        err.print(Text(f"Warning: {clean(w, 300)}", style="yellow"))
+        err.print(
+            Text(f"Warning: {clean(w, 600)}", style="bold red" if w == NEW_ACTIVITY_WARNING else "yellow")
+        )
+    for a in dr.new_activity:
+        err.print(
+            Text(
+                f"  AFTER THE SCOPE {clean(a.time, 40)} {clean(a.identity, 120)} {clean(a.event, 80)} "
+                f"in {clean(a.region, 40)} ({clean(a.event_id, 100)})",
+                style="bold red",
+            )
+        )
+    if dr.activity_check.total_found > len(dr.new_activity):
+        err.print(
+            Text(
+                f"  ... and {dr.activity_check.total_found - len(dr.new_activity)} more calls: see new_activity "
+                "in the dry run's output file for the first ones, and scope again",
+                style="bold red",
+            )
+        )
     out.print(f"Wrote {out_path}")
     if not dr.passed:
         err.print(

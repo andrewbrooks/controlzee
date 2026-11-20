@@ -12,6 +12,7 @@ from controlzee.cli import app
 from controlzee.model.plan import Plan
 from controlzee.model.respond import DryRun, ResponseRecord
 from controlzee.plan import build_plan
+from controlzee.respond.activity import NO_NEW_ACTIVITY_WARNING
 from controlzee.respond.ops import OPS, Ctx
 from controlzee.respond.run import RespondError, dry_run, execute
 from controlzee.scope import ScopeOptions, build_scope
@@ -601,7 +602,7 @@ def test_a_revocation_cutoff_is_awss_time_not_this_machines(fixtures, monkeypatc
 
 def test_small_skew_is_quiet_and_a_large_one_stops_revocations_only(fixtures, monkeypatch):
     scope = scope_of(fixtures, "02_role_chain")
-    assert check(scope, account_02(), monkeypatch).warnings == []
+    assert check(scope, account_02(), monkeypatch).warnings == [NO_NEW_ACTIVITY_WARNING]  # no clock warning
     acct = account_02()
     acct.skew = timedelta(minutes=10)
     dr = check(scope, acct, monkeypatch)

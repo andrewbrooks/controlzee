@@ -10,7 +10,7 @@ from botocore.stub import Stubber
 
 from controlzee.ingest import remote
 from controlzee.ingest.load import IngestError, IngestOptions, discover, load_index
-from controlzee.ingest.remote import LookupInput, S3Input, parse_s3_url
+from controlzee.ingest.remote import LookupInput, PrefetchedInput, S3Input, parse_s3_url
 from controlzee.scope import ScopeOptions, build_scope
 from controlzee.seed.spec import assemble, load_iocs_file
 
@@ -174,3 +174,41 @@ def test_event_history_errors_are_explained(cloudtrail):
     )
     with pytest.raises(IngestError, match="cannot query CloudTrail event history in us-east-1"):
         discover([LookupInput("us-east-1", "2026-10-20T00:00:00Z", "2026-10-21T00:00:00Z")])
+
+
+PARAMS = {"StartTime": "2026-10-20T00:00:00Z", "EndTime": "2026-10-21T00:00:00Z"}
+
+
+def _history_page(*numbers, token=None):
+    page = {
+        "Events": [
+            {"EventId": f"e{n}", "CloudTrailEvent": orjson.dumps(_ct_record(n, n)).decode()} for n in numbers
+        ]
+    }
+    return {**page, "NextToken": token} if token else page
+
+
+def test_event_history_can_be_capped_and_says_when_it_was(cloudtrail):
+    cloudtrail.add_response("lookup_events", _history_page(5, 4, 3, token="t"), PARAMS)
+    records, truncated = LookupInput("us-east-1", *PARAMS.values(), max_events=2).fetch()
+    assert truncated and [r["eventID"] for r in records] == ["e4", "e5"]  # the newest two, sorted by time
+
+
+def test_event_history_that_fits_the_cap_is_not_truncated(cloudtrail):
+    cloudtrail.add_response("lookup_events", _history_page(2, 1), PARAMS)
+    records, truncated = LookupInput("us-east-1", *PARAMS.values(), max_events=2).fetch()
+    assert not truncated and len(records) == 2
+
+
+def test_without_a_cap_every_page_is_read_as_before(cloudtrail):
+    cloudtrail.add_response("lookup_events", _history_page(3, token="t"), PARAMS)
+    cloudtrail.add_response("lookup_events", _history_page(2, 1), {**PARAMS, "NextToken": "t"})
+    records, truncated = LookupInput("us-east-1", *PARAMS.values()).fetch()
+    assert not truncated and [r["eventID"] for r in records] == ["e1", "e2", "e3"]
+
+
+def test_prefetched_files_are_indexed_like_any_other_input(cloudtrail):
+    cloudtrail.add_response("lookup_events", _history_page(2, 1), PARAMS)
+    lookup = LookupInput("us-east-1", *PARAMS.values())
+    idx = load_index([PrefetchedInput((lookup.source(lookup.fetch()[0]),))], IngestOptions(workers=1))
+    assert [r[0] for r in idx.rows] == ["e1", "e2"]
