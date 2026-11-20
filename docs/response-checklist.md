@@ -18,7 +18,8 @@ Tick the boxes as you go. If a box cannot be ticked, stop and read why before go
       organization.
 - [ ] **Two separate principals, both narrow.** An *intruder* (stands in for the leaked credential) and a *responder* (a role
       assumed for the response). Limit what each can touch to a naming prefix such as `ft-*`, and allow the intruder to
-      attach only ReadOnlyAccess. An inline policy can grant anything, so do not let the intruder write one.
+      attach only ReadOnlyAccess. An inline policy can grant anything, so do not let the intruder write one unless
+      everything it can use is capped by a permissions boundary (the design is in `docs/field-testing.md`).
 - [ ] **The responder can read what the tool reads.** `iam:SimulatePrincipalPolicy`, `iam:GetRole`, `iam:Get*`, `iam:List*`,
       `cloudtrail:LookupEvents` (the activity check and event history), `cloudtrail:GetTrailStatus`, `ec2:Describe*`, and
       `s3:ListAllMyBuckets`, `s3:ListBucket`, `lambda:GetFunction` for buckets and functions. Plus the change calls for the
@@ -136,7 +137,6 @@ If the response needs one of these, expect to finish by hand and read the dry ru
 
 | not run | why it matters |
 |---|---|
-| `delete_user_policy`, `delete_role_policy`, `delete_group_policy` | the intruder would need to write inline policies, which can grant anything |
 | bucket and Lambda function identity (creation date; ARN, code hash, last modified) | not yet run: they need a bucket and a function made in the open region (their deletion has run on another account) |
 | roles used through Identity Center, and the coverage heuristics on real logs | no run produced them |
 

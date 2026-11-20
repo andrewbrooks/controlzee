@@ -162,8 +162,8 @@ user (all named `ft-cov-*`, with the intruder's extra permissions limited to tho
 - Passed: the role and group identity facts (`role_id` with its creation date, `group_id` with its creation date). A role
   and a group deleted and made again under the same names between a dry run and its execute both gave `drifted`, exit 5,
   and the new objects kept their policies.
-- Not run: `delete_user_policy`, `delete_role_policy` and `delete_group_policy`, because the intruder would need
-  permission to write inline policies, which can grant anything.
+- Not run in that pass: `delete_user_policy`, `delete_role_policy` and `delete_group_policy`, because the intruder would
+  need permission to write inline policies, which can grant anything (run later, with a permissions boundary: below).
 - A gotcha: a key that was just re-enabled, or a policy that was just added, can take a few seconds to take effect
   (`InvalidClientTokenId`, `AccessDenied`). Wait and try again before suspecting the tool.
 
@@ -193,6 +193,36 @@ the intruder made a key on it, and the scope's plan had the deactivate step and 
 allowed `iam:DeleteAccessKey` on the user, execute ran both, the user had no keys when read directly, and a second dry
 run found everything already done. A key on an attacker-made user is left to the delete-user step, and a key the attacker
 only used is not deleted (its owner needs a replacement first).
+
+### The inline-policy deletes, with a permissions boundary
+
+Testing `delete_user_policy`, `delete_role_policy` and `delete_group_policy` needs the intruder to write inline policies,
+and an inline policy can contain `"Action": "*"`. The sandbox made that safe with three IAM policies:
+
+- **A low boundary** that allows only harmless reads (`sts:GetCallerIdentity`, `iam:ListUsers`, `iam:ListRoles`,
+  `s3:ListAllMyBuckets`). Every user and role the intruder creates carries it, so an admin inline policy on one of them is
+  worth nothing.
+- **An intruder boundary** on the intruder itself, built from its exact current permissions plus `iam:Put*Policy` on `ft-*`
+  names, with resources and conditions kept. Whatever policy it writes, however broad, cannot exceed this.
+- **A guard policy** the intruder is granted: `Put*Policy` on `ft-*` names, an explicit deny on creating a user or role
+  that does not carry the low boundary, and an explicit deny on changing a boundary or the boundary policies.
+
+(Groups cannot carry a boundary, but their members do: the intruder is capped by its own, the users it makes by the low one.)
+Before applying anything, 31 cases were run through the IAM policy simulator (`iam simulate-custom-policy`, read-only) with
+the real policies: what must still work, what must be denied (creating a user without the boundary, editing a boundary,
+writing a policy on itself or the responder, attaching AdministratorAccess, assuming the responder), what happens if the
+attacker had admin on its own identity (it still cannot assume the responder, launch anything or drop its boundary), and
+what a capped `ft-` user with an admin inline policy can do (ask who it is). None came out wrong.
+
+- Passed: the intruder made a user, a group and a role, each with an admin inline policy, and tried to use the admin. The
+  user (admin inline policy and admin group policy, capped by the low boundary) tried `iam:CreateUser` and was refused; the
+  scope's failed calls show it. The plan had the three steps, the simulator allowed them, execute deleted the three inline
+  policies (and the user and the role), the account read directly agreed, and a second dry run found everything done.
+- Gotchas: IAM requires policy statement IDs to be alphanumeric and unique, but the policy simulator accepts invalid ones,
+  so a generated policy passed the simulator and was rejected by `create-policy`; check generated policies with
+  `aws accessanalyzer validate-policy` before applying them. `delete-policy` fails while a policy has non-default
+  versions: delete those first. With the guard in place the intruder must pass `--permissions-boundary <the low boundary>` to
+  `create-user` and `create-role`, so the earlier commands in this guide need that flag.
 
 ## Real samples as fixtures
 
