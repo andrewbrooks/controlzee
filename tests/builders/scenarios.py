@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 from typing import Any
 
@@ -620,4 +621,104 @@ def scenario_05_weak_ioc() -> LogSet:
     logs.add(
         t + timedelta(days=1), "s3.amazonaws.com", "ListBuckets", mallory, ip=nat, ua="curl/8.4.0"
     )  # after the window
+    return logs
+
+
+OUTSIDE_ACCOUNT = "444455556666"
+EXTERNAL_SESSION_KEY = "ASIAIOSFODNN7EXT001"
+OPS_KEY_BEFORE = "ASIAIOSFODNN7OPS001"
+OPS_KEY_AFTER = "ASIAIOSFODNN7OPS002"
+
+
+def scenario_07_trust_backdoor() -> LogSet:
+    """A leaked key rewrites the trust policy of an existing role, `ops-admin`, to name an outside account.
+
+    The role already trusts `deploy-role` (its CI), which assumes it before and after the change; the new policy keeps that
+    and adds the outside account (and an EC2 service statement, which is not a principal anyone can call as). Later the
+    outside account assumes the role (logged here as an AWSAccount caller, with no tainted key) and uses the session.
+
+    Followed by taint: the outside account's AssumeRole call and everything done with the session it received. Not
+    followed: the CI's own AssumeRole calls and its sessions, before or after the change, although the policy names it
+    too, because it had assumed the role before the policy changed.
+    """
+    logs = LogSet()
+    _noise(logs)
+    attacker = iam_user("ci-deploy", LEAKED_KEY)
+    ci = assumed_role("deploy-role", "ci-run-4411", "ASIAIOSFODNN7CIROLE")
+    t = at("2026-10-20T12:00:00Z")
+    kw = {"ip": ATTACKER_IP, "ua": ATTACKER_UA}
+    role_arn = f"arn:aws:iam::{ACCOUNT}:role/ops-admin"
+
+    def assumes(when, caller, session: str, key: str, **extra) -> None:
+        logs.add(
+            when,
+            "sts.amazonaws.com",
+            "AssumeRole",
+            caller,
+            request={"roleArn": role_arn, "roleSessionName": session},
+            response=_credentials(key, "ops-admin", session),
+            read_only=False,
+            **extra,
+        )
+
+    assumes(t - timedelta(hours=3), ci, "ci-run-4400", OPS_KEY_BEFORE, ip="192.0.2.50")
+    logs.add(t, "sts.amazonaws.com", "GetCallerIdentity", attacker, **kw)
+    trust = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Principal": {"AWS": f"arn:aws:iam::{ACCOUNT}:role/deploy-role"},
+                "Action": "sts:AssumeRole",
+            },
+            {
+                "Effect": "Allow",
+                "Principal": {"AWS": f"arn:aws:iam::{OUTSIDE_ACCOUNT}:root"},
+                "Action": "sts:AssumeRole",
+            },
+            {"Effect": "Allow", "Principal": {"Service": "ec2.amazonaws.com"}, "Action": "sts:AssumeRole"},
+        ],
+    }
+    logs.add(
+        t + timedelta(minutes=2),
+        "iam.amazonaws.com",
+        "UpdateAssumeRolePolicy",
+        attacker,
+        request={"roleName": "ops-admin", "policyDocument": json.dumps(trust, indent=2)},
+        response=None,
+        read_only=False,
+        **kw,
+    )
+    assumes(
+        t + timedelta(minutes=20),
+        other_account(OUTSIDE_ACCOUNT),
+        "persist",
+        EXTERNAL_SESSION_KEY,
+        ip=ATTACKER_IP_2,
+        ua=ATTACKER_UA,
+    )
+    outside = assumed_role("ops-admin", "persist", EXTERNAL_SESSION_KEY)
+    logs.add(
+        t + timedelta(minutes=22), "iam.amazonaws.com", "ListUsers", outside, ip=ATTACKER_IP_2, ua=ATTACKER_UA
+    )
+    logs.add(
+        t + timedelta(minutes=24),
+        "secretsmanager.amazonaws.com",
+        "GetSecretValue",
+        outside,
+        ip=ATTACKER_IP_2,
+        ua=ATTACKER_UA,
+        request={"secretId": "prod/db"},
+    )
+    assumes(t + timedelta(minutes=30), ci, "ci-run-4412", OPS_KEY_AFTER, ip="192.0.2.50")
+    after = assumed_role("ops-admin", "ci-run-4412", OPS_KEY_AFTER)
+    logs.add(
+        t + timedelta(minutes=32),
+        "s3.amazonaws.com",
+        "PutObject",
+        after,
+        ip="192.0.2.50",
+        request={"bucketName": "build-artifacts", "key": "builds/after.zip"},
+        read_only=False,
+    )
     return logs
