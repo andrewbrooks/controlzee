@@ -969,7 +969,8 @@
             "principal_id",
             "role_id",
             "instance_id",
-            "function_name"
+            "function_name",
+            "trusted_by"
           ],
           "title": "Kind",
           "type": "string"
@@ -1272,7 +1273,7 @@
       "type": "object"
     }
   },
-  "$id": "https://controlzee.invalid/schemas/scope-0.3.json",
+  "$id": "https://controlzee.invalid/schemas/scope-0.4.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
@@ -1300,7 +1301,7 @@
       "type": "array"
     },
     "schema_version": {
-      "default": "0.3",
+      "default": "0.4",
       "title": "Schema Version",
       "type": "string"
     },

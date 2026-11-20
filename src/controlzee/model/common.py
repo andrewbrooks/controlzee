@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from controlzee import __version__
 
 # Artifacts are not stable before 1.0: this stays "0.x" until the schemas are published in milestone 6.
-SCHEMA_VERSION = "0.3"
+SCHEMA_VERSION = "0.4"
 
 
 class Model(BaseModel):

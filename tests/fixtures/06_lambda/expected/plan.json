@@ -196,9 +196,9 @@
     "steps with operations can be carried out by `controlzee respond` after a dry run and your approval; the others are for a person. Either way, review each one first",
     "work through the phases in order; within contain, act quickly, since the attacker may notice"
   ],
-  "plan_sha256": "3e4f448e67b1835f93503a9e63cb7bdaeb40a24fa504671023ff9c703fb81872",
-  "schema_version": "0.3",
-  "scope_sha256": "3b62fa58a8b19fafe8156724bd69603e189f39a475c8ef49cf49771e8f193be5",
+  "plan_sha256": "8dff90ac08becb9539f12bb0fa237e24692bff124a69955352f185ce7a91151a",
+  "schema_version": "0.4",
+  "scope_sha256": "d4de9142c7b6d82d122710dbfe8d0b1d1ccd23c06f0298dc97d403c2fd65e2dc",
   "tool": {
     "name": "controlzee",
     "version": "0.1.0.dev0"

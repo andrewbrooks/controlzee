@@ -13,7 +13,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from controlzee.facts import KIND_NAMES, MAX_NODES, Issued, Touch, collect_identities, touched_by_actor
+from controlzee.facts import KIND_NAMES, MAX_NODES, Issued, Touch, collect_identities, idesc, touched_by_actor
 from controlzee.model.common import Confidence
 from controlzee.model.plan import Plan
 from controlzee.model.scope import Scope
@@ -95,7 +95,11 @@ def build_graph(scope: Scope, with_touched: bool = False) -> Graph | None:
                 edges.append((issuer, u, call))
                 edge_event[(issuer, u, call)] = t.issued_by
         if not users:
-            what = f"new {KIND_NAMES.get(t.kind, 'credential')} ...{t.value[-4:]} (unused)"
+            what = (
+                f"{idesc(t.kind, t.value)} (unused)"
+                if t.kind == "trusted_by"
+                else f"new {KIND_NAMES.get(t.kind, 'credential')} ...{t.value[-4:]} (unused)"
+            )
             if (issuer, what, call) not in unused:
                 unused.append((issuer, what, call))
                 edge_event[(issuer, what, call)] = t.issued_by

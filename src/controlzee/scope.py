@@ -47,7 +47,7 @@ from controlzee.model.scope import (
 )
 from controlzee.seed import expr
 from controlzee.seed.match import run_seed, window_bounds
-from controlzee.taint.propagate import Propagation, acting_as, propagate, seeds_only
+from controlzee.taint.propagate import Propagation, acting_as, propagate, seeds_only, trusted_index
 from controlzee.taint.rules import rule_name
 
 LISTED_PROBLEMS = 20
@@ -137,8 +137,12 @@ def _inputs_summary(index: EventIndex, manifest_sha256: str) -> InputsSummary:
 
 def _identities(index: EventIndex, prop: Propagation) -> list[TaintedIdentity]:
     found = {(t.kind, t.value): t for t in prop.identities}
+    trusted = trusted_index(found)
     reached: Counter[tuple[str, str]] = Counter(
-        (t.kind, t.value) for pos in prop.marks for t in acting_as(index.rows[pos], found) if t.row != pos
+        (t.kind, t.value)
+        for pos in prop.marks
+        for t in acting_as(index.rows[pos], found, trusted)
+        if t.row != pos
     )
     out = []
     for t in sorted(

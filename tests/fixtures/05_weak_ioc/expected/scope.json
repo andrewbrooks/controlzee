@@ -252,8 +252,8 @@
       "source_ip": "203.0.113.200"
     }
   ],
-  "schema_version": "0.3",
-  "scope_sha256": "b7c29b8fbb7976d912d1335e14dded9233925ac415a10cb8a18f4cfb73b60df5",
+  "schema_version": "0.4",
+  "scope_sha256": "2a48a763da4f4bb10aeb782eadd3fddd533fcc440d3f8cb4ccc9878e3a1bcbe1",
   "seeds": {
     "expression": "nat AND curl",
     "indicators": [

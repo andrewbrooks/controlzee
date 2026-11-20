@@ -713,8 +713,8 @@
     "total": 0
   },
   "near_misses": [],
-  "schema_version": "0.3",
-  "scope_sha256": "3b31fb92f2edb9772bb74131407f8880e052587d4b69d4c7c183ef01ad0c4d74",
+  "schema_version": "0.4",
+  "scope_sha256": "acf2b63ee548b974e894e0060415192b0798c4511ed03e1d7badb66c9b5c3a4b",
   "seeds": {
     "expression": "leaked_key",
     "indicators": [

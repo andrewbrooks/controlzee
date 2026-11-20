@@ -27,6 +27,7 @@ KIND_NAMES: Final = {
     "role_id": "role",
     "instance_id": "instance",
     "function_name": "function",
+    "trusted_by": "trusted principal",
 }
 
 
@@ -34,6 +35,9 @@ def idesc(kind: str, value: str) -> str:
     """ "function exfil-fn", "access key ...ODMT": what a followed identity is, in a few words."""
     if kind in ("function_name", "instance_id"):
         return f"{KIND_NAMES[kind]} {value}"
+    if kind == "trusted_by":  # "<role name>|<principal>", both checked when it was recorded
+        role, _, principal = value.partition("|")
+        return f"role {role} trusting {principal}"
     return f"{KIND_NAMES.get(kind, 'credential')} ...{value[-4:]}"
 
 
