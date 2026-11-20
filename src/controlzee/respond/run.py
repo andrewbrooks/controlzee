@@ -40,6 +40,7 @@ from controlzee.model.respond import (
 )
 from controlzee.model.scope import Scope
 from controlzee.plan import build_plan
+from controlzee.respond.activity import DEFAULT_MAX_EVENTS, check_activity
 from controlzee.respond.journal import Journal, JournalExists, journal_path, replayed
 from controlzee.respond.ops import MAX_SKEW, OPS, WARN_SKEW, Ctx, Probe, Unsafe, validate
 from controlzee.safety import clean
@@ -266,7 +267,9 @@ def dry_run(
     home_region: str,
     chosen: set[str] | None = None,
     allow_disruptive: bool = False,
+    activity_max_events: int = DEFAULT_MAX_EVENTS,
     clock: Clock = lambda: datetime.now(UTC),
+    progress: Callable[[str], None] = lambda message: None,
 ) -> dict[str, Any]:
     plan = Plan.model_validate(build_plan(scope))
     ctx, caller = identify(profile, home_region)
@@ -335,6 +338,17 @@ def dry_run(
     problems += [f"{s.action_id} {s.op}: {s.problem}" for s in steps if s.problem]
     warnings, clock_problems = _clock_notes(ctx, any(s.op.endswith("_sessions") for s in steps))
     problems += clock_problems
+    # only ever a warning: whatever happens in the check, `passed` and `problems` are as they were
+    activity = check_activity(
+        scope,
+        caller_account=caller.account,
+        profile=profile,
+        home_region=home_region,
+        max_events=activity_max_events,
+        until=_now(clock),
+        progress=progress,
+    )
+    warnings += activity.warnings
     doc = DryRun(
         tool=tool_info(),
         scope_sha256=scope.scope_sha256,
@@ -347,6 +361,8 @@ def dry_run(
         steps=steps,
         not_selected=skipped,
         warnings=warnings,
+        activity_check=activity.check,
+        new_activity=activity.new_activity,
         problems=problems,
         passed=not problems,
     )

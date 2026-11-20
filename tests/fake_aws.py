@@ -97,6 +97,11 @@ class Account:
     calls: list[tuple[str, str, dict[str, Any]]] = field(
         default_factory=list
     )  # (service, operation, params), writes only
+    history: dict[str, list[dict[str, Any]]] = field(
+        default_factory=dict
+    )  # region -> CloudTrail records that event history (lookup_events) returns
+    lookup_error: str | None = None  # an error code lookup_events raises, such as "AccessDeniedException"
+    lookup_calls: list[dict[str, Any]] = field(default_factory=list)  # parameters of every lookup_events call
     all_calls: list[tuple[str, str]] = field(
         default_factory=list
     )  # (service, operation) of every call, reads too: to show that something made none
@@ -108,7 +113,7 @@ class Account:
         self,
         monkeypatch: Any,
         profile: str | None = None,
-        regions: tuple[str, ...] = ("us-east-1", "us-east-2"),
+        regions: tuple[str, ...] = ("us-east-1", "us-east-2", "us-west-2"),
     ) -> None:
         from controlzee.ingest import remote
 
@@ -129,7 +134,7 @@ class Account:
                 )
 
 
-_READS = ("get_", "list_", "describe_", "simulate_", "head_")
+_READS = ("get_", "list_", "describe_", "simulate_", "head_", "lookup_")
 
 
 class FakeClient:
@@ -143,8 +148,26 @@ class FakeClient:
         client = self
 
         class Pager:
-            def paginate(self, **kw: Any) -> Any:
-                yield getattr(client, method)(**kw)
+            def paginate(self, PaginationConfig: dict[str, int] | None = None, **kw: Any) -> Any:  # noqa: N803
+                """Pages as botocore's paginator gives them: follows NextToken, and with MaxItems stops there and
+                leaves a NextToken on the last page (the real paginator's resume token) if there was more."""
+                limit = (PaginationConfig or {}).get("MaxItems")
+                token: str | None = None
+                taken = 0
+                while True:
+                    page = getattr(client, method)(**kw, **({"NextToken": token} if token else {}))
+                    events = page.get("Events")
+                    if limit is not None and events is not None:
+                        room = limit - taken
+                        more = len(events) > room or (len(events) == room and "NextToken" in page)
+                        if more:
+                            yield {**page, "Events": events[:room], "NextToken": "resume"}
+                            return
+                        taken += len(events)
+                    yield page
+                    token = page.get("NextToken")
+                    if not token:
+                        return
 
         return Pager()
 
@@ -447,6 +470,49 @@ class FakeClient:
             raise _err("BucketNotEmpty", op)
         del self.acct.buckets[Bucket]
         return {}
+
+    # ---- event history
+
+    def _cloudtrail_lookup_events(
+        self,
+        op: str,
+        StartTime: Any = None,  # noqa: N803
+        EndTime: Any = None,  # noqa: N803
+        MaxResults: int = 50,  # noqa: N803
+        NextToken: str | None = None,  # noqa: N803
+        **_: Any,
+    ) -> Any:
+        self.acct.lookup_calls.append(
+            {"region": self.region, "StartTime": StartTime, "EndTime": EndTime, "NextToken": NextToken}
+        )
+        if self.acct.lookup_error:
+            raise _err(self.acct.lookup_error, op)
+
+        def moment(value: Any) -> datetime:
+            return value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
+
+        start, end = moment(StartTime), moment(EndTime)
+        records = sorted(
+            (r for r in self.acct.history.get(self.region, []) if start <= moment(r["eventTime"]) <= end),
+            key=lambda r: (r["eventTime"], r["eventID"]),
+            reverse=True,  # the real API returns the newest first
+        )
+        offset = int(NextToken or 0)
+        page = records[offset : offset + MaxResults]
+        out: dict[str, Any] = {
+            "Events": [
+                {
+                    "EventId": r["eventID"],
+                    "EventName": r["eventName"],
+                    "EventTime": moment(r["eventTime"]),
+                    "CloudTrailEvent": json.dumps(r),
+                }
+                for r in page
+            ]
+        }
+        if offset + MaxResults < len(records):
+            out["NextToken"] = str(offset + MaxResults)
+        return out
 
     # ---- logging and detection
 
