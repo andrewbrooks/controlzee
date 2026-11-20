@@ -37,11 +37,11 @@ after a dry run that a person has reviewed and approved.
   event history as a source; taint through an assumed role, an instance profile, a Lambda function and a federation token;
   the plan; the dry run and the permission check (including a denied permission, an MFA-conditioned permission, a refused
   self-cutoff and an organization policy that allows one region); the identity check that stops a step when a target was
-  deleted and made again, the step journal and the check for activity after the scope; and `execute` for 23 of the 26
-  operations (keys and their deletion, policies, group membership, console passwords, users, roles, session revocations
-  and their lifts, Lambda functions, buckets, the instance operations and the four logging and detection restores). Not
-  run on a real account: the three inline-policy deletes (`delete_user_policy`, `delete_role_policy`,
-  `delete_group_policy`). Treat those as untested; the list and the reasons are in
+  deleted and made again, the step journal and the check for activity after the scope; and `execute` for **all 26
+  operations** (keys and their deletion, managed and inline policies, group membership, console passwords, users, roles,
+  session revocations and their lifts, Lambda functions, buckets, the instance operations and the four logging and
+  detection restores). Not run on a real account: the identity facts of a bucket and a Lambda function, Identity Center
+  sessions, and the coverage heuristics on real logs. Treat those as untested; the list and the reasons are in
   [docs/response-checklist.md](docs/response-checklist.md), which is also the order to follow for a simulation and a
   reversal.
 - **Against attack emulation**: eleven [Stratus Red Team](https://github.com/DataDog/stratus-red-team) techniques were run
