@@ -1152,3 +1152,66 @@ def test_a_probe_returns_exactly_the_keys_its_operation_declares(op, monkeypatch
     assert set(spec.probe(ctx, args, region).identity) == set(spec.identity_keys)
     Account().install(monkeypatch)  # nothing exists
     assert spec.probe(ctx, args, region).identity == {}
+
+
+# ---- delete_access_key: the plan deletes a key the attacker made on a user they did not make
+# (the key ids are read from the plan, not spelled out here: the secret scan flags key-shaped literals in test files)
+
+
+def _plan_ops(scope):
+    return [
+        (a.id, a.phase, o.op, o.args, a.disruptive)
+        for a in Plan.model_validate(build_plan(scope)).actions
+        for o in a.operations
+    ]
+
+
+def _keys_of_scenario_05(ops):
+    """(the key the attacker made, the key it only used), both on the existing user mallory-temp."""
+    made = next(o[3] for o in ops if o[2] == "delete_access_key")
+    deactivated = {
+        o[3]["key"] for o in ops if o[2] == "deactivate_access_key" and o[3]["user"] == "mallory-temp"
+    }
+    assert len(deactivated) == 2 and made["key"] in deactivated
+    return made, next(iter(deactivated - {made["key"]}))
+
+
+def test_the_plan_deletes_a_key_the_attacker_made_on_an_existing_user_after_deactivating_it(fixtures):
+    ops = _plan_ops(scope_of(fixtures, "05_weak_ioc"))
+    made, used = _keys_of_scenario_05(ops)
+    deactivate = next(i for i, o in enumerate(ops) if o[2:4] == ("deactivate_access_key", made))
+    delete = next(i for i, o in enumerate(ops) if o[2] == "delete_access_key")
+    assert made["user"] == "mallory-temp"
+    assert ops[delete][1:] == ("eradicate", "delete_access_key", made, True)  # disruptive
+    assert ops[deactivate][1] == "contain" and deactivate < delete
+    # a key the attacker only used belongs to its owner, who needs a replacement first: it is deactivated, not deleted
+    assert not any(o[2] == "delete_access_key" and o[3]["key"] == used for o in ops)
+
+
+def test_a_key_on_a_user_the_attacker_made_is_left_to_the_delete_user_step(fixtures):
+    ops = _plan_ops(scope_of(fixtures, "01_leaked_key"))
+    assert not any(o[2] == "delete_access_key" for o in ops)
+    assert any(o[2:4] == ("delete_user", {"user": "backdoor-svc"}) for o in ops)  # which removes its keys
+
+
+def test_the_key_delete_runs_only_with_the_flag_and_removes_only_that_key(fixtures, monkeypatch):
+    scope = scope_of(fixtures, "05_weak_ioc")
+    ops = _plan_ops(scope)
+    made, used = _keys_of_scenario_05(ops)
+    step = next(o[0] for o in ops if o[2] == "delete_access_key")
+
+    def account():
+        return Account(users={"mallory-temp": User(keys={used: "Active", made["key"]: "Active"})})
+
+    dr = check(scope, account(), monkeypatch, chosen={step})
+    assert not dr.steps and any(
+        n.action_id == step and n.reason.startswith("disruptive") for n in dr.not_selected
+    )
+    acct = account()
+    dr = check(scope, acct, monkeypatch, chosen={step}, allow_disruptive=True)
+    assert dr.passed and [(s.op, s.args) for s in dr.steps] == [("delete_access_key", made)]
+    assert [c.action for c in dr.steps[0].checks] == ["iam:DeleteAccessKey"]
+    rec = run(dr.model_dump(mode="json"))
+    assert rec.completed and acct.users["mallory-temp"].keys == {used: "Active"}
+    again = check(scope, acct, monkeypatch, chosen={step}, allow_disruptive=True)
+    assert again.steps[0].already_done
