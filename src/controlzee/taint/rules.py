@@ -67,7 +67,9 @@ ASSUMED_VIA_ROLE: Final = "assumed_via_role"
 OIDC_ARN: Final = re.compile(r"^arn:aws[\w-]*:iam::\d{12}:oidc-provider/[\w./:@-]{1,400}$")
 SAML_ARN: Final = re.compile(r"^arn:aws[\w-]*:iam::\d{12}:saml-provider/[\w+=,.@-]{1,128}$")
 MAX_SUBJECT: Final = 256
-# UNVERIFIED paths (believed from naming patterns, not yet captured from a real account). Change them here only.
+# Paths of the five provider-management calls: VERIFIED against real CloudTrail records (sandbox capture, 2026-11-20).
+# SAML_SUBJECT_PATH, the SAML login's `userIdentity` and its `responseElements` are still UNVERIFIED (a successful login needs a
+# reachable identity provider). Change paths here only.
 OIDC_CREATED_ARN_PATH: Final = (
     "openIDConnectProviderArn",
 )  # in responseElements of CreateOpenIDConnectProvider

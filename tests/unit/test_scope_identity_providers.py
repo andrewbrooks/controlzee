@@ -17,7 +17,6 @@ from tests.builders import scenarios as sc
 from tests.builders.cloudtrail import LogSet, assumed_role, at, iam_user
 from tests.unit.test_respond import scope_of
 
-NEEDS_W3B1 = pytest.mark.xfail(strict=True, reason="needs W3B-1")
 SCENARIO = "08_identity_provider"
 ASSUME_NAMES = ("AssumeRoleWithWebIdentity", "AssumeRoleWithSAML")
 
@@ -93,7 +92,6 @@ def sc_fixture_dir() -> Path:
 # ---- the six situations (needs the taint rules)
 
 
-@NEEDS_W3B1
 def test_1_a_created_oidc_provider_makes_every_later_assume_through_it_the_attackers(scope):
     assert ("AssumeRoleWithWebIdentity", "atk-web") in followed_assumes(scope)  # subject attacker-sub-1
     assert "atk-web" in followed_uses(scope)  # the GetSecretValue with the session
@@ -105,7 +103,6 @@ def test_1_a_created_oidc_provider_makes_every_later_assume_through_it_the_attac
     assert [i.rule for i in created] == ["iam:CreateOpenIDConnectProvider"]
 
 
-@NEEDS_W3B1
 def test_1_the_provider_in_the_response_or_in_the_caller_is_enough_but_an_issuer_name_alone_is_not(scope):
     # responseElements.provider is the ARN, userIdentity.identityProvider an issuer name: followed
     assert ("AssumeRoleWithWebIdentity", "atk-iss") in followed_assumes(scope)
@@ -117,7 +114,6 @@ def test_1_the_provider_in_the_response_or_in_the_caller_is_enough_but_an_issuer
     assert "cog-1" not in in_scope_sessions(scope)
 
 
-@NEEDS_W3B1
 def test_2_a_created_saml_provider_makes_the_assume_through_it_the_attackers(scope):
     assert ("AssumeRoleWithSAML", "atk-saml") in followed_assumes(scope)  # subject attacker@evil.example
     assert "atk-saml" in followed_uses(scope)
@@ -125,7 +121,6 @@ def test_2_a_created_saml_provider_makes_the_assume_through_it_the_attackers(sco
     assert [i.rule for i in created] == ["iam:CreateSAMLProvider"]
 
 
-@NEEDS_W3B1
 def test_3_a_changed_provider_follows_only_subjects_not_seen_through_it_before(scope):
     # OIDC client id added (ci.example.com): the new subject is followed, the CI subject seen before is not
     assert ("AssumeRoleWithWebIdentity", "atk-ci") in followed_assumes(scope) and "atk-ci" in followed_uses(
@@ -147,7 +142,6 @@ def test_3_a_changed_provider_follows_only_subjects_not_seen_through_it_before(s
     assert not {sc.OIDC_CI, sc.OIDC_BUILD, sc.SAML_CHANGED} & set(identities(scope, "provider_arn"))
 
 
-@NEEDS_W3B1
 def test_4_a_legitimate_saml_provider_nobody_touched_follows_nothing(scope):
     assert_rules_are_active(scope)
     for session in ("bob-1", "bob-2", "bob-3"):
@@ -157,7 +151,6 @@ def test_4_a_legitimate_saml_provider_nobody_touched_follows_nothing(scope):
     assert ("AssumeRoleWithSAML", "atk-saml") in followed_assumes(scope)
 
 
-@NEEDS_W3B1
 def test_5_a_role_whose_trust_policy_names_a_federated_provider_is_entered_only_by_new_subjects(scope):
     assert ("AssumeRoleWithWebIdentity", "atk-data") in followed_assumes(
         scope
@@ -171,7 +164,6 @@ def test_5_a_role_whose_trust_policy_names_a_federated_provider_is_entered_only_
     assert "atk-other" not in in_scope_sessions(scope)
 
 
-@NEEDS_W3B1
 def test_6_failed_calls_hand_over_nothing(scope):
     assert_rules_are_active(scope)
     # the failed AssumeRoleWithWebIdentity names the attacker's provider in userIdentity.identityProvider, and is a failure
@@ -184,20 +176,18 @@ def test_6_failed_calls_hand_over_nothing(scope):
 # ---- identities (needs the taint rules)
 
 
-@NEEDS_W3B1
 def test_the_identity_kinds_and_values_are_exactly_these(scope):
     kinds = {i.kind for i in scope.taint.identities}
     assert kinds == {"provider_arn", "changed_provider", "trusted_by", "access_key_id"}
     session_keys = {
         sc.IDP_KEYS[n]
-        for n in ("ATK01A", "ATK01C", "ATK01D", "SAMLA1", "CHG001", "BLD002", "SAMLM1", "DRA001")
+        for n in ("ATK01A", "ATK01B", "ATK01C", "ATK01D", "SAMLA1", "CHG001", "BLD002", "SAMLM1", "DRA001")
     }
     assert (
         set(identities(scope, "access_key_id")) == session_keys
     )  # the credentials of every followed assume, no others
 
 
-@NEEDS_W3B1
 def test_assumed_via_is_a_fact_and_never_an_identity(scope):
     assert_rules_are_active(scope)
     assert not any("assumed_via" in (i.kind, i.value, i.rule) for i in scope.taint.identities)
@@ -207,7 +197,6 @@ def test_assumed_via_is_a_fact_and_never_an_identity(scope):
         assert all("|" not in v for v in identities(scope, kind))
 
 
-@NEEDS_W3B1
 def test_each_followed_assume_says_which_identity_let_it_in(scope):
     # Assumes the `via` is "<kind>:<value>" as for every other identity (this is the form scenario 07 shows for trusted_by).
     via = {session_of(s.event): s.via for s in followed(scope) if s.event.event_name in ASSUME_NAMES}
@@ -222,7 +211,6 @@ def test_each_followed_assume_says_which_identity_let_it_in(scope):
 # ---- hostile input. The right outcome of each is stated; the ones in the scenario are checked against `scope`.
 
 
-@NEEDS_W3B1
 def test_hostile_a_provider_arn_with_control_characters_or_a_trailing_newline_is_not_a_provider(scope):
     assert_rules_are_active(scope)
     # A response ARN is accepted only if it matches oidc_arn exactly. "...example.com\n" must fail (Python's `$` matches
@@ -237,7 +225,6 @@ def test_hostile_a_provider_arn_with_control_characters_or_a_trailing_newline_is
     assert not any(any(ch in i.value for ch in "\n\x1b\x00") for i in scope.taint.identities)
 
 
-@NEEDS_W3B1
 def test_hostile_an_arn_of_the_wrong_type_is_not_a_provider(scope):
     assert_rules_are_active(scope)
     # a role ARN, a SAML ARN in CreateOpenIDConnectProvider and an OIDC ARN in CreateSAMLProvider: each fails its shape
@@ -246,14 +233,13 @@ def test_hostile_an_arn_of_the_wrong_type_is_not_a_provider(scope):
     assert identities(scope, "provider_arn") == sorted([sc.OIDC_ATTACKER, sc.SAML_ATTACKER])
 
 
-@NEEDS_W3B1
-def test_hostile_a_subject_containing_a_pipe_is_dropped_whole(scope):
+def test_hostile_a_subject_containing_a_pipe_does_not_hide_the_session(scope):
     assert_rules_are_active(scope)
-    # Contract 4: "anything that fails a check is dropped, never partially kept". The subject "evil|sub" would corrupt the
-    # packed "<provider>|<subject>" fact, so the fact is dropped and the call, though through the attacker's provider,
-    # is not followed. (The other reading, keep the provider and blank the subject, would follow it: that is a question for
-    # the Lead, see the report. Either way the packed form must never be mis-split.)
-    assert "atk-pipe" not in in_scope_sessions(scope)
+    # Decision D-011: a subject that would corrupt the packed "<provider>|<subject>" fact is recorded as empty, and the
+    # login is still followed. Through a provider the attacker created there is no history filter, so dropping the fact
+    # would let an attacker hide a session behind a subject like "x|y". The packed form is never mis-split, and the subject
+    # itself never reaches an identity.
+    assert "atk-pipe" in in_scope_sessions(scope)
     assert not any("evil" in i.value for i in scope.taint.identities)
 
 
@@ -265,7 +251,6 @@ def test_hostile_a_2_mb_saml_metadata_document_does_not_break_ingest(tmp_path):
     assert create.origin == "seed"
 
 
-@NEEDS_W3B1
 def test_hostile_a_2_mb_saml_metadata_document_still_makes_the_provider_the_attackers(tmp_path):
     out = build_big_metadata_scope(tmp_path)
     assert [i.value for i in out.taint.identities if i.kind == "provider_arn"] == [sc.SAML_ATTACKER]
