@@ -75,6 +75,34 @@
     },
     {
       "account": "111122223333",
+      "caution": "deleting a key cannot be undone; a key the attacker only used is not deleted here, since its owner needs a replacement first (see the recover steps)",
+      "commands": [
+        "aws iam delete-access-key --user-name mallory-temp --access-key-id AKIAIOSFODNN7MALKEY2"
+      ],
+      "confidence": "weak",
+      "disruptive": true,
+      "evidence": [
+        "b2177994-d66c-53bd-8801-5261f0f910a8"
+      ],
+      "id": "A04",
+      "on_request": false,
+      "operations": [
+        {
+          "args": {
+            "key": "AKIAIOSFODNN7MALKEY2",
+            "user": "mallory-temp"
+          },
+          "op": "delete_access_key",
+          "region": null
+        }
+      ],
+      "phase": "eradicate",
+      "target": "access key AKIAIOSFODNN7MALKEY2 of user mallory-temp",
+      "title": "Delete an access key the attacker created",
+      "why": "created by an in-scope call on a user the attacker did not create; deactivating it in the contain step stops it, but it would stay in the user's key list"
+    },
+    {
+      "account": "111122223333",
       "caution": "the new secret is shown once: create it where the owner's secret store can take it, and find out how the old one leaked",
       "commands": [
         "aws iam create-access-key --user-name mallory-temp",
@@ -87,7 +115,7 @@
         "b2177994-d66c-53bd-8801-5261f0f910a8",
         "2ffe710f-fbb1-5679-86f8-d41da46a5f2c"
       ],
-      "id": "A04",
+      "id": "A05",
       "on_request": false,
       "operations": [],
       "phase": "recover",
@@ -101,7 +129,7 @@
     "work through the phases in order; within contain, act quickly, since the attacker may notice",
     "steps marked weak rest on weak evidence (IP, user agent or ARN matches): confirm them before acting"
   ],
-  "plan_sha256": "1859c87b98d08974041af06199e81e9d33aa05e8d05ed70f70d481182568dbc6",
+  "plan_sha256": "2035c5fb8d3933bacddde2a27e83ac645bfac9799afab1b51de492bb8ce3f8da",
   "schema_version": "0.3",
   "scope_sha256": "b7c29b8fbb7976d912d1335e14dded9233925ac415a10cb8a18f4cfb73b60df5",
   "tool": {
