@@ -160,10 +160,21 @@ def check_activity(
             scope.taint.identities or any(i.kind in STRONG_KINDS for i in scope.seeds.indicators)
         ):
             return _outcome("skipped", [NOTHING_TO_LOOK_FOR_WARNING], since=since, until=until)
+        if parse_time_us(since) >= parse_time_us(until):
+            # a window that ends at or after now (an analyst's --window end in the future): event history rejects a
+            # range that ends before it starts, and there is nothing after the scope to look at yet
+            return _outcome("skipped", [_nothing_after(since, until)], since=since, until=until)
         return _check(scope, caller_account, profile, home_region, max_events, since, until, progress)
     except Exception as e:  # the check must not be able to fail a dry run
         reason = clean(f"unexpected error {type(e).__name__}: {e}", 200)
         return _outcome("could not run", [_could_not_run(reason)], since=since, until=until)
+
+
+def _nothing_after(since: str, until: str) -> str:
+    return (
+        f"the activity check was skipped: the scope's period ends at {clean(since, 40)}, which is not before this check "
+        f"({clean(until, 40)}), so there is nothing after it to look at yet; scope again once the window has ended."
+    )
 
 
 def _could_not_run(reason: str) -> str:

@@ -4,6 +4,10 @@ Versions are `0.x`: output formats (schemas) may change between releases.
 
 ## Unreleased
 
+- The dry run's check for activity after the scope no longer asks CloudTrail for a window that ends before it starts
+  (found on a real account: a scope whose `--window` end was still in the future made event history answer
+  `InvalidTimeRangeException`). It now skips the check, saying that the scope's period ends at or after now.
+
 - `respond dry-run` warns when the attacker acted after the scope was built. It reads CloudTrail event history from the
   scope's `period_end` to now in every log region and the home region, and looks for calls by the scope's tainted
   identities (keys, principal ids, roles, instances, functions) and its strong seed indicators. Calls found are listed in

@@ -97,8 +97,12 @@ simulator was not exercised against a narrowly scoped role on EC2.
 
 Anything needing a CloudTrail trail or an S3 bucket policy, and techniques that are only visible as data events. Of the
 `respond` operations, deactivating a key, revoking and lifting a role's sessions, deleting a function, deleting a bucket
-and the instance operations (remove the instance profile, stop, snapshot, terminate) have run on a real account; logging
-and detection restoration has not, though its steps appear in the plans above.
+and the instance operations (remove the instance profile, stop, snapshot, terminate) have run on a real account, and so
+have (see `docs/field-testing.md`) detaching a user, group and role policy, removing a user from a group, deleting a
+console password, a user and a role, and revoking and lifting a user's sessions. Not run on a real account: logging and
+detection restoration (though its steps appear in the plans above), the three operations that delete an inline policy
+(`delete_user_policy`, `delete_role_policy`, `delete_group_policy`), and `delete_access_key`, which the plan builder
+never emits, so a dry run cannot contain it.
 
 **Why logging and detection restoration is untested.** `start_logging`, `start_config_recorder`, `enable_guardduty` and
 `enable_security_hub` only turn things on, and they share the probe, permission check, apply and "already done" machinery
