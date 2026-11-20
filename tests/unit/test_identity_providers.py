@@ -238,8 +238,85 @@ def test_a_subject_that_cannot_be_kept_safely_is_empty_so_it_counts_as_never_see
 def test_a_role_name_that_is_not_a_name_is_not_kept():
     rec = web_login()
     rec["responseElements"]["assumedRoleUser"]["arn"] = f"arn:aws:sts::{ACCT}:assumed-role/bad role!/sess"
+    rec["requestParameters"]["roleArn"] = f"arn:aws:iam::{ACCT}:role/bad role!"
     out = dict(issued_by(rec, STS, "AssumeRoleWithWebIdentity"))
     assert ASSUMED_VIA in out and ASSUMED_VIA_ROLE not in out
+    rec["requestParameters"]["roleArn"] = (
+        f"arn:aws:iam::{ACCT}:role/ops\n"  # a trailing newline is not a name
+    )
+    assert ASSUMED_VIA_ROLE not in dict(issued_by(rec, STS, "AssumeRoleWithWebIdentity"))
+
+
+@pytest.mark.parametrize(
+    "role_arn,expected",
+    [
+        (f"arn:aws:iam::{ACCT}:role/FedRole", "FedRole"),
+        (
+            f"arn:aws:iam::{ACCT}:role/service/path/FedRole",
+            "FedRole",
+        ),  # the name is the last segment of the path
+    ],
+)
+@pytest.mark.parametrize("login", [web_login, saml_login])
+def test_the_role_falls_back_to_the_requested_role_when_the_session_arn_lacks_it(login, role_arn, expected):
+    rec = login()
+    rec["responseElements"]["assumedRoleUser"] = {"assumedRoleId": "AROAX:sess"}  # no arn
+    rec["requestParameters"]["roleArn"] = role_arn
+    name = rec["eventName"]
+    assert dict(issued_by(rec, STS, name))[ASSUMED_VIA_ROLE] == expected
+    del rec["responseElements"]["assumedRoleUser"]["assumedRoleId"]
+    rec["requestParameters"] = {k: v for k, v in rec["requestParameters"].items() if k != "roleArn"}
+    assert ASSUMED_VIA_ROLE not in dict(issued_by(rec, STS, name))
+
+
+def test_the_session_arn_wins_over_the_requested_role():
+    rec = web_login()
+    rec["requestParameters"]["roleArn"] = f"arn:aws:iam::{ACCT}:role/Other"
+    assert (
+        dict(issued_by(rec, STS, "AssumeRoleWithWebIdentity"))[ASSUMED_VIA_ROLE] == "FederatedWebIdentityRole"
+    )
+
+
+@pytest.mark.parametrize(
+    "arn",
+    [
+        "arn:aws:iam::\u0661\u0662\u0663\u0664\u0665\u0666\u0667\u0668\u0669\u0660\u0661\u0662:oidc-provider/h.example.com",  # Arabic-Indic digits
+        f"arn:aws:iam::{ACCT}:oidc-provider/h\u00e9.example.com",  # a non-ASCII letter
+        f"arn:aws:iam::{ACCT}:oidc-provider/h.example.com\n",
+        f"arn:aws-evil:iam::{ACCT}:oidc-provider/h.example.com",  # not a partition
+        f"arn:awsx:iam::{ACCT}:oidc-provider/h.example.com",
+    ],
+)
+def test_the_oidc_arn_is_ascii_and_in_a_real_partition(arn):
+    from controlzee.taint.rules import OIDC_ARN
+
+    assert OIDC_ARN.fullmatch(arn) is None
+    rec = provider_call("CreateOpenIDConnectProvider", "response", "openIDConnectProviderArn", arn)
+    assert issued_by(rec, IAM, "CreateOpenIDConnectProvider") is None
+
+
+@pytest.mark.parametrize(
+    "arn",
+    [
+        "arn:aws:iam::\u0661\u0662\u0663\u0664\u0665\u0666\u0667\u0668\u0669\u0660\u0661\u0662:saml-provider/Corp",
+        f"arn:aws:iam::{ACCT}:saml-provider/Cor\u00e9",
+        f"arn:aws:iam::{ACCT}:saml-provider/Corp\n",
+        f"arn:aws-evil:iam::{ACCT}:saml-provider/Corp",
+    ],
+)
+def test_the_saml_arn_is_ascii_and_in_a_real_partition(arn):
+    from controlzee.taint.rules import SAML_ARN
+
+    assert SAML_ARN.fullmatch(arn) is None
+    rec = provider_call("CreateSAMLProvider", "response", "sAMLProviderArn", arn)
+    assert issued_by(rec, IAM, "CreateSAMLProvider") is None
+
+
+@pytest.mark.parametrize("partition", ["aws", "aws-cn", "aws-us-gov"])
+def test_each_real_partition_is_read(partition):
+    arn = f"arn:{partition}:iam::{ACCT}:oidc-provider/h.example.com"
+    rec = provider_call("CreateOpenIDConnectProvider", "response", "openIDConnectProviderArn", arn)
+    assert issued_by(rec, IAM, "CreateOpenIDConnectProvider") == ((PROVIDER, arn),)
 
 
 def test_a_failed_login_hands_over_nothing_and_makes_no_fact():
@@ -651,3 +728,23 @@ def test_the_scope_records_the_new_kinds_and_no_fact(tmp_path):
     assert [(t.kind, t.value) for t in scope.taint.identities][0] == ("provider_arn", SAML)
     assert {t.kind for t in scope.taint.identities} <= {"provider_arn", "access_key_id", "role_id"}
     assert [e.via for e in scope.events] == [None, f"provider_arn:{SAML}"]
+
+
+# ---- a trailing newline passes `$` with match(), so every shape check uses fullmatch
+
+
+def test_a_trailing_newline_is_not_part_of_any_name_or_principal():
+    nl_account = "444455556666\n"
+    nl_user = f"arn:aws:iam::{ACCT}:user/alice\n"
+    assert trust_principals(doc(stmt({"AWS": nl_account}, "sts:AssumeRole"))) == []
+    assert trust_principals(doc(stmt({"AWS": nl_user}, "sts:AssumeRole"))) == []
+    policy = json.dumps(doc(stmt({"AWS": "*"}, "sts:AssumeRole")))
+    update = call("UpdateAssumeRolePolicy", {"roleName": "ops\n", "policyDocument": policy})
+    assert issued_by(update, IAM, "UpdateAssumeRolePolicy") is None
+    fn = {
+        "eventSource": "lambda.amazonaws.com",
+        "eventName": "CreateFunction20150331",
+        "requestParameters": {"functionName": "fn\n"},
+        "responseElements": None,
+    }
+    assert issued_by(fn, "lambda.amazonaws.com", "CreateFunction20150331") is None
