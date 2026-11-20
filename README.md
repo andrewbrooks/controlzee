@@ -87,7 +87,8 @@ controlzee respond execute dryrun.json --scope scope.json --approve 3f9a1c0be2d4
 `--approve` takes the dry run's sha256, as the dry run prints it: it is your approval of exactly that dry run. Execute
 refuses if the dry run failed, was changed after it was written, is older than an hour (`--max-age-minutes`), or if
 the credentials are not the same principal in the same account that the dry run checked. It then runs the steps in plan
-order, reads each target again first (anything already put right is skipped), stops at the first failure, and writes
+order, reads each target again first (anything already put right is skipped, and a target that is no longer the resource
+the dry run checked stops the run), stops at the first failure, and writes
 `response.json`: every step, its result and when it was made.
 
 **Safeguards.**
@@ -111,6 +112,11 @@ order, reads each target again first (anything already put right is skipped), st
   it is a lead (a role that needs MFA, for example), not a diagnosis.
 - A bucket is deleted only if it is empty. Emptying one destroys what may be evidence (what the attacker staged or took), so
   controlzee never does it: a non-empty bucket fails the dry run, and a person looks inside first.
+- Same name, different thing: the dry run records which resource each target is (a user's `AIDA...` id and creation date,
+  a role's, a group's, a function's ARN, code hash and last change, a bucket's creation date). Execute reads it again
+  and stops with `drifted`, changing nothing, if the target was deleted and made again, or the function replaced, since
+  the dry run. A target that is simply gone is "already done". Instances, trails, Config and GuardDuty record nothing:
+  instance ids are never reused, and turning logging or detection back on is right whichever resource it is.
 - Root credentials are refused, since their permissions cannot be checked. Use an IAM role or user.
 - The simulator covers identity policies, permission boundaries and SCPs (organization policies), not session or
   resource-based policies. It is told the region of each step, because an SCP that allows only some regions denies every
@@ -119,7 +125,8 @@ order, reads each target again first (anything already put right is skipped), st
 
 The credentials need, besides the permissions for the changes themselves: `sts:GetCallerIdentity`,
 `iam:SimulatePrincipalPolicy`, `iam:GetRole` (for role sessions), and read access to the targets (`iam:GetUser`,
-`iam:ListAccessKeys`, `cloudtrail:GetTrailStatus` and the like).
+`iam:ListAccessKeys`, `cloudtrail:GetTrailStatus` and the like). Deleting a bucket also needs `s3:ListAllMyBuckets`, to
+read when the bucket was made.
 
 ## Scope an incident
 

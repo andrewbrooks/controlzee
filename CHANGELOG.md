@@ -4,6 +4,13 @@ Versions are `0.x`: output formats (schemas) may change between releases.
 
 ## Unreleased
 
+- `respond` stops if a target is no longer the resource the dry run checked: each dry-run step records the target's
+  identity (user, role and group ids and creation dates, a Lambda function's ARN, code hash and last change, a bucket's
+  creation date), and execute compares it again before the change. A user deleted and made again under the same name
+  gives the new result `drifted`, nothing is changed and later steps are not run. Deleting a bucket now also needs
+  `s3:ListAllMyBuckets`. Schema version 0.3: `DryRunStep.identity`, `ExecutedStep.result` may be `drifted`; a 0.2 dry run
+  or scope must be made again.
+
 - `controlzee report --format html` writes `report.html`: the same report as one self-contained page (no network, no library).
   It adds a diagram of how the attacker moved and a swimlane timeline (plain SVG; zoom with the buttons, Ctrl+wheel or a double click, drag to pan or use the scroll bar, click a dot to jump to its row in the call table), click to copy event ids and commands, a
   filter on the call table, a checklist that remembers what was done, expand all, and a light or dark theme. The page
