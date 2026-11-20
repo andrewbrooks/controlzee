@@ -346,3 +346,45 @@ def test_new_activity_is_listed_in_time_order(fixtures, monkeypatch):
         recs[2]["eventID"],
         recs[0]["eventID"],
     ]
+
+
+# ---- found on a real account: a scope whose period ends at or after the time of the check
+
+
+@pytest.mark.parametrize(
+    "until", ["2026-10-20T14:40:00Z", "2026-10-20T12:00:00Z"]
+)  # the same moment, and earlier
+def test_a_scope_that_ends_at_or_after_the_check_has_nothing_after_it_and_asks_aws_nothing(
+    fixtures, monkeypatch, until
+):
+    scope, acct = scope_of(fixtures, "01_leaked_key"), account_01()
+    assert scope.coverage.period_end == "2026-10-20T14:40:00Z"
+    acct.install(monkeypatch)
+    out = check_activity(
+        scope,
+        caller_account="111122223333",
+        profile=None,
+        home_region="us-east-1",
+        max_events=100,
+        until=until,
+    )
+    assert out.check.status == "skipped" and acct.lookup_calls == []
+    assert len(out.warnings) == 1 and "which is not before this check" in out.warnings[0]
+    assert "scope again once the window has ended" in out.warnings[0]
+
+
+def test_the_dry_run_passes_and_warns_when_the_scope_ends_after_it_was_made(fixtures, monkeypatch):
+    from datetime import UTC, datetime
+
+    from controlzee.respond.run import dry_run
+
+    acct = account_01()
+    acct.install(monkeypatch)
+    doc = dry_run(
+        scope_of(fixtures, "01_leaked_key"),
+        profile=None,
+        home_region="us-east-1",
+        clock=lambda: datetime(2026, 10, 20, 12, 0, tzinfo=UTC),
+    )
+    assert doc["passed"] and doc["activity_check"]["status"] == "skipped" and acct.lookup_calls == []
+    assert any("nothing after it to look at yet" in w for w in doc["warnings"])

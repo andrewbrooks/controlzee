@@ -82,7 +82,8 @@ warns: *tainted identities acted after this scope was built; contain now if you 
 what they made.* This is only ever a warning: it never fails the dry run or blocks a step. If nothing is found it says
 so, and that event history can lag by about 15 minutes, so that is not proof. If the check cannot run (a missing
 permission, throttling) or stops at its cap, it says that too. It looks at the caller's account only, and an IP address
-or user agent that started the scope is not used, since it would match unrelated traffic.
+or user agent that started the scope is not used, since it would match unrelated traffic. If the scope's window ends at
+or after the time of the dry run (a `--window` end in the future) there is nothing after it to check, and it says so.
 
 What is left out, and why, is listed too: manual steps (a new secret, a trust policy the logs do not show), steps for
 another account, and disruptive steps (delete, stop, terminate), which need `--allow-disruptive`.
