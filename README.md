@@ -30,16 +30,19 @@ after a dry run that a person has reviewed and approved.
 
 ### What has been tested
 
-- **Everything** runs in the test suite (403 tests, no network): generated CloudTrail for six scenarios, real CloudTrail
+- **Everything** runs in the test suite (no network): generated CloudTrail for six scenarios, real CloudTrail
   captured from Stratus runs (identifiers replaced), and an in-memory AWS account whose calls are checked against
   botocore's service models.
 - **Against a real sandbox account** ([docs/field-testing.md](docs/field-testing.md), [docs/validation.md](docs/validation.md)):
   event history as a source; taint through an assumed role, an instance profile, a Lambda function and a federation token;
   the plan; the dry run and the permission check (including a denied permission, an MFA-conditioned permission, a refused
-  self-cutoff and an organization policy that allows one region); and `execute` for deactivating a key, revoking and lifting a
-  role's sessions, deleting a Lambda function, deleting a bucket, and the instance operations (cut off from its role, stop,
-  snapshot, terminate). Nothing else in the operations list has run against a real account: logging and detection
-  restoration. Treat those as untested.
+  self-cutoff and an organization policy that allows one region); the identity check that stops a step when a target was
+  deleted and made again, the step journal and the check for activity after the scope; and `execute` for 18 of the 26
+  operations (keys, policies, group membership, console passwords, users, roles, session revocations and their lifts,
+  Lambda functions, buckets and the instance operations). Not run on a real account: the four logging and detection
+  restores, the three inline-policy deletes, and `delete_access_key`, which no plan contains. Treat those as untested; the
+  list and the reasons are in [docs/response-checklist.md](docs/response-checklist.md), which is also the order to follow
+  for a simulation and a reversal.
 - **Against attack emulation**: eleven [Stratus Red Team](https://github.com/DataDog/stratus-red-team) techniques were run
   in the sandbox and scoped from event history; results and the gaps they showed are in
   [docs/validation.md](docs/validation.md).
@@ -62,6 +65,10 @@ controlzee can carry out the plan's steps in AWS: deactivate the keys the attack
 cut their instances off from their roles, undo the permissions they granted, turn logging and detection back on and,
 when you allow it, delete the users, roles and Lambda functions they created and the empty buckets. It never does this unasked. There are always two steps,
 with a person in between.
+
+Running it for the first time, or simulating an attack and reversing it in a sandbox? Follow the
+[response checklist](docs/response-checklist.md): it goes through the commands in order and lists what has not been run on a
+real account.
 
 **1. Dry run (changes nothing).**
 
@@ -281,3 +288,6 @@ UPDATE_GOLDENS=1 uv run pytest tests/unit/test_scope_scenarios.py tests/unit/tes
 ```
 
 See [docs/architecture.md](docs/architecture.md) for the design and the performance measurements behind it.
+Other guides: [docs/response-checklist.md](docs/response-checklist.md) (a simulation or a response, step by step),
+[docs/field-testing.md](docs/field-testing.md) (setting up a sandbox and what the real runs found) and
+[docs/validation.md](docs/validation.md) (the Stratus Red Team check).
