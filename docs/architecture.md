@@ -119,7 +119,12 @@ what is attached so every needed action is checked. `respond/run.py`:
 - `dry_run` rebuilds the plan from the scope (never trusting a plan file), selects steps (operations only; disruptive
   ones only with `--allow-disruptive`; only the caller's account), identifies the caller (`sts:GetCallerIdentity`, then
   `iam:GetRole` to turn a role session into its role ARN), probes, and asks `iam:SimulatePrincipalPolicy` about every
-  pair, grouped by resource. Anything not "allowed", and any probe that cannot read, fails it.
+  pair, grouped by resource. Anything not "allowed", and any probe that cannot read, fails it. Last, `respond/activity.py`
+  checks whether the attacker acted after the scope: it reads CloudTrail event history from `coverage.period_end` to now
+  (`ingest.remote.LookupInput`, one budget of events across the scope's log regions and the home region, home first,
+  newest events first), indexes it through the normal ingest, and matches rows with `taint.propagate.acting_as` against
+  `taint.identities` plus the strong seed indicators (`seed.match.compile_indicator`). It adds `new_activity` and
+  `activity_check` to the dry run and warnings, and nothing else: whatever goes wrong in it is a warning too.
 - `execute` checks the dry run's seal, that it is not dated in the future, that it was made from the `--scope` given and that its steps are exactly what the plan rebuilt from that scope gives (an edited, re-sealed file cannot add an operation; the `--approve` hash is what ties execution to what was reviewed), version, pass, age and approval prefix, and that the caller is the same principal
   and account; then per step: validate again, probe again, compare identity, simulate again, journal `starting`, apply,
   journal the result, stop at the first failure (a `failed` or `drifted` step). In order: verify approval and dry run →

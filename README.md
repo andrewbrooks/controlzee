@@ -75,6 +75,15 @@ the target's real ARN. It prints every step with what it would do, the state now
 `dryrun.json`. **If any permission is missing or any state cannot be read, the dry run fails (exit 4)** and nothing can
 be executed from it. Fix the credentials, or narrow the run with `--steps A01,A03`, and run it again.
 
+It also asks CloudTrail event history whether the attacker has done anything **since the scope was built**: any call from
+the scope's `period_end` to now by an identity the scope names (the keys, sessions, roles, instances and functions it found
+the attacker obtaining, and the key or principal id it started from). If so, the dry run prints the calls in bold and
+warns: *tainted identities acted after this scope was built; contain now if you need to, then scope again before removing
+what they made.* This is only ever a warning: it never fails the dry run or blocks a step. If nothing is found it says
+so, and that event history can lag by about 15 minutes, so that is not proof. If the check cannot run (a missing
+permission, throttling) or stops at its cap, it says that too. It looks at the caller's account only, and an IP address
+or user agent that started the scope is not used, since it would match unrelated traffic.
+
 What is left out, and why, is listed too: manual steps (a new secret, a trust policy the logs do not show), steps for
 another account, and disruptive steps (delete, stop, terminate), which need `--allow-disruptive`.
 
@@ -117,6 +126,10 @@ between machines**, and `--force` does not override it.
 - When the simulator denies something because of a condition it has no value for (MFA, source IP, tags), the dry run
   still fails but adds the condition keys the simulator had no value for. It lists every such key in any policy it read, so
   it is a lead (a role that needs MFA, for example), not a diagnosis.
+- Activity after the scope: the check above defends against removing or deleting things from a picture of the logs that is
+  already out of date. `--activity-check-max-events` (default 50,000, 0 skips) bounds how much history is read, as one
+  budget across regions, newest events first. Event history allows about 2 requests a second per region and 50 events a
+  request, so a busy account takes minutes; each region's progress is printed.
 - A bucket is deleted only if it is empty. Emptying one destroys what may be evidence (what the attacker staged or took), so
   controlzee never does it: a non-empty bucket fails the dry run, and a person looks inside first.
 - Same name, different thing: the dry run records which resource each target is (a user's `AIDA...` id and creation date,
@@ -132,7 +145,8 @@ between machines**, and `--force` does not override it.
 
 The credentials need, besides the permissions for the changes themselves: `sts:GetCallerIdentity`,
 `iam:SimulatePrincipalPolicy`, `iam:GetRole` (for role sessions), and read access to the targets (`iam:GetUser`,
-`iam:ListAccessKeys`, `cloudtrail:GetTrailStatus` and the like). Deleting a bucket also needs `s3:ListAllMyBuckets`, to
+`iam:ListAccessKeys`, `cloudtrail:GetTrailStatus` and the like), and `cloudtrail:LookupEvents` for the activity check (without
+it the dry run only warns that it could not check). Deleting a bucket also needs `s3:ListAllMyBuckets`, to
 read when the bucket was made.
 
 ## Scope an incident

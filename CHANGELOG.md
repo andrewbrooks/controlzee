@@ -4,6 +4,14 @@ Versions are `0.x`: output formats (schemas) may change between releases.
 
 ## Unreleased
 
+- `respond dry-run` warns when the attacker acted after the scope was built. It reads CloudTrail event history from the
+  scope's `period_end` to now in every log region and the home region, and looks for calls by the scope's tainted
+  identities (keys, principal ids, roles, instances, functions) and its strong seed indicators. Calls found are listed in
+  `new_activity` (first 100; `activity_check` says what was read, what failed and whether it was complete) and printed in
+  bold. It only warns: it never fails the dry run or blocks a step, and says when it could not run or stopped at the cap.
+  New option `--activity-check-max-events` (default 50,000; 0 skips) and permission `cloudtrail:LookupEvents`.
+  `dryrun.json` gains `new_activity` and `activity_check`; `LookupInput` can be capped.
+
 - `respond execute` writes a step journal, `response.<dry run hash>.journal.jsonl`, next to `--out`: a header, then for
   each step a `starting` line (written and `fsync`ed before the change is made) and a result line. A killed run leaves a
   `starting` line with no result, so the step that may be partly made is known. The journal also stops a dry run being
