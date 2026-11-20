@@ -28,12 +28,19 @@ KIND_NAMES: Final = {
     "instance_id": "instance",
     "function_name": "function",
     "trusted_by": "trusted principal",
+    "provider_arn": "identity provider",
+    "changed_provider": "changed identity provider",
 }
 
 
 def idesc(kind: str, value: str) -> str:
     """ "function exfil-fn", "access key ...ODMT": what a followed identity is, in a few words."""
-    if kind in ("function_name", "instance_id"):
+    if kind in (
+        "function_name",
+        "instance_id",
+        "provider_arn",
+        "changed_provider",
+    ):  # the value is a name or a checked ARN
         return f"{KIND_NAMES[kind]} {value}"
     if kind == "trusted_by":  # "<role name>|<principal>", both checked when it was recorded
         role, _, principal = value.partition("|")

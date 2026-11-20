@@ -61,7 +61,7 @@ def test_the_principals_a_trust_policy_names(document, expected):
         doc(allow({"Service": "ec2.amazonaws.com"})),  # a service is not a caller
         doc(
             allow(
-                {"Federated": f"arn:aws:iam::{ACCT}:oidc-provider/token.example.com"},
+                {"Federated": "cognito-identity.amazonaws.com"},
                 "sts:AssumeRoleWithWebIdentity",
             )
         ),

@@ -14,6 +14,11 @@ change: the call joins the scope, and the session it hands out is followed like 
 and not the old, so "had not assumed it before" is how the principals the change added are told from the ones that were
 already trusted. That history is read from the rows the first time it is needed.
 
+The same split holds for identity providers. A login through a provider the attacker created (`provider_arn`) is theirs
+whenever it happens; a login through one they changed (`changed_provider`), or into a role whose trust policy now names a
+provider (`trusted_by` "<role>|federated:<arn>"), is theirs only if its subject had not logged in through that provider
+(and, for a role, into that role) before the change. An empty subject counts as never seen.
+
 Works on index rows only (no models): every round is one pass over the rows from the earliest new identity onwards.
 """
 
@@ -30,15 +35,21 @@ from controlzee.seed.match import SeedHit
 from controlzee.taint.rules import (
     ACCESS_KEY,
     ASSUMED_BY,
+    ASSUMED_VIA,
+    ASSUMED_VIA_ROLE,
     ASSUMES,
+    CHANGED_PROVIDER,
     FUNCTION,
     INSTANCE,
     PRINCIPAL,
+    PROVIDER,
     ROLE,
     TRUSTED_BY,
 )
 
-_FACTS = frozenset({ASSUMES, ASSUMED_BY})  # recorded on a row, but not identities the attacker holds
+_FACTS = frozenset(
+    {ASSUMES, ASSUMED_BY, ASSUMED_VIA, ASSUMED_VIA_ROLE}
+)  # recorded on a row, but not identities the attacker holds
 
 
 @dataclass(frozen=True)
@@ -73,6 +84,18 @@ def assumed_by(row: Row) -> tuple[str, str, str, str] | None:
         if kind == ASSUMED_BY and len(parts := value.split("|")) == 4:
             return parts[0], parts[1], parts[2], parts[3]
     return None
+
+
+def assumed_via(row: Row) -> tuple[str, str, str] | None:
+    """(provider ARN, subject, role name) of a successful AssumeRoleWithWebIdentity / AssumeRoleWithSAML row, else None.
+    The subject and the role name may be empty."""
+    provider, subject, role = None, "", ""
+    for kind, value in row[R_ISSUED] or ():
+        if kind == ASSUMED_VIA:
+            provider, _, subject = value.partition("|")
+        elif kind == ASSUMED_VIA_ROLE:
+            role = value
+    return None if provider is None else (provider, subject, role)
 
 
 def caller_key(account: str, arn: str, issuer: str) -> str:
@@ -118,8 +141,17 @@ def acting_as[T](
             keys.append((ROLE, role))
             if row[R_UITYPE] == "AssumedRole":
                 keys.extend([(INSTANCE, session), (FUNCTION, session)])
-    keys += [(ROLE, v) for k, v in row[R_ISSUED] or () if k == ASSUMES]
+    via = None
+    for kind, value in row[R_ISSUED] or ():
+        if kind == ASSUMES:
+            keys.append((ROLE, value))
+        elif kind == ASSUMED_VIA:
+            via = assumed_via(row)
+    if via is not None:
+        keys += [(PROVIDER, via[0]), (CHANGED_PROVIDER, via[0])]
     out = [t for k in keys if (t := found.get(k)) is not None]
+    if trusted and via is not None and via[2]:
+        out += [t for principal, t in trusted.get(via[2], ()) if principal == f"federated:{via[0]}"]
     if trusted and (who := assumed_by(row)) is not None:
         role, account, arn, issuer = who
         out += [
@@ -133,10 +165,27 @@ def propagate(index: EventIndex, seeds: Sequence[SeedHit]) -> Propagation:
     first_assumed: dict[tuple[str, str], int] | None = (
         None  # (role name, caller key) -> time of its first AssumeRole
     )
+    first_login: dict[tuple[str, ...], int] | None = (
+        None  # (provider, subject) and (provider, subject, role) -> time of the first login
+    )
 
     def known_before(t: Taint, row: Row) -> bool:
-        """True if `t` is a trust-policy identity and this caller assumed that role before the policy was changed."""
-        nonlocal first_assumed
+        """True if `t` is a change that added entries and this caller (or login subject) was already using the target
+        before it: an AWS principal that had assumed the role, or a subject that had logged in through the provider."""
+        nonlocal first_assumed, first_login
+        if t.kind == CHANGED_PROVIDER or (t.kind == TRUSTED_BY and "|federated:" in t.value):
+            if (via := assumed_via(row)) is None or not via[1]:
+                return False
+            if first_login is None:
+                first_login = {}
+                for r in rows:  # in time order, so the first login of a subject is the one kept
+                    if r[R_ISSUED] and (v := assumed_via(r)) is not None and v[1]:
+                        first_login.setdefault((v[0], v[1]), r[R_TS])
+                        first_login.setdefault((v[0], v[1], v[2]), r[R_TS])
+            seen = first_login.get(
+                (via[0], via[1]) if t.kind == CHANGED_PROVIDER else (via[0], via[1], via[2])
+            )
+            return seen is not None and seen < rows[t.row][R_TS]
         if t.kind != TRUSTED_BY or (who := assumed_by(row)) is None or not (key := caller_key(*who[1:])):
             return False
         if first_assumed is None:

@@ -97,7 +97,7 @@ def build_graph(scope: Scope, with_touched: bool = False) -> Graph | None:
         if not users:
             what = (
                 f"{idesc(t.kind, t.value)} (unused)"
-                if t.kind == "trusted_by"
+                if t.kind in ("trusted_by", "provider_arn", "changed_provider")
                 else f"new {KIND_NAMES.get(t.kind, 'credential')} ...{t.value[-4:]} (unused)"
             )
             if (issuer, what, call) not in unused:

@@ -51,7 +51,14 @@ class ScopedEvent(Model):
 
 
 IdentityKind = Literal[
-    "access_key_id", "principal_id", "role_id", "instance_id", "function_name", "trusted_by"
+    "access_key_id",
+    "principal_id",
+    "role_id",
+    "instance_id",
+    "function_name",
+    "trusted_by",
+    "provider_arn",
+    "changed_provider",
 ]
 
 
