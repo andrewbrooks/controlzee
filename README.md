@@ -135,9 +135,12 @@ between machines**, and `--force` does not override it.
   still fails but adds the condition keys the simulator had no value for. It lists every such key in any policy it read, so
   it is a lead (a role that needs MFA, for example), not a diagnosis.
 - Activity after the scope: the check above defends against removing or deleting things from a picture of the logs that is
-  already out of date. `--activity-check-max-events` (default 50,000, 0 skips) bounds how much history is read, as one
-  budget across regions, newest events first. Event history allows about 2 requests a second per region and 50 events a
-  request, so a busy account takes minutes; each region's progress is printed.
+  already out of date. The window from the scope's end to now is read in time slices, earliest first (an hour, then two,
+  four, eight and sixteen, then a day at a time), for the regions where the attacker was seen first.
+  `--activity-check-max-events` (default 50,000, 0 skips) is one budget for all of it. If it runs out the dry run says how
+  far it read ("through 14:20 of 16:05"): later activity was not looked at, and a first hour with more events than the
+  budget loses that hour's oldest events and claims nothing beyond the scope. Event history allows about 2 requests a
+  second per region and 50 events a request, so a busy account takes minutes; progress is printed per slice.
 - A bucket is deleted only if it is empty. Emptying one destroys what may be evidence (what the attacker staged or took), so
   controlzee never does it: a non-empty bucket fails the dry run, and a person looks inside first.
 - Same name, different thing: the dry run records which resource each target is (a user's `AIDA...` id and creation date,

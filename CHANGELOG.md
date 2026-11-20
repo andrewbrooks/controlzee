@@ -4,6 +4,13 @@ Versions are `0.x`: output formats (schemas) may change between releases.
 
 ## Unreleased
 
+- The dry run's check for activity after the scope reads the window in slices, earliest first, and says how far it read
+  (`activity_check.slices_read`, `slices_total`, `last_time_read`; the warning reads "through T of ..."). Under a cap this
+  keeps the activity nearest the scope's end, which is the question the check asks, where it used to keep the newest.
+  Regions where the attacker was seen are read first. It also fixes a bug found in review: a cap that cut partway through
+  the service's last page of events still reported the check as complete (`LookupInput.fetch` now uses botocore's
+  `resume_token`; confirmed on a real account, where 252 of 254+ events read was called complete).
+
 - The dry run's check for activity after the scope no longer asks CloudTrail for a window that ends before it starts
   (found on a real account: a scope whose `--window` end was still in the future made event history answer
   `InvalidTimeRangeException`). It now skips the check, saying that the scope's period ends at or after now.

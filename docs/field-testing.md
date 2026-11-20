@@ -134,6 +134,10 @@ attachments; the responder could only change `ft-*` users and the intruder).
   warning and still passed the dry run. With `cloudtrail:LookupEvents` removed from the role by a session policy it
   warned that it could not run and the dry run still passed. Event history showed a call after 80 seconds to two
   minutes, well inside the "about 15 minutes" the warning allows for.
+- Passed, in a later run: the activity check read in slices and said how far it read. A real window with 254 events and a
+  cap of 252, which cuts partway through the service's last page of four events, was reported complete by the version
+  that took the end of the last page as the truncation signal and is now reported incomplete (the same dry run, run from
+  the earlier code and the new). With a first hour of more events than the cap, nothing beyond the scope is claimed.
 - Found and fixed: a scope whose `--window` ended in the future made the check ask for a window that ends before it
   starts, and event history answered `InvalidTimeRangeException`. The check now says there is nothing after the scope to
   look at yet.

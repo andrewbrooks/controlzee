@@ -121,8 +121,13 @@ what is attached so every needed action is checked. `respond/run.py`:
   `iam:GetRole` to turn a role session into its role ARN), probes, and asks `iam:SimulatePrincipalPolicy` about every
   pair, grouped by resource. Anything not "allowed", and any probe that cannot read, fails it. Last, `respond/activity.py`
   checks whether the attacker acted after the scope: it reads CloudTrail event history from `coverage.period_end` to now
-  (`ingest.remote.LookupInput`, one budget of events across the scope's log regions and the home region, home first,
-  newest events first), indexes it through the normal ingest, and matches rows with `taint.propagate.acting_as` against
+  (`ingest.remote.LookupInput`) in slices, earliest first (`plan_slices`: an hour, doubling to a day, so a long quiet window
+  costs a few requests a region), for every log region of the scope and the home region, ordered by in-scope events
+  (`regions_to_read`). One budget of events is spent slice by slice and, within a slice, region by region; a region that
+  fails once is not asked again. `activity_check` records `slices_read`, `slices_total` and `last_time_read`, and a slice
+  counts as read only when every region that could be read was read for it. Truncation is taken from botocore's
+  `resume_token`, because the last page of the service's answer carries no `NextToken` when the cap cuts it short. The rows
+  go through the normal ingest, and are matched with `taint.propagate.acting_as` against
   `taint.identities` plus the strong seed indicators (`seed.match.compile_indicator`). It adds `new_activity` and
   `activity_check` to the dry run and warnings, and nothing else: whatever goes wrong in it is a warning too.
 - `execute` checks the dry run's seal, that it is not dated in the future, that it was made from the `--scope` given and that its steps are exactly what the plan rebuilt from that scope gives (an edited, re-sealed file cannot add an operation; the `--approve` hash is what ties execution to what was reviewed), version, pass, age and approval prefix, and that the caller is the same principal
